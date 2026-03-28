@@ -6,10 +6,10 @@
 <meta name="theme-color" content="#0f1117">
 <meta name="apple-mobile-web-app-capable" content="yes">
 <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
-<meta name="apple-mobile-web-app-title" content="BriefingPP">
+<meta name="apple-mobile-web-app-title" content="Lumen">
 <link rel="manifest" href="manifest.json">
 <link rel="apple-touch-icon" href="icon-192.svg">
-<title>BriefingPP</title>
+<title>Lumen</title>
 <link rel="preconnect" href="https://fonts.googleapis.com">
 <link href="https://fonts.googleapis.com/css2?family=DM+Serif+Display:ital@0;1&family=DM+Sans:wght@300;400;500&display=swap" rel="stylesheet">
 <style>
@@ -137,7 +137,7 @@ select option{background:var(--bg3)}
 <body>
 <div id="app">
   <nav class="nav">
-    <span class="nav-title">BriefingPP</span>
+    <span class="nav-title">Lumen</span>
     <span class="nav-sub">SEDUVOT</span>
     <div class="nav-right">
       <button class="btn btn-ghost btn-sm" onclick="exportData()">
@@ -358,7 +358,7 @@ function hydrate(){try{const s=localStorage.getItem('bpp3');if(s)S={...S,...JSON
 function exportData(){
   const blob=new Blob([JSON.stringify(S,null,2)],{type:'application/json'});
   const a=document.createElement('a');a.href=URL.createObjectURL(blob);
-  a.download='briefingpp-'+new Date().toISOString().slice(0,10)+'.json';a.click();
+  a.download='lumen-'+new Date().toISOString().slice(0,10)+'.json';a.click();
   showToast('Datos exportados');
 }
 function importData(input){
@@ -707,6 +707,23 @@ function showToast(msg){
 }
 document.querySelectorAll('.modal-bg').forEach(bg=>{bg.addEventListener('click',e=>{if(e.target===bg)bg.classList.remove('open');});});
 if('serviceWorker' in navigator)navigator.serviceWorker.register('./sw.js').catch(()=>{});
+</script>
+
+<!-- Firebase -->
+<script type="module">
+  import { initializeApp } from "https://www.gstatic.com/firebasejs/12.11.0/firebase-app.js";
+
+  const firebaseConfig = {
+    apiKey: "AIzaSyAMQAqZFTya_IRLNaw4nO8rCR6S6HKLcKU",
+    authDomain: "lumen-app-ff839.firebaseapp.com",
+    projectId: "lumen-app-ff839",
+    storageBucket: "lumen-app-ff839.firebasestorage.app",
+    messagingSenderId: "71807741500",
+    appId: "1:71807741500:web:d6b83565b5c62422625d39"
+  };
+
+  const app = initializeApp(firebaseConfig);
+  console.log("Firebase inicializado:", app.name);
 </script>
 </body>
 </html>

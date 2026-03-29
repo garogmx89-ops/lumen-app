@@ -132,9 +132,35 @@ select option{background:var(--bg3)}
 .empty svg{width:34px;height:34px;margin:0 auto 10px;opacity:.22;display:block}
 ::-webkit-scrollbar{width:3px}
 ::-webkit-scrollbar-thumb{background:var(--border2);border-radius:99px}
+
+/* Login screen */
+#login-screen{position:fixed;inset:0;background:var(--bg);z-index:1000;display:flex;flex-direction:column;align-items:center;justify-content:center;padding:32px 24px;}
+#login-screen.hidden{display:none}
+.login-logo{font-family:var(--font-display);font-size:48px;color:var(--text);margin-bottom:8px;text-align:center}
+.login-sub{font-size:13px;color:var(--text3);margin-bottom:48px;text-align:center;letter-spacing:.04em}
+.login-desc{font-size:14px;color:var(--text2);text-align:center;line-height:1.6;margin-bottom:40px;max-width:280px}
+.btn-google{display:flex;align-items:center;gap:12px;padding:14px 24px;border-radius:var(--radius);border:1px solid var(--border2);background:var(--bg2);color:var(--text);font-family:var(--font-body);font-size:15px;font-weight:500;cursor:pointer;width:100%;max-width:300px;justify-content:center;transition:all .15s}
+.btn-google:hover{border-color:var(--accent);background:var(--bg3)}
+.btn-google:active{transform:scale(.97)}
+.login-footer{font-size:11px;color:var(--text3);margin-top:24px;text-align:center;line-height:1.6}
+.login-loading{font-size:13px;color:var(--text3);margin-top:16px;display:none}
 </style>
 </head>
 <body>
+
+<!-- Pantalla de login -->
+<div id="login-screen">
+  <div class="login-logo">Lumen</div>
+  <div class="login-sub">SEDUVOT · Zacatecas</div>
+  <div class="login-desc">Sistema de gestión de conocimiento institucional. Accede con tu cuenta Google para continuar.</div>
+  <button class="btn-google" onclick="loginConGoogle()">
+    <svg width="20" height="20" viewBox="0 0 48 48"><path fill="#FFC107" d="M43.611 20.083H42V20H24v8h11.303c-1.649 4.657-6.08 8-11.303 8-6.627 0-12-5.373-12-12s5.373-12 12-12c3.059 0 5.842 1.154 7.961 3.039l5.657-5.657C34.046 6.053 29.268 4 24 4 12.955 4 4 12.955 4 24s8.955 20 20 20 20-8.955 20-20c0-1.341-.138-2.65-.389-3.917z"/><path fill="#FF3D00" d="m6.306 14.691 6.571 4.819C14.655 15.108 18.961 12 24 12c3.059 0 5.842 1.154 7.961 3.039l5.657-5.657C34.046 6.053 29.268 4 24 4 16.318 4 9.656 8.337 6.306 14.691z"/><path fill="#4CAF50" d="M24 44c5.166 0 9.86-1.977 13.409-5.192l-6.19-5.238A11.91 11.91 0 0 1 24 36c-5.202 0-9.619-3.317-11.283-7.946l-6.522 5.025C9.505 39.556 16.227 44 24 44z"/><path fill="#1976D2" d="M43.611 20.083H42V20H24v8h11.303a12.04 12.04 0 0 1-4.087 5.571l.003-.002 6.19 5.238C36.971 39.205 44 34 44 24c0-1.341-.138-2.65-.389-3.917z"/></svg>
+    Entrar con Google
+  </button>
+  <div class="login-loading" id="login-loading">Verificando acceso…</div>
+  <div class="login-footer">Solo el titular de la cuenta puede acceder.<br>Tus datos se sincronizan de forma segura.</div>
+</div>
+
 <div id="app">
   <nav class="nav">
     <span class="nav-title">Lumen</span>
@@ -149,6 +175,9 @@ select option{background:var(--bg3)}
         Importar
         <input type="file" accept=".json" style="display:none" onchange="importData(this)">
       </label>
+      <button class="btn btn-ghost btn-sm" onclick="cerrarSesion()" title="Cerrar sesión">
+        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" style="width:13px;height:13px"><path d="M9 21H5a2 2 0 01-2-2V5a2 2 0 012-2h4M16 17l5-5-5-5M21 12H9"/></svg>
+      </button>
     </div>
   </nav>
 
@@ -709,9 +738,10 @@ document.querySelectorAll('.modal-bg').forEach(bg=>{bg.addEventListener('click',
 if('serviceWorker' in navigator)navigator.serviceWorker.register('./sw.js').catch(()=>{});
 </script>
 
-<!-- Firebase -->
+<!-- Firebase con autenticación Google -->
 <script type="module">
   import { initializeApp } from "https://www.gstatic.com/firebasejs/12.11.0/firebase-app.js";
+  import { getAuth, GoogleAuthProvider, signInWithPopup, signOut, onAuthStateChanged } from "https://www.gstatic.com/firebasejs/12.11.0/firebase-auth.js";
 
   const firebaseConfig = {
     apiKey: "AIzaSyAMQAqZFTya_IRLNaw4nO8rCR6S6HKLcKU",
@@ -723,7 +753,43 @@ if('serviceWorker' in navigator)navigator.serviceWorker.register('./sw.js').catc
   };
 
   const app = initializeApp(firebaseConfig);
-  console.log("Firebase inicializado:", app.name);
+  const auth = getAuth(app);
+  const provider = new GoogleAuthProvider();
+
+  // Detectar si ya hay sesión activa
+  onAuthStateChanged(auth, (user) => {
+    const loginScreen = document.getElementById('login-screen');
+    const loginLoading = document.getElementById('login-loading');
+    if (user) {
+      // Usuario autenticado — ocultar pantalla de login
+      loginScreen.classList.add('hidden');
+      loginLoading.style.display = 'none';
+      console.log('Sesión activa:', user.displayName);
+    } else {
+      // Sin sesión — mostrar pantalla de login
+      loginScreen.classList.remove('hidden');
+      loginLoading.style.display = 'none';
+    }
+  });
+
+  // Función global para iniciar sesión
+  window.loginConGoogle = async function() {
+    const loginLoading = document.getElementById('login-loading');
+    loginLoading.style.display = 'block';
+    try {
+      await signInWithPopup(auth, provider);
+    } catch (error) {
+      loginLoading.style.display = 'none';
+      console.error('Error al iniciar sesión:', error.message);
+      alert('No se pudo iniciar sesión. Intenta de nuevo.');
+    }
+  };
+
+  // Función global para cerrar sesión
+  window.cerrarSesion = async function() {
+    if (!confirm('¿Cerrar sesión?')) return;
+    await signOut(auth);
+  };
 </script>
 </body>
 </html>

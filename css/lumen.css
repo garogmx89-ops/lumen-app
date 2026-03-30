@@ -944,3 +944,12 @@ body.light .theme-toggle-knob {
   border-left-color: #9B2226;
   opacity: 0.85;
 }
+
+/* ── Módulo Territorio ────────────────────────────── */
+.territorio-indicadores {
+  display: flex;
+  gap: 0.5rem;
+  font-size: 0.85rem;
+  align-items: flex-start;
+  margin-top: 0.4rem;
+}

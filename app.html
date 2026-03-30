@@ -639,13 +639,74 @@
 
         </div>
 
-        <!-- TERRITORIO -->
+<!-- TERRITORIO -->
         <div class="panel" id="panel-territorio">
-          <div class="coming-soon">
-            <div class="coming-soon-icon">🗺</div>
-            <div class="coming-soon-title">Territorio</div>
-            <div class="coming-soon-text">Módulo en construcción — Fase 2</div>
+
+          <!-- Formulario para registrar territorio -->
+          <div class="reunion-form-card">
+            <h2 class="panel-title">Nuevo Territorio</h2>
+
+            <div class="form-row">
+              <div class="form-group">
+                <label for="territorio-nombre">Nombre de la zona</label>
+                <input type="text" id="territorio-nombre" placeholder="Ej. Guadalupe, Zacatecas">
+              </div>
+              <div class="form-group form-group--corto">
+                <label for="territorio-tipo">Tipo</label>
+                <select id="territorio-tipo">
+                  <option value="">— Tipo —</option>
+                  <option value="Municipio">Municipio</option>
+                  <option value="Localidad">Localidad</option>
+                  <option value="Zona metropolitana">Zona metropolitana</option>
+                  <option value="Polígono">Polígono</option>
+                </select>
+              </div>
+            </div>
+
+            <div class="form-row">
+              <div class="form-group">
+                <label for="territorio-estado">Estado o condición</label>
+                <select id="territorio-estado">
+                  <option value="Activo">Activo</option>
+                  <option value="En análisis">En análisis</option>
+                  <option value="Intervenido">Intervenido</option>
+                </select>
+              </div>
+              <div class="form-group">
+                <label for="territorio-programa">Programa o instrumento vinculado</label>
+                <input type="text" id="territorio-programa" placeholder="Ej. FISE 2025, Construyendo Bienestar">
+              </div>
+            </div>
+
+            <div class="form-group">
+              <label for="territorio-descripcion">Descripción o notas</label>
+              <textarea id="territorio-descripcion" rows="2" placeholder="Ej. Zona con alto rezago habitacional en la periferia norte"></textarea>
+            </div>
+
+            <div class="form-group">
+              <label for="territorio-indicadores">Estadísticas e indicadores</label>
+              <textarea id="territorio-indicadores" rows="3" placeholder="Ej. Población: 12,450 hab. / Rezago habitacional: 34% / Viviendas precarias: 1,230"></textarea>
+            </div>
+
+            <button class="btn-primary" id="btn-guardar-territorio">Guardar territorio</button>
           </div>
+
+          <!-- Filtro por condición -->
+          <div class="norma-filtros">
+            <button class="filtro-btn filtro-activo" data-filtro="todos">Todos</button>
+            <button class="filtro-btn" data-filtro="Activo">Activo</button>
+            <button class="filtro-btn" data-filtro="En análisis">En análisis</button>
+            <button class="filtro-btn" data-filtro="Intervenido">Intervenido</button>
+          </div>
+
+          <!-- Lista de territorios -->
+          <div class="reuniones-lista">
+            <h2 class="panel-title">Territorios registrados</h2>
+            <div id="territorio-contenido">
+              <p class="lista-vacia">No hay territorios registrados aún.</p>
+            </div>
+          </div>
+
         </div>
 
         <!-- CONTEXTO -->
@@ -759,6 +820,7 @@
   <script src="js/analisis.js" type="module"></script>
   <script src="js/procesos.js" type="module"></script>
   <script src="js/agenda.js" type="module"></script>
+  <script src="js/territorio.js" type="module"></script>
 
 </body>
 </html>

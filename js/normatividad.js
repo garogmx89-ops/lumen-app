@@ -14,7 +14,6 @@ import {
   serverTimestamp
 } from "https://www.gstatic.com/firebasejs/10.12.0/firebase-firestore.js";
 
-// Colores por tipo de norma
 const colorTipo = {
   "Ley":          "#7B2FBE",
   "Reglamento":   "#3A0CA3",
@@ -23,85 +22,82 @@ const colorTipo = {
   "Acuerdo":      "#9B2226"
 };
 
-// Guardamos todas las normas aquí para poder filtrar sin volver a Firestore
 let todasLasNormas = [];
 let filtroActivo = "todos";
+let currentUser = null; // Guardamos el usuario aquí para usarlo fuera del onAuthStateChanged
 
+// --- FILTROS (se registran de inmediato, no dependen del usuario) ---
+document.querySelectorAll(".filtro-btn").forEach((btn) => {
+  btn.addEventListener("click", () => {
+    document.querySelectorAll(".filtro-btn").forEach(b => b.classList.remove("filtro-activo"));
+    btn.classList.add("filtro-activo");
+    filtroActivo = btn.dataset.filtro;
+    renderNormas();
+  });
+});
+
+// --- BOTÓN GUARDAR (se registra de inmediato) ---
+const btnGuardar = document.getElementById("btn-guardar-norma");
+if (btnGuardar) {
+  btnGuardar.addEventListener("click", async () => {
+    if (!currentUser) {
+      alert("No hay sesión activa.");
+      return;
+    }
+
+    const nombre      = document.getElementById("norma-nombre").value.trim();
+    const tipo        = document.getElementById("norma-tipo").value;
+    const fecha       = document.getElementById("norma-fecha").value;
+    const resumen     = document.getElementById("norma-resumen").value.trim();
+    const anotaciones = document.getElementById("norma-anotaciones").value.trim();
+
+    if (!nombre) {
+      alert("El nombre del documento es obligatorio.");
+      return;
+    }
+
+    try {
+      const normasRef = collection(db, "usuarios", currentUser.uid, "normatividad");
+      await addDoc(normasRef, {
+        nombre, tipo, fecha, resumen, anotaciones,
+        creadoEn: serverTimestamp()
+      });
+
+      document.getElementById("norma-nombre").value      = "";
+      document.getElementById("norma-tipo").value        = "";
+      document.getElementById("norma-fecha").value       = "";
+      document.getElementById("norma-resumen").value     = "";
+      document.getElementById("norma-anotaciones").value = "";
+
+    } catch (error) {
+      console.error("Error al guardar norma:", error);
+      alert("Hubo un error al guardar. Revisa la consola.");
+    }
+  });
+}
+
+// --- AUTENTICACIÓN Y LECTURA EN TIEMPO REAL ---
 onAuthStateChanged(auth, (user) => {
   if (!user) return;
+  currentUser = user; // Guardamos el usuario para que el botón pueda usarlo
 
   const normasRef = collection(db, "usuarios", user.uid, "normatividad");
-
-  // --- GUARDAR NORMA ---
-  const btnGuardar = document.getElementById("btn-guardar-norma");
-  if (btnGuardar) {
-    btnGuardar.addEventListener("click", async () => {
-      const nombre      = document.getElementById("norma-nombre").value.trim();
-      const tipo        = document.getElementById("norma-tipo").value;
-      const fecha       = document.getElementById("norma-fecha").value;
-      const resumen     = document.getElementById("norma-resumen").value.trim();
-      const anotaciones = document.getElementById("norma-anotaciones").value.trim();
-
-      if (!nombre) {
-        alert("El nombre del documento es obligatorio.");
-        return;
-      }
-
-      try {
-        await addDoc(normasRef, {
-          nombre,
-          tipo,
-          fecha,
-          resumen,
-          anotaciones,
-          creadoEn: serverTimestamp()
-        });
-
-        document.getElementById("norma-nombre").value      = "";
-        document.getElementById("norma-tipo").value        = "";
-        document.getElementById("norma-fecha").value       = "";
-        document.getElementById("norma-resumen").value     = "";
-        document.getElementById("norma-anotaciones").value = "";
-
-      } catch (error) {
-        console.error("Error al guardar norma:", error);
-        alert("Hubo un error al guardar. Revisa la consola.");
-      }
-    });
-  }
-
-  // --- FILTROS ---
-  // Cuando el usuario hace clic en un botón de filtro, actualizamos qué se muestra
-  document.querySelectorAll(".filtro-btn").forEach((btn) => {
-    btn.addEventListener("click", () => {
-      // Quitar la clase activa de todos los botones y ponérsela solo al que se clickeó
-      document.querySelectorAll(".filtro-btn").forEach(b => b.classList.remove("filtro-activo"));
-      btn.classList.add("filtro-activo");
-
-      filtroActivo = btn.dataset.filtro;
-      renderNormas(); // Volver a dibujar la lista con el nuevo filtro
-    });
-  });
-
-  // --- LEER NORMAS EN TIEMPO REAL ---
   const q = query(normasRef, orderBy("creadoEn", "desc"));
 
   onSnapshot(q, (snapshot) => {
-    // Guardamos todas las normas en memoria
     todasLasNormas = snapshot.docs.map((documento) => ({
       id: documento.id,
       ...documento.data()
     }));
-    renderNormas(); // Dibujamos con el filtro que esté activo
+    renderNormas();
   });
 });
 
-// --- RENDERIZAR LA LISTA (con filtro aplicado) ---
+// --- RENDERIZAR CON FILTRO ---
 function renderNormas() {
   const contenedor = document.getElementById("normatividad-contenido");
   if (!contenedor) return;
 
-  // Aplicar filtro: si es "todos" mostramos todas, si no, solo las del tipo seleccionado
   const normasFiltradas = filtroActivo === "todos"
     ? todasLasNormas
     : todasLasNormas.filter(n => n.tipo === filtroActivo);
@@ -129,18 +125,15 @@ function renderNormas() {
     `;
   }).join("");
 
-  // Eventos de eliminar
   contenedor.querySelectorAll(".btn-eliminar").forEach((btn) => {
     btn.addEventListener("click", async () => {
+      if (!currentUser) return;
       const id = btn.dataset.id;
       const confirmar = confirm("¿Eliminar esta norma? Esta acción no se puede deshacer.");
       if (!confirmar) return;
 
       try {
-        // Necesitamos el uid del usuario — lo obtenemos del auth
-        const { getAuth } = await import("https://www.gstatic.com/firebasejs/10.12.0/firebase-auth.js");
-        const user = getAuth().currentUser;
-        await deleteDoc(doc(db, "usuarios", user.uid, "normatividad", id));
+        await deleteDoc(doc(db, "usuarios", currentUser.uid, "normatividad", id));
       } catch (error) {
         console.error("Error al eliminar norma:", error);
         alert("No se pudo eliminar. Revisa la consola.");
@@ -149,7 +142,6 @@ function renderNormas() {
   });
 }
 
-// Convierte "2026-03-29" a "29 mar 2026"
 function formatearFecha(fechaStr) {
   if (!fechaStr) return "";
   const [year, month, day] = fechaStr.split("-");

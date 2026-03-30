@@ -3,6 +3,7 @@
 
 import { initializeApp } from "https://www.gstatic.com/firebasejs/10.12.0/firebase-app.js";
 import { getAuth, onAuthStateChanged } from "https://www.gstatic.com/firebasejs/10.12.0/firebase-auth.js";
+import { getFirestore } from "https://www.gstatic.com/firebasejs/10.12.0/firebase-firestore.js"; // NUEVO
 
 // Configuración del proyecto Firebase
 const firebaseConfig = {
@@ -17,6 +18,7 @@ const firebaseConfig = {
 // Inicializar Firebase
 const app = initializeApp(firebaseConfig);
 const auth = getAuth(app);
+const db = getFirestore(app); // NUEVO — instancia de Firestore, se llama "db" por convención
 
 // Detectar en qué página estamos
 const enLogin = window.location.pathname.includes("index.html") 
@@ -28,19 +30,15 @@ const enLogin = window.location.pathname.includes("index.html")
 // Si estás en index.html con sesión → a la app
 onAuthStateChanged(auth, (user) => {
   if (user) {
-    // Hay sesión activa
     if (enLogin) {
       window.location.replace("app.html");
     }
-    // Si ya estás en app.html, no hace nada — bien
   } else {
-    // No hay sesión
     if (!enLogin) {
       window.location.replace("index.html");
     }
-    // Si ya estás en index.html, no hace nada — bien
   }
 });
 
-// Exportamos auth para que otros archivos puedan usarlo
-export { auth };
+// Exportamos auth y db para que otros archivos puedan usarlos
+export { auth, db }; // NUEVO — agregamos db al export

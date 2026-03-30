@@ -298,13 +298,44 @@
         </div>
         <!-- /inicio -->
 
-        <!-- REUNIONES -->
+<!-- REUNIONES -->
         <div class="panel" id="panel-reuniones">
-          <div class="coming-soon">
-            <div class="coming-soon-icon">📅</div>
-            <div class="coming-soon-title">Reuniones</div>
-            <div class="coming-soon-text">Módulo en construcción — Fase 2</div>
+
+          <!-- Formulario para crear reunión -->
+          <div class="reunion-form-card">
+            <h2 class="panel-title">Nueva Reunión</h2>
+
+            <div class="form-group">
+              <label for="reunion-titulo">Título / Tema</label>
+              <input type="text" id="reunion-titulo" placeholder="Ej. Seguimiento FISE 2025">
+            </div>
+
+            <div class="form-group">
+              <label for="reunion-fecha">Fecha y hora</label>
+              <input type="datetime-local" id="reunion-fecha">
+            </div>
+
+            <div class="form-group">
+              <label for="reunion-participantes">Participantes</label>
+              <textarea id="reunion-participantes" rows="2" placeholder="Ej. Directora, Coord. Técnico, COEPLA"></textarea>
+            </div>
+
+            <div class="form-group">
+              <label for="reunion-acuerdos">Acuerdos y compromisos</label>
+              <textarea id="reunion-acuerdos" rows="3" placeholder="Ej. Entregar informe el viernes, validar padrón con SEDESO"></textarea>
+            </div>
+
+            <button class="btn-primary" id="btn-guardar-reunion">Guardar reunión</button>
           </div>
+
+          <!-- Lista de reuniones guardadas -->
+          <div class="reuniones-lista" id="reuniones-lista">
+            <h2 class="panel-title">Reuniones registradas</h2>
+            <div id="reuniones-contenido">
+              <p class="lista-vacia">No hay reuniones registradas aún.</p>
+            </div>
+          </div>
+
         </div>
 
         <!-- ENTIDADES -->
@@ -466,6 +497,7 @@
   <!-- ══ SCRIPTS ══ -->
   <script src="js/firebase-config.js" type="module"></script>
   <script src="js/app.js" type="module"></script>
+  <script src="js/reuniones.js" type="module"></script>
 
 </body>
 </html>

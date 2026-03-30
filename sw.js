@@ -1,4 +1,4 @@
-const CACHE = 'bpp-v1';
+const CACHE = 'lumen-v1';
 const ASSETS = ['./index.html', './manifest.json', './icon-192.svg'];
 
 self.addEventListener('install', e => {

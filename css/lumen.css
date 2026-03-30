@@ -605,3 +605,54 @@ body.light .theme-toggle-knob {
 .btn-eliminar:hover {
   opacity: 1;
 }
+
+/* ── Módulo Entidades ─────────────────────────────── */
+.form-row {
+  display: flex;
+  gap: 1rem;
+}
+
+.form-row .form-group {
+  flex: 1;
+}
+
+.form-row .form-group--corto {
+  flex: 0 0 120px;
+}
+
+.form-group select {
+  background: var(--fondo);
+  border: 1px solid var(--borde);
+  border-radius: 8px;
+  padding: 0.6rem 0.8rem;
+  color: var(--texto);
+  font-size: 0.95rem;
+  font-family: inherit;
+  width: 100%;
+}
+
+.form-group select:focus {
+  outline: none;
+  border-color: var(--acento);
+}
+
+.entidad-card-nombre {
+  display: flex;
+  align-items: center;
+  gap: 0.5rem;
+  flex-wrap: wrap;
+}
+
+.entidad-tipo-icono {
+  font-size: 1.1rem;
+}
+
+.entidad-siglas-badge {
+  background: var(--acento);
+  color: white;
+  font-size: 0.72rem;
+  font-weight: 700;
+  padding: 0.15rem 0.5rem;
+  border-radius: 20px;
+  letter-spacing: 0.03em;
+}

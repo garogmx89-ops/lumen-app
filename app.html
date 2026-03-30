@@ -340,11 +340,54 @@
 
         <!-- ENTIDADES -->
         <div class="panel" id="panel-entidades">
-          <div class="coming-soon">
-            <div class="coming-soon-icon">🏛</div>
-            <div class="coming-soon-title">Entidades</div>
-            <div class="coming-soon-text">Módulo en construcción — Fase 2</div>
+
+          <!-- Formulario para crear entidad -->
+          <div class="reunion-form-card">
+            <h2 class="panel-title">Nueva Entidad</h2>
+
+            <div class="form-row">
+              <div class="form-group">
+                <label for="entidad-nombre">Nombre</label>
+                <input type="text" id="entidad-nombre" placeholder="Ej. Secretaría de Desarrollo Urbano">
+              </div>
+              <div class="form-group form-group--corto">
+                <label for="entidad-siglas">Siglas</label>
+                <input type="text" id="entidad-siglas" placeholder="Ej. SEDUVOT">
+              </div>
+            </div>
+
+            <div class="form-group">
+              <label for="entidad-tipo">Tipo</label>
+              <select id="entidad-tipo">
+                <option value="">— Seleccionar tipo —</option>
+                <option value="Dependencia">Dependencia</option>
+                <option value="Programa">Programa</option>
+                <option value="Comité">Comité</option>
+                <option value="Consejo">Consejo</option>
+              </select>
+            </div>
+
+            <div class="form-group">
+              <label for="entidad-titular">Titular / Responsable</label>
+              <input type="text" id="entidad-titular" placeholder="Ej. Lic. María García">
+            </div>
+
+            <div class="form-group">
+              <label for="entidad-atribuciones">Atribuciones o funciones</label>
+              <textarea id="entidad-atribuciones" rows="3" placeholder="Ej. Coordinar la política de vivienda, validar padrones, emitir dictámenes técnicos"></textarea>
+            </div>
+
+            <button class="btn-primary" id="btn-guardar-entidad">Guardar entidad</button>
           </div>
+
+          <!-- Lista de entidades guardadas -->
+          <div class="reuniones-lista">
+            <h2 class="panel-title">Entidades registradas</h2>
+            <div id="entidades-contenido">
+              <p class="lista-vacia">No hay entidades registradas aún.</p>
+            </div>
+          </div>
+
         </div>
 
         <!-- NORMATIVIDAD -->
@@ -498,6 +541,7 @@
   <script src="js/firebase-config.js" type="module"></script>
   <script src="js/app.js" type="module"></script>
   <script src="js/reuniones.js" type="module"></script>
+  <script src="js/entidades.js" type="module"></script>
 
 </body>
 </html>

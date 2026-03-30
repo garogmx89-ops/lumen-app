@@ -390,13 +390,67 @@
 
         </div>
 
-        <!-- NORMATIVIDAD -->
+<!-- NORMATIVIDAD -->
         <div class="panel" id="panel-normatividad">
-          <div class="coming-soon">
-            <div class="coming-soon-icon">📄</div>
-            <div class="coming-soon-title">Normatividad</div>
-            <div class="coming-soon-text">Módulo en construcción — Fase 2</div>
+
+          <!-- Formulario para registrar norma -->
+          <div class="reunion-form-card">
+            <h2 class="panel-title">Nueva Norma</h2>
+
+            <div class="form-group">
+              <label for="norma-nombre">Nombre del documento</label>
+              <input type="text" id="norma-nombre" placeholder="Ej. Ley General de Asentamientos Humanos">
+            </div>
+
+            <div class="form-row">
+              <div class="form-group">
+                <label for="norma-tipo">Tipo</label>
+                <select id="norma-tipo">
+                  <option value="">— Seleccionar tipo —</option>
+                  <option value="Ley">Ley</option>
+                  <option value="Reglamento">Reglamento</option>
+                  <option value="Lineamiento">Lineamiento</option>
+                  <option value="Circular">Circular</option>
+                  <option value="Acuerdo">Acuerdo</option>
+                </select>
+              </div>
+              <div class="form-group">
+                <label for="norma-fecha">Fecha de publicación / vigencia</label>
+                <input type="date" id="norma-fecha">
+              </div>
+            </div>
+
+            <div class="form-group">
+              <label for="norma-resumen">Resumen o descripción</label>
+              <textarea id="norma-resumen" rows="2" placeholder="Ej. Regula el ordenamiento territorial y los usos de suelo a nivel nacional"></textarea>
+            </div>
+
+            <div class="form-group">
+              <label for="norma-anotaciones">Anotaciones / notas de aplicación</label>
+              <textarea id="norma-anotaciones" rows="3" placeholder="Ej. Aplica para validar dictámenes de cambio de uso de suelo en zonas urbanas"></textarea>
+            </div>
+
+            <button class="btn-primary" id="btn-guardar-norma">Guardar norma</button>
           </div>
+
+          <!-- Filtro por tipo -->
+          <div class="norma-filtros">
+            <button class="filtro-btn filtro-activo" data-filtro="todos">Todos</button>
+            <button class="filtro-btn" data-filtro="Ley">Ley</button>
+            <button class="filtro-btn" data-filtro="Reglamento">Reglamento</button>
+            <button class="filtro-btn" data-filtro="Lineamiento">Lineamiento</button>
+            <button class="filtro-btn" data-filtro="Circular">Circular</button>
+            <button class="filtro-btn" data-filtro="Acuerdo">Acuerdo</button>
+          </div>
+
+          <!-- Lista de normas -->
+          <div class="reuniones-lista">
+            <h2 class="panel-title">Normas registradas</h2>
+            <div id="normatividad-contenido">
+              <p class="lista-vacia">No hay normas registradas aún.</p>
+            </div>
+          </div>
+
         </div>
 
         <!-- ANÁLISIS -->

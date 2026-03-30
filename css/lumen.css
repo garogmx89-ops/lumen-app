@@ -656,3 +656,52 @@ body.light .theme-toggle-knob {
   border-radius: 20px;
   letter-spacing: 0.03em;
 }
+
+/* ── Módulo Normatividad ──────────────────────────── */
+.norma-filtros {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0.5rem;
+  margin-bottom: 1.2rem;
+}
+
+.filtro-btn {
+  background: var(--superficie);
+  border: 1px solid var(--borde);
+  border-radius: 20px;
+  padding: 0.35rem 0.9rem;
+  font-size: 0.82rem;
+  color: var(--texto-secundario);
+  cursor: pointer;
+  transition: all 0.2s;
+  font-family: inherit;
+}
+
+.filtro-btn:hover {
+  border-color: var(--acento);
+  color: var(--texto);
+}
+
+.filtro-btn.filtro-activo {
+  background: var(--acento);
+  border-color: var(--acento);
+  color: white;
+  font-weight: 600;
+}
+
+.norma-card-nombre {
+  display: flex;
+  align-items: center;
+  gap: 0.5rem;
+  flex-wrap: wrap;
+}
+
+.norma-tipo-badge {
+  color: white;
+  font-size: 0.72rem;
+  font-weight: 700;
+  padding: 0.15rem 0.6rem;
+  border-radius: 20px;
+  letter-spacing: 0.03em;
+  white-space: nowrap;
+}

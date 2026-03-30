@@ -770,3 +770,148 @@ body.light .theme-toggle-knob {
 .capa-texto {
   color: var(--texto);
 }
+
+/* ── Módulo Procesos ──────────────────────────────── */
+.pasos-header {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  margin-bottom: 0.5rem;
+}
+
+.pasos-header label {
+  font-size: 0.85rem;
+  color: var(--texto-secundario);
+  font-weight: 500;
+}
+
+.btn-agregar-paso {
+  background: transparent;
+  border: 1px solid var(--acento);
+  color: var(--acento);
+  border-radius: 20px;
+  padding: 0.25rem 0.8rem;
+  font-size: 0.82rem;
+  cursor: pointer;
+  font-family: inherit;
+  transition: all 0.2s;
+}
+
+.btn-agregar-paso:hover {
+  background: var(--acento);
+  color: white;
+}
+
+.paso-item {
+  display: flex;
+  align-items: flex-start;
+  gap: 0.5rem;
+  margin-bottom: 0.5rem;
+}
+
+.paso-numero {
+  background: var(--acento);
+  color: white;
+  border-radius: 50%;
+  width: 24px;
+  height: 24px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  font-size: 0.75rem;
+  font-weight: 700;
+  flex-shrink: 0;
+  margin-top: 0.4rem;
+}
+
+.paso-campos {
+  display: flex;
+  flex-direction: column;
+  gap: 0.3rem;
+  flex: 1;
+}
+
+.paso-nombre-input,
+.paso-detalle-input {
+  background: var(--fondo);
+  border: 1px solid var(--borde);
+  border-radius: 6px;
+  padding: 0.4rem 0.6rem;
+  color: var(--texto);
+  font-size: 0.88rem;
+  font-family: inherit;
+  width: 100%;
+  box-sizing: border-box;
+}
+
+.paso-detalle-input {
+  font-size: 0.82rem;
+  color: var(--texto-secundario);
+}
+
+.paso-nombre-input:focus,
+.paso-detalle-input:focus {
+  outline: none;
+  border-color: var(--acento);
+}
+
+.btn-quitar-paso {
+  background: none;
+  border: none;
+  color: var(--texto-secundario);
+  cursor: pointer;
+  font-size: 0.85rem;
+  padding: 0.3rem;
+  opacity: 0.5;
+  transition: opacity 0.2s;
+  flex-shrink: 0;
+  margin-top: 0.3rem;
+}
+
+.btn-quitar-paso:hover {
+  opacity: 1;
+  color: #9B2226;
+}
+
+.proceso-pasos {
+  margin-top: 0.6rem;
+  display: flex;
+  flex-direction: column;
+  gap: 0.3rem;
+}
+
+.proceso-paso {
+  display: flex;
+  align-items: flex-start;
+  gap: 0.5rem;
+}
+
+.proceso-paso-num {
+  background: var(--acento);
+  color: white;
+  border-radius: 50%;
+  width: 20px;
+  height: 20px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  font-size: 0.7rem;
+  font-weight: 700;
+  flex-shrink: 0;
+  margin-top: 0.15rem;
+}
+
+.proceso-paso-contenido {
+  display: flex;
+  flex-direction: column;
+}
+
+.proceso-paso-nombre {
+  font-size: 0.88rem;
+  font-weight: 500;
+}
+
+.proceso-paso-detalle {
+  font-size: 0.8rem;
+  color: var(--texto-secundario);
+}

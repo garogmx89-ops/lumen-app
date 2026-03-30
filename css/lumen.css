@@ -979,3 +979,10 @@ body.light .theme-toggle-knob {
   font-weight: 700;
   color: var(--acento);
 }
+
+/* Acciones en tarjetas de reunión */
+.reunion-card-acciones {
+  display: flex;
+  gap: 0.4rem;
+  align-items: center;
+}

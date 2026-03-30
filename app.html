@@ -1,0 +1,471 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0">
+  <meta name="theme-color" content="#0f1117">
+  <meta name="apple-mobile-web-app-capable" content="yes">
+  <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
+  <meta name="apple-mobile-web-app-title" content="Lumen">
+  <link rel="manifest" href="manifest.json">
+  <title>Lumen</title>
+  <link rel="stylesheet" href="css/lumen.css">
+</head>
+<body>
+
+  <!-- ══════════════════════════════════════
+       SHELL PRINCIPAL DE LA APP
+       Solo visible después del login
+  ══════════════════════════════════════ -->
+  <div class="shell" id="shell" style="display:none">
+
+    <!-- ── SIDEBAR (visible en desktop) ── -->
+    <div class="sidebar" id="sidebar">
+
+      <!-- Logo -->
+      <div class="logo-area">
+        <div class="logo-mark">
+          <div class="logo-icon">L</div>
+          <div class="logo-texts">
+            <div class="logo-text">Lumen</div>
+            <div class="logo-sub">Políticas Públicas</div>
+          </div>
+        </div>
+        <button class="toggle-btn" onclick="toggleSidebar()" title="Colapsar menú">
+          <svg width="12" height="12" viewBox="0 0 12 12" fill="none">
+            <path id="toggle-arrow" d="M7.5 2L3.5 6L7.5 10" stroke="currentColor" stroke-width="1.4"/>
+          </svg>
+        </button>
+      </div>
+
+      <!-- Navegación -->
+      <nav class="nav">
+        <div class="nav-section-label">Principal</div>
+
+        <div class="nav-item active" onclick="goTo('inicio')" id="nav-inicio">
+          <svg class="nav-icon" viewBox="0 0 16 16" fill="none">
+            <path d="M2 6l6-4 6 4v8H2V6z" stroke="currentColor" stroke-width="1.3"/>
+            <rect x="5.5" y="9" width="5" height="5" rx="0.5" stroke="currentColor" stroke-width="1.3"/>
+          </svg>
+          <span class="nav-label">Inicio</span>
+          <span class="nav-badge amber" id="badge-inicio">3</span>
+        </div>
+
+        <div class="nav-section-label">Módulos</div>
+
+        <div class="nav-item" onclick="goTo('reuniones')" id="nav-reuniones">
+          <svg class="nav-icon" viewBox="0 0 16 16" fill="none">
+            <rect x="2" y="3" width="12" height="11" rx="1.5" stroke="currentColor" stroke-width="1.3"/>
+            <line x1="2" y1="7" x2="14" y2="7" stroke="currentColor" stroke-width="1.3"/>
+            <line x1="5" y1="1.5" x2="5" y2="4.5" stroke="currentColor" stroke-width="1.3"/>
+            <line x1="11" y1="1.5" x2="11" y2="4.5" stroke="currentColor" stroke-width="1.3"/>
+          </svg>
+          <span class="nav-label">Reuniones</span>
+          <span class="nav-badge blue" id="badge-reuniones">2</span>
+        </div>
+
+        <div class="nav-item" onclick="goTo('entidades')" id="nav-entidades">
+          <svg class="nav-icon" viewBox="0 0 16 16" fill="none">
+            <circle cx="8" cy="5" r="2.5" stroke="currentColor" stroke-width="1.3"/>
+            <path d="M2 14c0-3.3 2.7-6 6-6s6 2.7 6 6" stroke="currentColor" stroke-width="1.3"/>
+          </svg>
+          <span class="nav-label">Entidades</span>
+        </div>
+
+        <div class="nav-item" onclick="goTo('normatividad')" id="nav-normatividad">
+          <svg class="nav-icon" viewBox="0 0 16 16" fill="none">
+            <path d="M4 2h8l2 2v10H4V2z" stroke="currentColor" stroke-width="1.3"/>
+            <line x1="6" y1="7" x2="10" y2="7" stroke="currentColor" stroke-width="1.3"/>
+            <line x1="6" y1="9.5" x2="10" y2="9.5" stroke="currentColor" stroke-width="1.3"/>
+          </svg>
+          <span class="nav-label">Normatividad</span>
+        </div>
+
+        <div class="nav-item" onclick="goTo('analisis')" id="nav-analisis">
+          <svg class="nav-icon" viewBox="0 0 16 16" fill="none">
+            <circle cx="8" cy="8" r="5.5" stroke="currentColor" stroke-width="1.3"/>
+            <line x1="8" y1="5" x2="8" y2="8.5" stroke="currentColor" stroke-width="1.8"/>
+            <circle cx="8" cy="11" r="0.8" fill="currentColor"/>
+          </svg>
+          <span class="nav-label">Análisis</span>
+          <span class="nav-badge amber" id="badge-analisis">2</span>
+        </div>
+
+        <div class="nav-item" onclick="goTo('procesos')" id="nav-procesos">
+          <svg class="nav-icon" viewBox="0 0 16 16" fill="none">
+            <circle cx="3" cy="4" r="1.5" stroke="currentColor" stroke-width="1.3"/>
+            <circle cx="3" cy="12" r="1.5" stroke="currentColor" stroke-width="1.3"/>
+            <circle cx="13" cy="8" r="1.5" stroke="currentColor" stroke-width="1.3"/>
+            <path d="M4.5 4.5L11.5 7.5M4.5 11.5L11.5 8.5" stroke="currentColor" stroke-width="1.3"/>
+          </svg>
+          <span class="nav-label">Procesos</span>
+        </div>
+
+        <div class="nav-item" onclick="goTo('agenda')" id="nav-agenda">
+          <svg class="nav-icon" viewBox="0 0 16 16" fill="none">
+            <path d="M8 2v2M8 12v2M2 8h2M12 8h2" stroke="currentColor" stroke-width="1.3"/>
+            <circle cx="8" cy="8" r="4" stroke="currentColor" stroke-width="1.3"/>
+            <circle cx="8" cy="8" r="1" fill="currentColor"/>
+          </svg>
+          <span class="nav-label">Agenda / Alertas</span>
+          <span class="nav-badge amber" id="badge-agenda">3</span>
+        </div>
+
+        <div class="nav-item" onclick="goTo('territorio')" id="nav-territorio">
+          <svg class="nav-icon" viewBox="0 0 16 16" fill="none">
+            <path d="M2 3l4 2 4-2 4 2v8l-4-2-4 2-4-2V3z" stroke="currentColor" stroke-width="1.3"/>
+          </svg>
+          <span class="nav-label">Territorio</span>
+        </div>
+
+        <div class="nav-item" onclick="goTo('contexto')" id="nav-contexto">
+          <svg class="nav-icon" viewBox="0 0 16 16" fill="none">
+            <circle cx="8" cy="8" r="5.5" stroke="currentColor" stroke-width="1.3"/>
+            <line x1="2.5" y1="8" x2="13.5" y2="8" stroke="currentColor" stroke-width="1.3"/>
+            <path d="M8 2.5c-2 2-2 9 0 11M8 2.5c2 2 2 9 0 11" stroke="currentColor" stroke-width="1.3"/>
+          </svg>
+          <span class="nav-label">Contexto</span>
+        </div>
+
+      </nav>
+
+      <!-- Usuario -->
+      <div class="user-area">
+        <div class="user-chip">
+          <div class="avatar" id="user-avatar">EG</div>
+          <div class="user-info">
+            <div class="user-name" id="user-name">Edgar García</div>
+            <div class="user-role">SEDUVOT · Planeación</div>
+          </div>
+          <button class="btn-sm btn-ghost-small" onclick="cerrarSesion()" title="Cerrar sesión">
+            <svg width="14" height="14" viewBox="0 0 16 16" fill="none">
+              <path d="M6 2H3a1 1 0 00-1 1v10a1 1 0 001 1h3M10 11l3-3-3-3M13 8H6" stroke="currentColor" stroke-width="1.3"/>
+            </svg>
+          </button>
+        </div>
+      </div>
+
+    </div>
+    <!-- /sidebar -->
+
+    <!-- ── ÁREA PRINCIPAL ── -->
+    <div class="main">
+
+      <!-- Topbar -->
+      <div class="topbar">
+        <div class="topbar-left">
+          <div>
+            <div class="page-title" id="page-title">Inicio</div>
+            <div class="page-subtitle" id="page-subtitle">Resumen institucional del día</div>
+          </div>
+          <!-- Indicador de conexión -->
+          <div class="conn-pill online" id="conn-pill">
+            <div class="conn-dot"></div>
+            <span id="conn-label">En línea</span>
+          </div>
+        </div>
+        <div class="topbar-actions">
+          <button class="btn-sm topbar-ia-btn" id="ia-btn">Briefing IA ↗</button>
+          <!-- Toggle modo claro/oscuro -->
+          <div class="theme-toggle" onclick="toggleTheme()" title="Cambiar tema">
+            <div class="theme-toggle-knob"></div>
+          </div>
+          <button class="btn-sm btn-primary" id="new-btn">+ Nuevo</button>
+        </div>
+      </div>
+
+      <!-- Banner de contexto activo (oculto por defecto) -->
+      <div class="ctx-banner hidden" id="ctx-banner">
+        <div class="ctx-event-icon">📋</div>
+        <div class="ctx-event-info">
+          <div class="ctx-event-title" id="ctx-title">Reunión activa</div>
+          <div class="ctx-event-sub" id="ctx-sub">Contexto activo en todos los módulos</div>
+        </div>
+        <div class="ctx-selector">
+          <select class="ctx-select" onchange="changeCtx(this.value)" id="ctx-select">
+            <option value="coepla">COEPLA · Reglas</option>
+            <option value="fise">Comité FISE · Cierre Q1</option>
+            <option value="implan">IMPLAN · Planeación</option>
+          </select>
+          <button class="ctx-dismiss" onclick="deactivateCtx()">✕ Desactivar</button>
+        </div>
+      </div>
+
+      <!-- Banner offline (oculto por defecto) -->
+      <div class="offline-banner hidden" id="offline-banner">
+        <svg width="14" height="14" viewBox="0 0 16 16" fill="none">
+          <path d="M8 2v2M8 12v2M2 8h2M12 8h2" stroke="var(--amber)" stroke-width="1.4"/>
+          <circle cx="8" cy="8" r="4" stroke="var(--amber)" stroke-width="1.4"/>
+          <circle cx="8" cy="8" r="1" fill="var(--amber)"/>
+        </svg>
+        <div>
+          <div class="offline-banner-text">Sin conexión — modo local activo</div>
+          <div class="offline-banner-sub">Tus cambios se guardan en el dispositivo y se sincronizarán al recuperar señal</div>
+        </div>
+      </div>
+
+      <!-- ══ CONTENIDO DE MÓDULOS ══ -->
+      <div class="content">
+
+        <!-- INICIO -->
+        <div class="panel active" id="panel-inicio">
+          <div class="ctx-activate-btn" id="ctx-activate-btn" onclick="activateCtx()">
+            <svg width="14" height="14" viewBox="0 0 16 16" fill="none">
+              <circle cx="8" cy="8" r="6" stroke="var(--ctx)" stroke-width="1.3"/>
+              <path d="M8 5v3l2 1" stroke="var(--ctx)" stroke-width="1.3"/>
+            </svg>
+            Activar contexto de reunión — COEPLA mañana 10:00
+          </div>
+          <div class="stat-grid">
+            <div class="stat-card" onclick="goTo('reuniones')">
+              <div class="stat-label">Reuniones</div>
+              <div class="stat-value">3</div>
+              <div class="stat-sub"><span class="stat-dot dot-amber"></span>2 pendientes</div>
+            </div>
+            <div class="stat-card" onclick="goTo('agenda')">
+              <div class="stat-label">Alertas</div>
+              <div class="stat-value">3</div>
+              <div class="stat-sub"><span class="stat-dot dot-coral"></span>1 urgente</div>
+            </div>
+            <div class="stat-card" onclick="goTo('analisis')">
+              <div class="stat-label">Análisis</div>
+              <div class="stat-value">2</div>
+              <div class="stat-sub"><span class="stat-dot dot-accent"></span>Abiertos</div>
+            </div>
+          </div>
+          <div class="section-header">
+            <div class="section-title">Alertas del día</div>
+            <button class="btn-sm" onclick="goTo('agenda')">Ver todas</button>
+          </div>
+          <div class="alert-card alert-danger">
+            <div class="alert-dot" style="background:var(--coral)"></div>
+            <div>
+              <div class="alert-label">FISE — vencimiento en 2 días</div>
+              <div class="alert-desc">$1.2M por devengar antes del 31 mar · Art. 45 ROP</div>
+            </div>
+          </div>
+          <div class="alert-card alert-warn">
+            <div class="alert-dot" style="background:var(--amber)"></div>
+            <div>
+              <div class="alert-label">Reunión COEPLA — mañana 10:00</div>
+              <div class="alert-desc">3 acuerdos pendientes · Briefing disponible</div>
+            </div>
+          </div>
+          <div class="alert-card alert-info">
+            <div class="alert-dot" style="background:var(--accent)"></div>
+            <div>
+              <div class="alert-label">Análisis pendiente — calentadores solares</div>
+              <div class="alert-desc">SEDUVOT vs SEDESOL · sin veredicto</div>
+            </div>
+          </div>
+          <div class="section-header" style="margin-top:14px">
+            <div class="section-title">Acceso rápido</div>
+          </div>
+          <div class="two-col">
+            <div class="card-list">
+              <div class="list-card" onclick="goTo('reuniones')">
+                <div class="list-icon li-blue">📅</div>
+                <div class="list-body">
+                  <div class="list-title">COEPLA — mañana</div>
+                  <div class="list-meta">Briefing · 3 acuerdos</div>
+                </div>
+              </div>
+              <div class="list-card" onclick="goTo('analisis')">
+                <div class="list-icon li-teal">🔍</div>
+                <div class="list-body">
+                  <div class="list-title">Calentadores solares</div>
+                  <div class="list-meta">Análisis abierto</div>
+                </div>
+              </div>
+            </div>
+            <div class="card-list">
+              <div class="list-card" onclick="goTo('entidades')">
+                <div class="list-icon li-blue">🏛</div>
+                <div class="list-body">
+                  <div class="list-title">Ficha COEPLA</div>
+                  <div class="list-meta">2 fricciones · 5 reuniones</div>
+                </div>
+              </div>
+              <div class="list-card" onclick="goTo('normatividad')">
+                <div class="list-icon li-purple">📄</div>
+                <div class="list-body">
+                  <div class="list-title">ROP FISE 2025</div>
+                  <div class="list-meta">5 artículos clave</div>
+                </div>
+              </div>
+            </div>
+          </div>
+        </div>
+        <!-- /inicio -->
+
+        <!-- REUNIONES -->
+        <div class="panel" id="panel-reuniones">
+          <div class="coming-soon">
+            <div class="coming-soon-icon">📅</div>
+            <div class="coming-soon-title">Reuniones</div>
+            <div class="coming-soon-text">Módulo en construcción — Fase 2</div>
+          </div>
+        </div>
+
+        <!-- ENTIDADES -->
+        <div class="panel" id="panel-entidades">
+          <div class="coming-soon">
+            <div class="coming-soon-icon">🏛</div>
+            <div class="coming-soon-title">Entidades</div>
+            <div class="coming-soon-text">Módulo en construcción — Fase 2</div>
+          </div>
+        </div>
+
+        <!-- NORMATIVIDAD -->
+        <div class="panel" id="panel-normatividad">
+          <div class="coming-soon">
+            <div class="coming-soon-icon">📄</div>
+            <div class="coming-soon-title">Normatividad</div>
+            <div class="coming-soon-text">Módulo en construcción — Fase 2</div>
+          </div>
+        </div>
+
+        <!-- ANÁLISIS -->
+        <div class="panel" id="panel-analisis">
+          <div class="coming-soon">
+            <div class="coming-soon-icon">🔍</div>
+            <div class="coming-soon-title">Análisis</div>
+            <div class="coming-soon-text">Módulo en construcción — Fase 2</div>
+          </div>
+        </div>
+
+        <!-- PROCESOS -->
+        <div class="panel" id="panel-procesos">
+          <div class="coming-soon">
+            <div class="coming-soon-icon">🔁</div>
+            <div class="coming-soon-title">Procesos</div>
+            <div class="coming-soon-text">Módulo en construcción — Fase 2</div>
+          </div>
+        </div>
+
+        <!-- AGENDA -->
+        <div class="panel" id="panel-agenda">
+          <div class="coming-soon">
+            <div class="coming-soon-icon">⏰</div>
+            <div class="coming-soon-title">Agenda / Alertas</div>
+            <div class="coming-soon-text">Módulo en construcción — Fase 2</div>
+          </div>
+        </div>
+
+        <!-- TERRITORIO -->
+        <div class="panel" id="panel-territorio">
+          <div class="coming-soon">
+            <div class="coming-soon-icon">🗺</div>
+            <div class="coming-soon-title">Territorio</div>
+            <div class="coming-soon-text">Módulo en construcción — Fase 2</div>
+          </div>
+        </div>
+
+        <!-- CONTEXTO -->
+        <div class="panel" id="panel-contexto">
+          <div class="coming-soon">
+            <div class="coming-soon-icon">🌐</div>
+            <div class="coming-soon-title">Contexto</div>
+            <div class="coming-soon-text">Módulo en construcción — Fase 2</div>
+          </div>
+        </div>
+
+      </div>
+      <!-- /content -->
+
+    </div>
+    <!-- /main -->
+
+  </div>
+  <!-- /shell -->
+
+  <!-- ── BARRA INFERIOR (solo en móvil) ── -->
+  <nav class="bottom-nav" id="bottom-nav" style="display:none">
+    <div class="bottom-nav-inner">
+      <div class="bnav-item active" id="bn-inicio" onclick="goTo('inicio')">
+        <svg viewBox="0 0 20 20" fill="none">
+          <path d="M3 8l7-5 7 5v10H3V8z" stroke="currentColor" stroke-width="1.4"/>
+          <rect x="7" y="11" width="6" height="7" rx="0.5" stroke="currentColor" stroke-width="1.4"/>
+        </svg>
+        <span class="bnav-label">Inicio</span>
+        <span class="bnav-dot"></span>
+      </div>
+      <div class="bnav-item" id="bn-reuniones" onclick="goTo('reuniones')">
+        <svg viewBox="0 0 20 20" fill="none">
+          <rect x="2" y="4" width="16" height="14" rx="2" stroke="currentColor" stroke-width="1.4"/>
+          <line x1="2" y1="9" x2="18" y2="9" stroke="currentColor" stroke-width="1.4"/>
+          <line x1="6" y1="2" x2="6" y2="6" stroke="currentColor" stroke-width="1.4"/>
+          <line x1="14" y1="2" x2="14" y2="6" stroke="currentColor" stroke-width="1.4"/>
+        </svg>
+        <span class="bnav-label">Reuniones</span>
+      </div>
+      <div class="bnav-item" id="bn-analisis" onclick="goTo('analisis')">
+        <svg viewBox="0 0 20 20" fill="none">
+          <circle cx="10" cy="10" r="7" stroke="currentColor" stroke-width="1.4"/>
+          <line x1="10" y1="6" x2="10" y2="10.5" stroke="currentColor" stroke-width="1.8"/>
+          <circle cx="10" cy="14" r="1" fill="currentColor" stroke="none"/>
+        </svg>
+        <span class="bnav-label">Análisis</span>
+        <span class="bnav-dot"></span>
+      </div>
+      <div class="bnav-item" id="bn-agenda" onclick="goTo('agenda')">
+        <svg viewBox="0 0 20 20" fill="none">
+          <path d="M10 3v2M10 15v2M3 10h2M15 10h2" stroke="currentColor" stroke-width="1.4"/>
+          <circle cx="10" cy="10" r="5" stroke="currentColor" stroke-width="1.4"/>
+          <circle cx="10" cy="10" r="1.2" fill="currentColor" stroke="none"/>
+        </svg>
+        <span class="bnav-label">Alertas</span>
+        <span class="bnav-dot"></span>
+      </div>
+      <div class="bnav-item" id="bn-more" onclick="openMore()">
+        <svg viewBox="0 0 20 20" fill="none">
+          <circle cx="5" cy="10" r="1.2" fill="currentColor" stroke="none"/>
+          <circle cx="10" cy="10" r="1.2" fill="currentColor" stroke="none"/>
+          <circle cx="15" cy="10" r="1.2" fill="currentColor" stroke="none"/>
+        </svg>
+        <span class="bnav-label">Más</span>
+      </div>
+    </div>
+  </nav>
+
+  <!-- Menú "Más" en móvil -->
+  <div class="more-overlay hidden" id="more-overlay" onclick="closeMore()">
+    <div class="more-sheet" onclick="event.stopPropagation()">
+      <div class="more-sheet-title">Todos los módulos</div>
+      <div class="more-item" onclick="goTo('entidades');closeMore()">
+        <svg viewBox="0 0 20 20" fill="none"><circle cx="10" cy="6" r="3" stroke="currentColor" stroke-width="1.4"/><path d="M3 18c0-3.9 3.1-7 7-7s7 3.1 7 7" stroke="currentColor" stroke-width="1.4"/></svg>
+        <span class="more-label">Entidades</span>
+      </div>
+      <div class="more-item" onclick="goTo('normatividad');closeMore()">
+        <svg viewBox="0 0 20 20" fill="none"><path d="M5 2h10l3 3v13H5V2z" stroke="currentColor" stroke-width="1.4"/><line x1="8" y1="9" x2="13" y2="9" stroke="currentColor" stroke-width="1.4"/><line x1="8" y1="12" x2="13" y2="12" stroke="currentColor" stroke-width="1.4"/></svg>
+        <span class="more-label">Normatividad</span>
+      </div>
+      <div class="more-item" onclick="goTo('procesos');closeMore()">
+        <svg viewBox="0 0 20 20" fill="none"><circle cx="4" cy="5" r="2" stroke="currentColor" stroke-width="1.4"/><circle cx="4" cy="15" r="2" stroke="currentColor" stroke-width="1.4"/><circle cx="16" cy="10" r="2" stroke="currentColor" stroke-width="1.4"/><path d="M6 5.5L14 9.5M6 14.5L14 10.5" stroke="currentColor" stroke-width="1.4"/></svg>
+        <span class="more-label">Procesos</span>
+      </div>
+      <div class="more-item" onclick="goTo('territorio');closeMore()">
+        <svg viewBox="0 0 20 20" fill="none"><path d="M2 4l5 2.5 6-2.5 5 2.5v9l-5-2.5-6 2.5-5-2.5V4z" stroke="currentColor" stroke-width="1.4"/></svg>
+        <span class="more-label">Territorio</span>
+      </div>
+      <div class="more-item" onclick="goTo('contexto');closeMore()">
+        <svg viewBox="0 0 20 20" fill="none"><circle cx="10" cy="10" r="7" stroke="currentColor" stroke-width="1.4"/><line x1="3" y1="10" x2="17" y2="10" stroke="currentColor" stroke-width="1.4"/><path d="M10 3c-2.5 2.5-2.5 11.5 0 14M10 3c2.5 2.5 2.5 11.5 0 14" stroke="currentColor" stroke-width="1.4"/></svg>
+        <span class="more-label">Contexto</span>
+      </div>
+      <div class="more-item" onclick="toggleTheme();closeMore()">
+        <svg viewBox="0 0 20 20" fill="none"><circle cx="10" cy="10" r="3.5" stroke="currentColor" stroke-width="1.4"/><path d="M10 2v2M10 16v2M2 10h2M16 10h2M4.9 4.9l1.4 1.4M13.7 13.7l1.4 1.4M4.9 15.1l1.4-1.4M13.7 6.3l1.4-1.4" stroke="currentColor" stroke-width="1.4"/></svg>
+        <span class="more-label" id="theme-label">Modo claro</span>
+      </div>
+      <div class="more-item" onclick="cerrarSesion();closeMore()">
+        <svg viewBox="0 0 20 20" fill="none"><path d="M8 3H5a1 1 0 00-1 1v12a1 1 0 001 1h3M13 14l4-4-4-4M17 10H8" stroke="currentColor" stroke-width="1.4"/></svg>
+        <span class="more-label">Cerrar sesión</span>
+      </div>
+    </div>
+  </div>
+
+  <!-- ══ SCRIPTS ══ -->
+  <script src="js/firebase-config.js" type="module"></script>
+  <script src="js/app.js" type="module"></script>
+
+</body>
+</html>

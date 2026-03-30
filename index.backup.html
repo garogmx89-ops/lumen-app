@@ -1,0 +1,795 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0">
+<meta name="theme-color" content="#0f1117">
+<meta name="apple-mobile-web-app-capable" content="yes">
+<meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
+<meta name="apple-mobile-web-app-title" content="Lumen">
+<link rel="manifest" href="manifest.json">
+<link rel="apple-touch-icon" href="icon-192.svg">
+<title>Lumen</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link href="https://fonts.googleapis.com/css2?family=DM+Serif+Display:ital@0;1&family=DM+Sans:wght@300;400;500&display=swap" rel="stylesheet">
+<style>
+:root {
+  --bg:#0f1117;--bg2:#181c27;--bg3:#1f2436;--bg4:#252b3d;
+  --border:rgba(255,255,255,0.08);--border2:rgba(255,255,255,0.14);
+  --text:#e8eaf0;--text2:#8b91a8;--text3:#555c75;
+  --accent:#7c9fff;--accent2:#4e6dd4;--accent-bg:rgba(124,159,255,0.1);
+  --teal:#4ecdc4;--teal-bg:rgba(78,205,196,0.1);
+  --amber:#f9a825;--amber-bg:rgba(249,168,37,0.1);
+  --coral:#ff7043;--coral-bg:rgba(255,112,67,0.1);
+  --success:#66bb6a;--success-bg:rgba(102,187,106,0.1);
+  --danger:#ef5350;--danger-bg:rgba(239,83,80,0.1);
+  --radius:14px;--radius-sm:8px;
+  --font-display:'DM Serif Display',Georgia,serif;
+  --font-body:'DM Sans',system-ui,sans-serif;
+  --nav-h:60px;--tab-h:64px;
+}
+*{box-sizing:border-box;margin:0;padding:0;-webkit-tap-highlight-color:transparent}
+html,body{height:100%;overflow:hidden;background:var(--bg);color:var(--text);font-family:var(--font-body);font-size:15px}
+#app{display:flex;flex-direction:column;height:100%}
+.nav{height:var(--nav-h);display:flex;align-items:center;padding:0 14px;border-bottom:1px solid var(--border);background:var(--bg);flex-shrink:0;z-index:10}
+.nav-title{font-family:var(--font-display);font-size:20px;color:var(--text)}
+.nav-sub{font-size:11px;color:var(--text3);margin-left:6px;margin-top:3px}
+.nav-right{margin-left:auto;display:flex;gap:6px}
+.screens{flex:1;overflow:hidden;position:relative}
+.screen{position:absolute;inset:0;overflow-y:auto;overscroll-behavior:contain;padding:14px 13px 80px;display:none;flex-direction:column;gap:13px}
+.screen.active{display:flex}
+.tabs{height:var(--tab-h);display:flex;border-top:1px solid var(--border);background:var(--bg);flex-shrink:0}
+.tab{flex:1;display:flex;flex-direction:column;align-items:center;justify-content:center;gap:3px;cursor:pointer;color:var(--text3);transition:color .15s;border:none;background:none}
+.tab svg{width:20px;height:20px}
+.tab.active{color:var(--accent)}
+.tab-label{font-size:10px;font-family:var(--font-body)}
+.section-label{font-size:10px;font-weight:500;color:var(--text3);text-transform:uppercase;letter-spacing:.08em;margin-bottom:8px}
+.btn{display:inline-flex;align-items:center;justify-content:center;gap:5px;padding:10px 14px;border-radius:var(--radius-sm);border:none;cursor:pointer;font-family:var(--font-body);font-size:13px;font-weight:500;transition:all .15s}
+.btn-primary{background:var(--accent2);color:#fff}.btn-primary:active{transform:scale(.97)}
+.btn-ghost{background:transparent;color:var(--text2);border:1px solid var(--border2)}.btn-ghost:active{background:var(--bg3)}
+.btn-danger{background:transparent;color:var(--danger);border:1px solid rgba(239,83,80,.3)}
+.btn-sm{padding:7px 11px;font-size:12px;border-radius:6px}
+.btn-xs{padding:4px 9px;font-size:11px;border-radius:5px}
+.btn-full{width:100%}
+.btn:disabled{opacity:.4;cursor:not-allowed;transform:none!important}
+.chips{display:flex;flex-wrap:wrap;gap:7px}
+.chip{padding:7px 13px;border-radius:999px;border:1px solid var(--border2);font-size:13px;cursor:pointer;background:var(--bg3);color:var(--text2);transition:all .15s;white-space:nowrap}
+.chip.active{background:var(--accent-bg);border-color:var(--accent);color:var(--accent)}
+input[type=text],textarea,select{width:100%;background:var(--bg3);border:1px solid var(--border2);border-radius:var(--radius-sm);color:var(--text);font-family:var(--font-body);font-size:14px;padding:11px 13px;outline:none;transition:border .15s}
+input[type=text]:focus,textarea:focus,select:focus{border-color:var(--accent)}
+textarea{resize:none;line-height:1.5}
+select option{background:var(--bg3)}
+.tag{display:inline-block;padding:4px 10px;border-radius:999px;font-size:12px}
+.tag-blue{background:rgba(124,159,255,.15);color:#9bb5ff}
+.tag-teal{background:rgba(78,205,196,.15);color:#6dd5cf}
+.tag-amber{background:rgba(249,168,37,.15);color:#f9c740}
+.tag-coral{background:rgba(255,112,67,.15);color:#ff8a65}
+.briefing-wrap{background:var(--bg2);border:1px solid var(--border);border-radius:var(--radius);overflow:hidden}
+.b-header{padding:13px 14px 11px;border-bottom:1px solid var(--border)}
+.b-title{font-family:var(--font-display);font-size:17px;color:var(--text);line-height:1.3}
+.b-meta{font-size:11px;color:var(--text3);margin-top:3px}
+.b-sec{padding:10px 14px;border-bottom:1px solid var(--border)}
+.b-sec:last-child{border-bottom:none}
+.b-sec-title{font-size:10px;font-weight:500;color:var(--text3);text-transform:uppercase;letter-spacing:.08em;margin-bottom:7px}
+.norm-item{font-size:13px;color:var(--text2);padding:5px 0;border-bottom:1px solid var(--border);line-height:1.4}
+.norm-item:last-child{border-bottom:none}
+.punto{font-size:13px;color:var(--text2);padding:4px 0 4px 14px;position:relative;line-height:1.5}
+.punto::before{content:"→";position:absolute;left:0;color:var(--text3)}
+.b-actions{padding:10px 14px;display:flex;gap:7px;flex-wrap:wrap;background:var(--bg3)}
+.src-badge{display:inline-flex;align-items:center;padding:3px 8px;border-radius:999px;font-size:11px;background:var(--teal-bg);color:var(--teal);border:1px solid rgba(78,205,196,.2)}
+.quick-overlay{position:fixed;inset:0;background:var(--bg);z-index:200;display:none;flex-direction:column;padding:28px 20px 24px;overflow-y:auto}
+.quick-overlay.open{display:flex}
+.quick-close{position:absolute;top:14px;right:14px;background:var(--bg3);border:none;color:var(--text2);font-size:22px;width:36px;height:36px;border-radius:50%;cursor:pointer;display:flex;align-items:center;justify-content:center}
+.quick-cat{font-size:10px;color:var(--accent);text-transform:uppercase;letter-spacing:.1em;margin-bottom:5px}
+.quick-title{font-family:var(--font-display);font-size:28px;color:var(--text);line-height:1.2;margin-bottom:22px}
+.quick-block{margin-bottom:18px}
+.quick-block-lbl{font-size:10px;font-weight:500;color:var(--text3);text-transform:uppercase;letter-spacing:.08em;margin-bottom:8px}
+.quick-punto{font-size:15px;color:var(--text2);padding:7px 0 7px 16px;position:relative;line-height:1.5;border-bottom:1px solid var(--border)}
+.quick-punto:last-child{border-bottom:none}
+.quick-punto::before{content:"→";position:absolute;left:0;color:var(--accent)}
+.doc-item{display:flex;align-items:flex-start;gap:11px;padding:12px 13px;background:var(--bg2);border:1px solid var(--border);border-radius:var(--radius);cursor:pointer;transition:border-color .15s;margin-bottom:8px}
+.doc-item:hover{border-color:var(--border2)}
+.doc-icon{width:34px;height:34px;border-radius:8px;display:flex;align-items:center;justify-content:center;flex-shrink:0;font-size:16px}
+.di-rop{background:var(--teal-bg)}.di-ley{background:var(--accent-bg)}.di-diag{background:var(--amber-bg)}.di-art{background:var(--coral-bg)}
+.doc-name{font-size:14px;color:var(--text);line-height:1.3}
+.doc-meta{font-size:11px;color:var(--text3);margin-top:2px}
+.note-item{padding:10px 12px;background:var(--bg3);border-left:2px solid var(--accent);border-radius:0 6px 6px 0;margin-bottom:7px}
+.note-text{font-size:13px;color:var(--text2);line-height:1.5}
+.note-meta{font-size:11px;color:var(--text3);margin-top:3px}
+.corr-item{display:flex;align-items:flex-start;gap:9px;padding:10px 12px;background:var(--bg2);border:1px solid var(--border);border-radius:var(--radius-sm);margin-bottom:7px}
+.corr-dot{width:6px;height:6px;border-radius:50%;background:var(--amber);flex-shrink:0;margin-top:5px}
+.analysis-result{border-radius:var(--radius);overflow:hidden;border:1px solid var(--border)}
+.a-verdict{padding:12px 14px;display:flex;align-items:center;gap:10px;background:var(--bg3)}
+.v-icon{width:32px;height:32px;border-radius:50%;display:flex;align-items:center;justify-content:center;flex-shrink:0;font-size:15px;font-weight:500}
+.v-correct{background:var(--success-bg);color:var(--success)}
+.v-incorrect{background:var(--danger-bg);color:var(--danger)}
+.v-inconcluso{background:var(--amber-bg);color:var(--amber)}
+.v-label{font-size:13px;font-weight:500}
+.a-body{padding:12px 14px;background:var(--bg2)}
+.a-text{font-size:13px;color:var(--text2);line-height:1.6}
+.a-ref{font-size:11px;color:var(--text3);margin-top:8px;padding-top:8px;border-top:1px solid var(--border)}
+.a-rec{margin-top:11px;padding:10px 12px;background:var(--bg3);border-radius:var(--radius-sm);font-size:13px;color:var(--text2);border-left:2px solid var(--accent)}
+.hist-item{padding:11px 13px;background:var(--bg2);border:1px solid var(--border);border-radius:var(--radius-sm);margin-bottom:7px;cursor:pointer}
+.hist-q{font-size:13px;color:var(--text);margin-bottom:5px;line-height:1.4}
+.saved-item{display:flex;align-items:flex-start;gap:10px;padding:12px 13px;background:var(--bg2);border:1px solid var(--border);border-radius:var(--radius);cursor:pointer;margin-bottom:8px}
+.saved-dot{width:7px;height:7px;border-radius:50%;background:var(--accent);flex-shrink:0;margin-top:5px}
+.saved-title{font-size:14px;color:var(--text);line-height:1.3}
+.saved-meta{font-size:11px;color:var(--text3);margin-top:2px}
+.upload-area{border:1.5px dashed var(--border2);border-radius:var(--radius);padding:22px 14px;text-align:center;cursor:pointer;transition:border-color .15s}
+.upload-area:hover{border-color:var(--accent)}
+.modal-bg{position:fixed;inset:0;background:rgba(0,0,0,.72);z-index:100;display:none;align-items:flex-end}
+.modal-bg.open{display:flex}
+.modal{background:var(--bg2);border-radius:var(--radius) var(--radius) 0 0;width:100%;padding:16px 14px 32px;max-height:88vh;overflow-y:auto}
+.modal-handle{width:36px;height:4px;background:var(--border2);border-radius:99px;margin:0 auto 15px}
+.modal-title{font-family:var(--font-display);font-size:18px;margin-bottom:13px}
+.dots{display:inline-flex;gap:4px}
+.dots span{width:5px;height:5px;border-radius:50%;background:var(--text3);animation:dp 1.2s ease-in-out infinite}
+.dots span:nth-child(2){animation-delay:.2s}.dots span:nth-child(3){animation-delay:.4s}
+@keyframes dp{0%,80%,100%{opacity:.25}40%{opacity:1}}
+.toast{position:fixed;bottom:74px;left:50%;transform:translateX(-50%);background:var(--bg4);border:1px solid var(--border2);border-radius:999px;padding:8px 18px;font-size:13px;color:var(--text);z-index:999;opacity:0;transition:opacity .25s;pointer-events:none;white-space:nowrap}
+.toast.show{opacity:1}
+.empty{text-align:center;padding:32px 14px;color:var(--text3);font-size:13px}
+.empty svg{width:34px;height:34px;margin:0 auto 10px;opacity:.22;display:block}
+::-webkit-scrollbar{width:3px}
+::-webkit-scrollbar-thumb{background:var(--border2);border-radius:99px}
+
+/* Login screen */
+#login-screen{position:fixed;inset:0;background:var(--bg);z-index:1000;display:flex;flex-direction:column;align-items:center;justify-content:center;padding:32px 24px;}
+#login-screen.hidden{display:none}
+.login-logo{font-family:var(--font-display);font-size:48px;color:var(--text);margin-bottom:8px;text-align:center}
+.login-sub{font-size:13px;color:var(--text3);margin-bottom:48px;text-align:center;letter-spacing:.04em}
+.login-desc{font-size:14px;color:var(--text2);text-align:center;line-height:1.6;margin-bottom:40px;max-width:280px}
+.btn-google{display:flex;align-items:center;gap:12px;padding:14px 24px;border-radius:var(--radius);border:1px solid var(--border2);background:var(--bg2);color:var(--text);font-family:var(--font-body);font-size:15px;font-weight:500;cursor:pointer;width:100%;max-width:300px;justify-content:center;transition:all .15s}
+.btn-google:hover{border-color:var(--accent);background:var(--bg3)}
+.btn-google:active{transform:scale(.97)}
+.login-footer{font-size:11px;color:var(--text3);margin-top:24px;text-align:center;line-height:1.6}
+.login-loading{font-size:13px;color:var(--text3);margin-top:16px;display:none}
+</style>
+</head>
+<body>
+
+<!-- Pantalla de login -->
+<div id="login-screen">
+  <div class="login-logo">Lumen</div>
+  <div class="login-sub">SEDUVOT · Zacatecas</div>
+  <div class="login-desc">Sistema de gestión de conocimiento institucional. Accede con tu cuenta Google para continuar.</div>
+  <button class="btn-google" onclick="loginConGoogle()">
+    <svg width="20" height="20" viewBox="0 0 48 48"><path fill="#FFC107" d="M43.611 20.083H42V20H24v8h11.303c-1.649 4.657-6.08 8-11.303 8-6.627 0-12-5.373-12-12s5.373-12 12-12c3.059 0 5.842 1.154 7.961 3.039l5.657-5.657C34.046 6.053 29.268 4 24 4 12.955 4 4 12.955 4 24s8.955 20 20 20 20-8.955 20-20c0-1.341-.138-2.65-.389-3.917z"/><path fill="#FF3D00" d="m6.306 14.691 6.571 4.819C14.655 15.108 18.961 12 24 12c3.059 0 5.842 1.154 7.961 3.039l5.657-5.657C34.046 6.053 29.268 4 24 4 16.318 4 9.656 8.337 6.306 14.691z"/><path fill="#4CAF50" d="M24 44c5.166 0 9.86-1.977 13.409-5.192l-6.19-5.238A11.91 11.91 0 0 1 24 36c-5.202 0-9.619-3.317-11.283-7.946l-6.522 5.025C9.505 39.556 16.227 44 24 44z"/><path fill="#1976D2" d="M43.611 20.083H42V20H24v8h11.303a12.04 12.04 0 0 1-4.087 5.571l.003-.002 6.19 5.238C36.971 39.205 44 34 44 24c0-1.341-.138-2.65-.389-3.917z"/></svg>
+    Entrar con Google
+  </button>
+  <div class="login-loading" id="login-loading">Verificando acceso…</div>
+  <div class="login-footer">Solo el titular de la cuenta puede acceder.<br>Tus datos se sincronizan de forma segura.</div>
+</div>
+
+<div id="app">
+  <nav class="nav">
+    <span class="nav-title">Lumen</span>
+    <span class="nav-sub">SEDUVOT</span>
+    <div class="nav-right">
+      <button class="btn btn-ghost btn-sm" onclick="exportData()">
+        <svg viewBox="0 0 20 20" fill="none" stroke="currentColor" stroke-width="1.6" style="width:13px;height:13px"><path d="M10 3v10M6 9l4 4 4-4M4 15h12"/></svg>
+        Exportar
+      </button>
+      <label class="btn btn-ghost btn-sm" style="cursor:pointer">
+        <svg viewBox="0 0 20 20" fill="none" stroke="currentColor" stroke-width="1.6" style="width:13px;height:13px"><path d="M10 17V7M6 11l4-4 4 4M4 5h12"/></svg>
+        Importar
+        <input type="file" accept=".json" style="display:none" onchange="importData(this)">
+      </label>
+      <button class="btn btn-ghost btn-sm" onclick="cerrarSesion()" title="Cerrar sesión">
+        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" style="width:13px;height:13px"><path d="M9 21H5a2 2 0 01-2-2V5a2 2 0 012-2h4M16 17l5-5-5-5M21 12H9"/></svg>
+      </button>
+    </div>
+  </nav>
+
+  <div class="screens">
+
+    <!-- BRIEFING -->
+    <div class="screen active" id="screen-briefing">
+      <div>
+        <div class="section-label">Categoría de reunión</div>
+        <div class="chips" id="cat-chips">
+          <div class="chip active" data-cat="vivienda">Vivienda / urbanismo</div>
+          <div class="chip" data-cat="presupuestal">Presupuestal / GpR / PbR</div>
+          <div class="chip" data-cat="coepla">COEPLA / dependencias</div>
+          <div class="chip" data-cat="federal">Instancias federales</div>
+          <div class="chip" data-cat="normativa">Normativa / jurídico</div>
+        </div>
+      </div>
+      <div>
+        <div class="section-label">Contexto de la reunión</div>
+        <textarea id="ctx-input" rows="3" placeholder="Describe brevemente el tema o motivo..."></textarea>
+      </div>
+      <div>
+        <div class="section-label">Documentos de referencia <span style="font-size:10px;color:var(--text3);text-transform:none;letter-spacing:0">(opcional)</span></div>
+        <div class="chips" id="doc-chips-area">
+          <span id="no-docs-hint" style="font-size:13px;color:var(--text3)">Agrega documentos en la pestaña Documentos.</span>
+        </div>
+      </div>
+      <button class="btn btn-primary btn-full" id="gen-btn" onclick="generateBriefing()">
+        <svg viewBox="0 0 20 20" fill="currentColor" style="width:14px;height:14px"><path d="M10 2l2.4 5.3L18 10l-5.6 2.7L10 18l-2.4-5.3L2 10l5.6-2.7z"/></svg>
+        Generar briefing
+      </button>
+      <div id="briefing-output"></div>
+    </div>
+
+    <!-- ANÁLISIS -->
+    <div class="screen" id="screen-analysis">
+      <div>
+        <div class="section-label">Observación a analizar</div>
+        <textarea id="analysis-input" rows="4" placeholder="Describe la práctica, criterio o metodología que quieres validar. Ej: 'La dependencia X aplica el criterio Y para determinar elegibilidad, ¿es correcto conforme a las ROP?'"></textarea>
+      </div>
+      <div>
+        <div class="section-label">Documentos a contrastar</div>
+        <div class="chips" id="analysis-doc-chips">
+          <span id="no-docs-analysis" style="font-size:13px;color:var(--text3)">Agrega documentos en la pestaña Documentos.</span>
+        </div>
+      </div>
+      <button class="btn btn-primary btn-full" id="analysis-btn" onclick="runAnalysis()">
+        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" style="width:14px;height:14px"><circle cx="11" cy="11" r="7"/><path d="M21 21l-4.35-4.35"/></svg>
+        Analizar con documentos
+      </button>
+      <div id="analysis-output"></div>
+      <div id="hist-wrap" style="display:none">
+        <div class="section-label">Análisis anteriores</div>
+        <div id="hist-list"></div>
+      </div>
+    </div>
+
+    <!-- DOCUMENTOS -->
+    <div class="screen" id="screen-docs">
+      <div style="display:flex;align-items:center;justify-content:space-between">
+        <div class="section-label" style="margin:0">Biblioteca</div>
+        <button class="btn btn-ghost btn-sm" onclick="openAddDoc()">+ Agregar</button>
+      </div>
+      <div class="chips" id="doc-filter-chips">
+        <div class="chip active" data-filter="all">Todos</div>
+        <div class="chip" data-filter="rop">ROP</div>
+        <div class="chip" data-filter="ley">Leyes</div>
+        <div class="chip" data-filter="diag">Diagnósticos</div>
+        <div class="chip" data-filter="art">Artículos</div>
+      </div>
+      <div>
+        <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:6px">
+          <div class="section-label" style="margin:0">Correcciones globales</div>
+          <button class="btn btn-ghost btn-xs" onclick="openAddCorrection()">+ Agregar</button>
+        </div>
+        <div style="font-size:12px;color:var(--text3);margin-bottom:8px;line-height:1.5">Se aplican en todos los briefings y análisis automáticamente.</div>
+        <div id="corrections-list"></div>
+      </div>
+      <div>
+        <div class="section-label">Documentos</div>
+        <div id="docs-list"></div>
+      </div>
+    </div>
+
+    <!-- GUARDADOS -->
+    <div class="screen" id="screen-saved">
+      <div style="display:flex;align-items:center;justify-content:space-between">
+        <div class="section-label" style="margin:0">Briefings guardados</div>
+        <button class="btn btn-ghost btn-sm" style="color:var(--text3)" onclick="clearAllSaved()">Limpiar todo</button>
+      </div>
+      <div id="saved-list"></div>
+    </div>
+
+  </div>
+
+  <div class="tabs">
+    <button class="tab active" data-screen="briefing" onclick="switchTab('briefing')">
+      <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8"><path d="M9 5H7a2 2 0 00-2 2v12a2 2 0 002 2h10a2 2 0 002-2V7a2 2 0 00-2-2h-2M9 5a2 2 0 002 2h2a2 2 0 002-2M9 5a2 2 0 012-2h2a2 2 0 012 2"/></svg>
+      <span class="tab-label">Briefing</span>
+    </button>
+    <button class="tab" data-screen="analysis" onclick="switchTab('analysis')">
+      <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8"><circle cx="11" cy="11" r="7"/><path d="M21 21l-4.35-4.35"/></svg>
+      <span class="tab-label">Análisis</span>
+    </button>
+    <button class="tab" data-screen="docs" onclick="switchTab('docs')">
+      <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8"><path d="M3 7v10a2 2 0 002 2h14a2 2 0 002-2V9a2 2 0 00-2-2h-6l-2-2H5a2 2 0 00-2 2z"/></svg>
+      <span class="tab-label">Documentos</span>
+    </button>
+    <button class="tab" data-screen="saved" onclick="switchTab('saved')">
+      <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8"><path d="M5 5a2 2 0 012-2h10a2 2 0 012 2v16l-7-3.5L5 21V5z"/></svg>
+      <span class="tab-label">Guardados</span>
+    </button>
+  </div>
+</div>
+
+<!-- Quick mode -->
+<div class="quick-overlay" id="quick-overlay">
+  <button class="quick-close" onclick="closeQuick()">×</button>
+  <div id="quick-content"></div>
+</div>
+
+<!-- Modal: Add doc -->
+<div class="modal-bg" id="add-doc-modal">
+  <div class="modal">
+    <div class="modal-handle"></div>
+    <div class="modal-title">Agregar documento</div>
+    <div style="margin-bottom:11px">
+      <div class="section-label">Tipo</div>
+      <select id="doc-type"><option value="rop">Reglas de operación</option><option value="ley">Ley o reglamento</option><option value="diag">Diagnóstico / documento interno</option><option value="art">Artículo o publicación</option></select>
+    </div>
+    <div style="margin-bottom:11px">
+      <div class="section-label">Nombre</div>
+      <input type="text" id="doc-name-input" placeholder="Ej: ROP Acceso a Vivienda Social 2024">
+    </div>
+    <div style="margin-bottom:11px">
+      <div class="section-label">Subir archivo (PDF o TXT)</div>
+      <div class="upload-area" onclick="document.getElementById('pdf-input').click()">
+        <div style="font-size:24px;margin-bottom:6px">📄</div>
+        <div style="font-size:14px;color:var(--text2)" id="upload-text">Toca para seleccionar</div>
+        <div style="font-size:12px;color:var(--text3);margin-top:3px">El texto se extrae automáticamente</div>
+      </div>
+      <input type="file" id="pdf-input" accept=".pdf,.txt" style="display:none" onchange="handleFileSelect(this)">
+    </div>
+    <div style="margin-bottom:14px">
+      <div class="section-label">O pega el texto</div>
+      <textarea id="doc-text-input" rows="5" placeholder="Pega aquí el contenido o fragmentos relevantes..."></textarea>
+    </div>
+    <div style="display:flex;gap:8px">
+      <button class="btn btn-ghost btn-full" onclick="closeAddDoc()">Cancelar</button>
+      <button class="btn btn-primary btn-full" onclick="saveDoc()">Guardar</button>
+    </div>
+  </div>
+</div>
+
+<!-- Modal: Doc detail -->
+<div class="modal-bg" id="doc-detail-modal">
+  <div class="modal">
+    <div class="modal-handle"></div>
+    <div class="modal-title" id="detail-title"></div>
+    <div id="detail-meta" style="margin-bottom:13px"></div>
+    <div class="section-label">Notas y correcciones</div>
+    <div id="notes-list" style="margin-bottom:9px"></div>
+    <textarea id="note-input" rows="3" placeholder="Agrega una nota, corrección o aclaración sobre este documento..." style="margin-bottom:8px"></textarea>
+    <button class="btn btn-primary btn-full" onclick="addNote()" style="margin-bottom:13px">Agregar nota</button>
+    <div style="display:flex;gap:8px">
+      <button class="btn btn-ghost btn-full" onclick="closeDocDetail()">Cerrar</button>
+      <button class="btn btn-danger btn-full" onclick="deleteDoc()">Eliminar doc</button>
+    </div>
+  </div>
+</div>
+
+<!-- Modal: Add correction -->
+<div class="modal-bg" id="add-correction-modal">
+  <div class="modal">
+    <div class="modal-handle"></div>
+    <div class="modal-title">Corrección global</div>
+    <p style="font-size:13px;color:var(--text2);margin-bottom:13px;line-height:1.5">Se aplicará en todos los briefings y análisis, sin importar qué documentos estén seleccionados.</p>
+    <div class="section-label">Corrección o aclaración</div>
+    <textarea id="correction-input" rows="4" placeholder="Ej: En Zacatecas, el monto máximo de subsídio es $X, no $Y como establece la versión federal..." style="margin-bottom:13px"></textarea>
+    <div style="display:flex;gap:8px">
+      <button class="btn btn-ghost btn-full" onclick="closeAddCorrection()">Cancelar</button>
+      <button class="btn btn-primary btn-full" onclick="saveCorrection()">Guardar</button>
+    </div>
+  </div>
+</div>
+
+<!-- Modal: Saved detail -->
+<div class="modal-bg" id="saved-detail-modal">
+  <div class="modal" id="saved-detail-content"></div>
+</div>
+
+<div class="toast" id="toast"></div>
+
+<script>
+const CAT_LABELS={vivienda:'Vivienda / urbanismo',presupuestal:'Presupuestal / GpR / PbR',coepla:'COEPLA / dependencias estatales',federal:'Instancias federales',normativa:'Normativa / jurídico'};
+const DOC_TYPE_LABELS={rop:'ROP',ley:'Ley',diag:'Diagnóstico',art:'Artículo'};
+const DOC_COLORS={rop:'teal',ley:'blue',diag:'amber',art:'coral'};
+const DOC_ICONS={rop:'📋',ley:'⚖️',diag:'📊',art:'📰'};
+const TAG_COLORS=['tag-blue','tag-teal','tag-amber','tag-coral','tag-blue'];
+const VMAP={correcto:{cls:'v-correct',icon:'✓',label:'Correcto',color:'var(--success)'},incorrecto:{cls:'v-incorrect',icon:'✗',label:'Incorrecto',color:'var(--danger)'},inconcluso:{cls:'v-inconcluso',icon:'?',label:'Evidencia insuficiente',color:'var(--amber)'}};
+
+let S={docs:[],saved:[],corrections:[],analysisHistory:[],currentCat:'vivienda',selDocIds:[],analysisDocIds:[],currentDocId:null,currentBriefing:null};
+
+function persist(){try{localStorage.setItem('bpp3',JSON.stringify(S));}catch(e){}}
+function hydrate(){try{const s=localStorage.getItem('bpp3');if(s)S={...S,...JSON.parse(s)};}catch(e){}}
+
+function exportData(){
+  const blob=new Blob([JSON.stringify(S,null,2)],{type:'application/json'});
+  const a=document.createElement('a');a.href=URL.createObjectURL(blob);
+  a.download='lumen-'+new Date().toISOString().slice(0,10)+'.json';a.click();
+  showToast('Datos exportados');
+}
+function importData(input){
+  const file=input.files[0];if(!file)return;
+  const reader=new FileReader();
+  reader.onload=e=>{
+    try{
+      const imp=JSON.parse(e.target.result);
+      if(!imp.docs&&!imp.saved){showToast('Archivo no válido');return;}
+      if(!confirm('¿Importar datos? Reemplazará la información actual.'))return;
+      S={...S,...imp};persist();renderAll();showToast('Datos importados');
+    }catch(err){showToast('Error al leer el archivo');}
+  };
+  reader.readAsText(file);input.value='';
+}
+
+hydrate();
+
+function renderAll(){renderDocChips();renderAnalysisDocChips();renderDocsList();renderCorrectionsList();renderSavedList();renderHistList();}
+renderAll();
+
+function switchTab(name){
+  document.querySelectorAll('.screen').forEach(s=>s.classList.remove('active'));
+  document.querySelectorAll('.tab').forEach(t=>t.classList.toggle('active',t.dataset.screen===name));
+  document.getElementById('screen-'+name).classList.add('active');
+}
+
+document.querySelectorAll('#cat-chips .chip').forEach(c=>{
+  c.addEventListener('click',()=>{
+    document.querySelectorAll('#cat-chips .chip').forEach(x=>x.classList.remove('active'));
+    c.classList.add('active');S.currentCat=c.dataset.cat;
+  });
+});
+document.querySelectorAll('#doc-filter-chips .chip').forEach(c=>{
+  c.addEventListener('click',()=>{
+    document.querySelectorAll('#doc-filter-chips .chip').forEach(x=>x.classList.remove('active'));
+    c.classList.add('active');renderDocsList(c.dataset.filter);
+  });
+});
+
+function buildDocChips(areaId,hintId,selArr){
+  const area=document.getElementById(areaId);
+  const hint=document.getElementById(hintId);
+  area.querySelectorAll('.chip').forEach(c=>c.remove());
+  if(!S.docs||!S.docs.length){hint.style.display='block';return;}
+  hint.style.display='none';
+  S.docs.forEach(doc=>{
+    const ch=document.createElement('div');
+    ch.className='chip'+(selArr.includes(doc.id)?' active':'');
+    ch.textContent=doc.name.length>26?doc.name.slice(0,26)+'…':doc.name;
+    ch.onclick=()=>{
+      const idx=selArr.indexOf(doc.id);
+      if(idx>-1){selArr.splice(idx,1);ch.classList.remove('active');}
+      else{selArr.push(doc.id);ch.classList.add('active');}
+    };
+    area.appendChild(ch);
+  });
+}
+function renderDocChips(){buildDocChips('doc-chips-area','no-docs-hint',S.selDocIds);}
+function renderAnalysisDocChips(){buildDocChips('analysis-doc-chips','no-docs-analysis',S.analysisDocIds);}
+
+function buildContext(selArr){
+  const docs=(S.docs||[]).filter(d=>selArr.includes(d.id));
+  const docCtx=docs.map(d=>`[DOC: ${d.name} (${DOC_TYPE_LABELS[d.type]})]:\n${(d.text||'').slice(0,3500)}`).join('\n\n---\n\n');
+  const notesCtx=docs.flatMap(d=>(d.notes||[]).map(n=>`Nota sobre "${d.name}": ${n.text}`)).join('\n');
+  const corrCtx=(S.corrections||[]).map(c=>`CORRECCIÓN GLOBAL (prioridad absoluta): ${c.text}`).join('\n');
+  return {docs,docCtx,notesCtx,corrCtx};
+}
+
+async function callAI(prompt){
+  const r=await fetch('https://api.anthropic.com/v1/messages',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({model:'claude-sonnet-4-20250514',max_tokens:1000,messages:[{role:'user',content:prompt}]})});
+  const d=await r.json();
+  const raw=d.content?.map(i=>i.text||'').join('').replace(/```json|```/g,'').trim();
+  return JSON.parse(raw);
+}
+
+async function generateBriefing(){
+  const ctx=document.getElementById('ctx-input').value.trim();
+  const btn=document.getElementById('gen-btn');
+  const out=document.getElementById('briefing-output');
+  btn.disabled=true;btn.innerHTML='<div class="dots"><span></span><span></span><span></span></div> Generando…';out.innerHTML='';
+  const catLabel=CAT_LABELS[S.currentCat];
+  const {docs,docCtx,notesCtx,corrCtx}=buildContext(S.selDocIds);
+  const prompt=`Eres asesor experto en políticas públicas de México: vivienda, desarrollo urbano, PbR/GpR, normativa. Usuario en SEDUVOT Zacatecas, Unidad de Planeación y Evaluación.
+${docCtx?`DOCUMENTOS (fuente primaria):\n${docCtx}\n\n`:''}${notesCtx?`NOTAS/CORRECCIONES:\n${notesCtx}\n\n`:''}${corrCtx?`${corrCtx}\n\n`:''}
+Genera briefing ejecutivo. Categoría: "${catLabel}".${ctx?` Contexto: "${ctx}"`:''}
+Responde SOLO JSON válido sin backticks:
+{"titulo":"Título máx 12 palabras","desde_docs":${!!docCtx},"conceptos":["c1","c2","c3","c4","c5"],"normativa":["n1","n2","n3"],"puntos":["p1","p2","p3","p4"],"precauciones":["advertencia clave"]}`;
+  try{
+    const p=await callAI(prompt);
+    S.currentBriefing={...p,cat:catLabel,ctx,date:new Date().toLocaleDateString('es-MX'),docNames:docs.map(d=>d.name),id:Date.now()};
+    renderBriefing(p,docs);
+  }catch(e){out.innerHTML='<div style="padding:20px;text-align:center;color:var(--text3);font-size:13px">Error al generar. Verifica tu conexión e intenta de nuevo.</div>';}
+  btn.disabled=false;btn.innerHTML='<svg viewBox="0 0 20 20" fill="currentColor" style="width:14px;height:14px"><path d="M10 2l2.4 5.3L18 10l-5.6 2.7L10 18l-2.4-5.3L2 10l5.6-2.7z"/></svg> Generar briefing';
+}
+
+function renderBriefing(data,srcDocs){
+  const out=document.getElementById('briefing-output');
+  const tags=(data.conceptos||[]).map((c,i)=>`<span class="tag ${TAG_COLORS[i]}">${c}</span>`).join('');
+  const norms=(data.normativa||[]).map(n=>`<div class="norm-item">${n}</div>`).join('');
+  const puntos=(data.puntos||[]).map(p=>`<div class="punto">${p}</div>`).join('');
+  const prec=(data.precauciones||[]).map(p=>`<div class="punto" style="color:var(--amber)">${p}</div>`).join('');
+  const srcRow=data.desde_docs&&srcDocs.length?`<div style="padding:8px 14px;border-bottom:1px solid var(--border);display:flex;flex-wrap:wrap;gap:5px;align-items:center"><span style="font-size:11px;color:var(--text3);margin-right:2px">Fuentes:</span>${srcDocs.map(d=>`<span class="src-badge">${d.name.length>22?d.name.slice(0,22)+'…':d.name}</span>`).join('')}</div>`:'';
+  out.innerHTML=`<div class="briefing-wrap">
+    <div class="b-header"><div class="b-title">${data.titulo}</div><div class="b-meta">${CAT_LABELS[S.currentCat]||''} · ${new Date().toLocaleDateString('es-MX')}</div></div>
+    ${srcRow}
+    <div class="b-sec"><div class="b-sec-title">Conceptos clave</div><div style="display:flex;flex-wrap:wrap;gap:6px">${tags}</div></div>
+    <div class="b-sec"><div class="b-sec-title">Marco normativo</div>${norms}</div>
+    <div class="b-sec"><div class="b-sec-title">Puntos de discusión</div>${puntos}</div>
+    ${prec?`<div class="b-sec"><div class="b-sec-title" style="color:var(--amber)">Puntos de atención</div>${prec}</div>`:''}
+    <div class="b-actions">
+      <button class="btn btn-ghost btn-sm" onclick="saveBriefing()">Guardar</button>
+      <button class="btn btn-ghost btn-sm" onclick="openQuickMode()">Vista rápida</button>
+      <button class="btn btn-ghost btn-sm" onclick="shareText()">Compartir</button>
+    </div>
+  </div>`;
+}
+
+function openQuickMode(){
+  const b=S.currentBriefing;if(!b)return;
+  const tags=(b.conceptos||[]).map((c,i)=>`<span class="tag ${TAG_COLORS[i]}" style="font-size:14px;padding:6px 13px">${c}</span>`).join('');
+  const puntos=(b.puntos||[]).map(p=>`<div class="quick-punto">${p}</div>`).join('');
+  const prec=(b.precauciones||[]).map(p=>`<div class="quick-punto" style="color:var(--amber)">${p}</div>`).join('');
+  document.getElementById('quick-content').innerHTML=`
+    <div class="quick-cat">${b.cat}</div>
+    <div class="quick-title">${b.titulo}</div>
+    <div class="quick-block"><div class="quick-block-lbl">Conceptos</div><div style="display:flex;flex-wrap:wrap;gap:7px">${tags}</div></div>
+    <div class="quick-block"><div class="quick-block-lbl">Puntos de discusión</div>${puntos}</div>
+    ${prec?`<div class="quick-block"><div class="quick-block-lbl" style="color:var(--amber)">Atención</div>${prec}</div>`:''}`;
+  document.getElementById('quick-overlay').classList.add('open');
+}
+function closeQuick(){document.getElementById('quick-overlay').classList.remove('open');}
+
+function saveBriefing(){
+  if(!S.currentBriefing)return;
+  if(!S.saved)S.saved=[];
+  S.saved.unshift(S.currentBriefing);persist();renderSavedList();showToast('Briefing guardado');
+}
+function shareText(){
+  if(!S.currentBriefing)return;
+  const b=S.currentBriefing;
+  const text=`📋 ${b.titulo}\n\n🏷 Conceptos: ${(b.conceptos||[]).join(', ')}\n\n📜 Normativa:\n${(b.normativa||[]).map(n=>'• '+n).join('\n')}\n\n→ Puntos:\n${(b.puntos||[]).map(p=>'• '+p).join('\n')}`;
+  if(navigator.share)navigator.share({text});
+  else{navigator.clipboard?.writeText(text);showToast('Texto copiado');}
+}
+
+function renderSavedList(){
+  const list=document.getElementById('saved-list');
+  if(!S.saved||!S.saved.length){list.innerHTML='<div class="empty"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5"><path d="M5 5a2 2 0 012-2h10a2 2 0 012 2v16l-7-3.5L5 21V5z"/></svg>No tienes briefings guardados aún</div>';return;}
+  list.innerHTML=S.saved.map((b,i)=>`<div class="saved-item" onclick="openSavedDetail(${i})">
+    <div class="saved-dot"></div>
+    <div style="flex:1;min-width:0"><div class="saved-title">${b.titulo}</div><div class="saved-meta">${b.cat} · ${b.date}${b.docNames?.length?' · '+b.docNames.length+' doc(s)':''}</div></div>
+    <svg viewBox="0 0 20 20" fill="none" stroke="currentColor" stroke-width="1.5" style="width:13px;height:13px;flex-shrink:0;color:var(--text3)"><path d="M7 5l5 5-5 5"/></svg>
+  </div>`).join('');
+}
+function openSavedDetail(i){
+  const b=S.saved[i];
+  const c=document.getElementById('saved-detail-content');
+  const tags=(b.conceptos||[]).map((x,j)=>`<span class="tag ${TAG_COLORS[j]}">${x}</span>`).join('');
+  const norms=(b.normativa||[]).map(n=>`<div class="norm-item">${n}</div>`).join('');
+  const puntos=(b.puntos||[]).map(p=>`<div class="punto">${p}</div>`).join('');
+  c.innerHTML=`<div class="modal-handle"></div>
+    <div class="modal-title">${b.titulo}</div>
+    <div style="font-size:12px;color:var(--text3);margin-bottom:13px">${b.cat} · ${b.date}</div>
+    <div style="margin-bottom:12px"><div class="b-sec-title" style="font-size:10px;font-weight:500;color:var(--text3);text-transform:uppercase;letter-spacing:.08em;margin-bottom:7px">Conceptos</div><div style="display:flex;flex-wrap:wrap;gap:6px">${tags}</div></div>
+    <div style="margin-bottom:12px"><div class="b-sec-title" style="font-size:10px;font-weight:500;color:var(--text3);text-transform:uppercase;letter-spacing:.08em;margin-bottom:7px">Normativa</div>${norms}</div>
+    <div style="margin-bottom:14px"><div class="b-sec-title" style="font-size:10px;font-weight:500;color:var(--text3);text-transform:uppercase;letter-spacing:.08em;margin-bottom:7px">Puntos</div>${puntos}</div>
+    <div style="display:flex;gap:8px">
+      <button class="btn btn-ghost btn-full" onclick="closeSavedDetail()">Cerrar</button>
+      <button class="btn btn-danger btn-full" onclick="deleteSaved(${i})">Eliminar</button>
+    </div>`;
+  document.getElementById('saved-detail-modal').classList.add('open');
+}
+function closeSavedDetail(){document.getElementById('saved-detail-modal').classList.remove('open');}
+function deleteSaved(i){S.saved.splice(i,1);persist();closeSavedDetail();renderSavedList();showToast('Eliminado');}
+function clearAllSaved(){if(confirm('¿Eliminar todos los briefings guardados?')){S.saved=[];persist();renderSavedList();}}
+
+async function runAnalysis(){
+  const query=document.getElementById('analysis-input').value.trim();
+  if(!query){showToast('Escribe qué quieres analizar');return;}
+  const btn=document.getElementById('analysis-btn');
+  const out=document.getElementById('analysis-output');
+  btn.disabled=true;btn.innerHTML='<div class="dots"><span></span><span></span><span></span></div> Analizando…';out.innerHTML='';
+  const {docs,docCtx,notesCtx,corrCtx}=buildContext(S.analysisDocIds);
+  const prompt=`Eres asesor experto en políticas públicas de México. Usuario en SEDUVOT Zacatecas. Analiza si la práctica descrita es correcta, incorrecta, o si no hay evidencia suficiente.
+${docCtx?`DOCUMENTOS:\n${docCtx}\n\n`:''}${notesCtx?`NOTAS:\n${notesCtx}\n\n`:''}${corrCtx?`${corrCtx}\n\n`:''}
+OBSERVACIÓN: "${query}"
+Responde SOLO JSON válido sin backticks:
+{"veredicto":"correcto"|"incorrecto"|"inconcluso","resumen":"Una oración con tu conclusión","explicacion":"3-5 oraciones con detalle. Cita artículos si hay documentos.","referencia":"Artículo o sección específica, o vacío si no aplica","recomendacion":"Una acción concreta recomendada"}`;
+  try{
+    const p=await callAI(prompt);
+    renderAnalysisResult(p);
+    if(!S.analysisHistory)S.analysisHistory=[];
+    S.analysisHistory.unshift({query,...p,date:new Date().toLocaleDateString('es-MX'),docNames:docs.map(d=>d.name)});
+    if(S.analysisHistory.length>30)S.analysisHistory=S.analysisHistory.slice(0,30);
+    persist();renderHistList();
+  }catch(e){out.innerHTML='<div style="padding:20px;text-align:center;color:var(--text3);font-size:13px">Error al analizar. Verifica tu conexión e intenta de nuevo.</div>';}
+  btn.disabled=false;btn.innerHTML='<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" style="width:14px;height:14px"><circle cx="11" cy="11" r="7"/><path d="M21 21l-4.35-4.35"/></svg> Analizar con documentos';
+}
+function renderAnalysisResult(data){
+  const out=document.getElementById('analysis-output');
+  const v=VMAP[data.veredicto]||VMAP.inconcluso;
+  out.innerHTML=`<div class="analysis-result">
+    <div class="a-verdict">
+      <div class="v-icon ${v.cls}">${v.icon}</div>
+      <div><div class="v-label" style="color:${v.color}">${v.label}</div><div style="font-size:13px;color:var(--text2);margin-top:2px;line-height:1.4">${data.resumen}</div></div>
+    </div>
+    <div class="a-body">
+      <div class="a-text">${data.explicacion}</div>
+      ${data.referencia?`<div class="a-ref">📄 ${data.referencia}</div>`:''}
+      ${data.recomendacion?`<div class="a-rec"><span style="font-size:10px;font-weight:500;color:var(--text3);text-transform:uppercase;letter-spacing:.08em;display:block;margin-bottom:4px">Recomendación</span>${data.recomendacion}</div>`:''}
+    </div>
+  </div>`;
+}
+function renderHistList(){
+  const wrap=document.getElementById('hist-wrap');
+  const list=document.getElementById('hist-list');
+  if(!S.analysisHistory||!S.analysisHistory.length){wrap.style.display='none';return;}
+  wrap.style.display='block';
+  list.innerHTML=S.analysisHistory.map((a,i)=>`<div class="hist-item" onclick="loadHistory(${i})">
+    <div class="hist-q">${a.query.length>90?a.query.slice(0,90)+'…':a.query}</div>
+    <div style="display:flex;justify-content:space-between">
+      <span style="font-size:11px;font-weight:500;color:${(VMAP[a.veredicto]||VMAP.inconcluso).color}">${(VMAP[a.veredicto]||VMAP.inconcluso).label}</span>
+      <span style="font-size:11px;color:var(--text3)">${a.date}</span>
+    </div>
+  </div>`).join('');
+}
+function loadHistory(i){
+  const a=S.analysisHistory[i];
+  document.getElementById('analysis-input').value=a.query;
+  renderAnalysisResult(a);
+  document.getElementById('analysis-output').scrollIntoView({behavior:'smooth'});
+}
+
+function renderDocsList(filter='all'){
+  const list=document.getElementById('docs-list');
+  const docs=(S.docs||[]).filter(d=>filter==='all'||d.type===filter);
+  if(!docs.length){list.innerHTML='<div class="empty"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5"><path d="M3 7v10a2 2 0 002 2h14a2 2 0 002-2V9a2 2 0 00-2-2h-6l-2-2H5a2 2 0 00-2 2z"/></svg>'+(filter==='all'?'Agrega tu primer documento con el botón +':'No hay documentos de este tipo')+'</div>';return;}
+  list.innerHTML=docs.map(doc=>`<div class="doc-item" onclick="openDocDetail('${doc.id}')">
+    <div class="doc-icon di-${doc.type}">${DOC_ICONS[doc.type]}</div>
+    <div style="flex:1;min-width:0">
+      <div class="doc-name">${doc.name}</div>
+      <div class="doc-meta">${DOC_TYPE_LABELS[doc.type]} · ${doc.date}${doc.notes?.length?' · '+doc.notes.length+' nota(s)':''}</div>
+      <div class="doc-meta">${doc.chars?doc.chars.toLocaleString()+' caracteres':''}</div>
+    </div>
+    <svg viewBox="0 0 20 20" fill="none" stroke="currentColor" stroke-width="1.5" style="width:13px;height:13px;flex-shrink:0;color:var(--text3)"><path d="M7 5l5 5-5 5"/></svg>
+  </div>`).join('');
+}
+
+function openAddDoc(){document.getElementById('add-doc-modal').classList.add('open');}
+function closeAddDoc(){
+  document.getElementById('add-doc-modal').classList.remove('open');
+  document.getElementById('pdf-input').value='';document.getElementById('upload-text').textContent='Toca para seleccionar';
+  document.getElementById('doc-name-input').value='';document.getElementById('doc-text-input').value='';pdfBuf='';
+}
+let pdfBuf='';
+function handleFileSelect(input){
+  const file=input.files[0];if(!file)return;
+  document.getElementById('upload-text').textContent=file.name;
+  if(!document.getElementById('doc-name-input').value)document.getElementById('doc-name-input').value=file.name.replace(/\.pdf$/i,'');
+  const reader=new FileReader();
+  reader.onload=e=>{
+    if(file.type==='text/plain'){pdfBuf=e.target.result;}
+    else{
+      const txt=e.target.result.replace(/[^\x20-\x7E\xA0-\xFF\n]/g,' ').replace(/ {3,}/g,' ').trim();
+      pdfBuf=txt.length>200?txt:'';
+      showToast(pdfBuf?'PDF cargado — '+Math.round(pdfBuf.length/1000)+'k caracteres':'PDF cargado (pega el texto manualmente si no se extrajo)');
+    }
+  };
+  file.type==='text/plain'?reader.readAsText(file):reader.readAsBinaryString(file);
+}
+function saveDoc(){
+  const name=document.getElementById('doc-name-input').value.trim();
+  const type=document.getElementById('doc-type').value;
+  const manual=document.getElementById('doc-text-input').value.trim();
+  const text=manual||pdfBuf||'';
+  if(!name){showToast('Escribe el nombre');return;}
+  if(!text){showToast('Agrega texto o sube un archivo');return;}
+  if(!S.docs)S.docs=[];
+  S.docs.unshift({id:'doc_'+Date.now(),name,type,text,chars:text.length,date:new Date().toLocaleDateString('es-MX'),notes:[]});
+  pdfBuf='';persist();closeAddDoc();renderDocsList();renderDocChips();renderAnalysisDocChips();showToast('Documento guardado');
+}
+
+function openDocDetail(id){
+  S.currentDocId=id;
+  const doc=S.docs.find(d=>d.id===id);if(!doc)return;
+  document.getElementById('detail-title').textContent=doc.name;
+  document.getElementById('detail-meta').innerHTML=`<span class="tag tag-${DOC_COLORS[doc.type]}">${DOC_TYPE_LABELS[doc.type]}</span><span style="font-size:12px;color:var(--text3);margin-left:8px">${(doc.chars||0).toLocaleString()} caracteres · ${doc.date}</span>`;
+  renderNotesList(doc);
+  document.getElementById('doc-detail-modal').classList.add('open');
+}
+function closeDocDetail(){document.getElementById('doc-detail-modal').classList.remove('open');}
+function renderNotesList(doc){
+  const list=document.getElementById('notes-list');
+  if(!doc.notes||!doc.notes.length){list.innerHTML='<div style="font-size:13px;color:var(--text3);padding-bottom:4px">Sin notas aún.</div>';return;}
+  list.innerHTML=doc.notes.map((n,i)=>`<div class="note-item">
+    <div style="display:flex;justify-content:space-between;align-items:flex-start">
+      <div class="note-text">${n.text}</div>
+      <span onclick="deleteNote('${doc.id}',${i})" style="font-size:18px;color:var(--text3);cursor:pointer;padding-left:8px;flex-shrink:0;line-height:1">×</span>
+    </div>
+    <div class="note-meta">${n.date}</div>
+  </div>`).join('');
+}
+function addNote(){
+  const text=document.getElementById('note-input').value.trim();if(!text)return;
+  const doc=S.docs.find(d=>d.id===S.currentDocId);if(!doc)return;
+  if(!doc.notes)doc.notes=[];
+  doc.notes.push({text,date:new Date().toLocaleDateString('es-MX')});
+  document.getElementById('note-input').value='';
+  persist();renderNotesList(doc);renderDocsList();showToast('Nota guardada');
+}
+function deleteNote(docId,idx){
+  const doc=S.docs.find(d=>d.id===docId);if(!doc)return;
+  doc.notes.splice(idx,1);persist();renderNotesList(doc);
+}
+function deleteDoc(){
+  if(!confirm('¿Eliminar este documento?'))return;
+  S.docs=S.docs.filter(d=>d.id!==S.currentDocId);
+  S.selDocIds=S.selDocIds.filter(x=>x!==S.currentDocId);
+  S.analysisDocIds=S.analysisDocIds.filter(x=>x!==S.currentDocId);
+  persist();closeDocDetail();renderDocsList();renderDocChips();renderAnalysisDocChips();showToast('Documento eliminado');
+}
+
+function renderCorrectionsList(){
+  const list=document.getElementById('corrections-list');
+  if(!S.corrections||!S.corrections.length){list.innerHTML='<div style="font-size:13px;color:var(--text3);padding:3px 0">Sin correcciones globales.</div>';return;}
+  list.innerHTML=S.corrections.map((c,i)=>`<div class="corr-item">
+    <div class="corr-dot"></div>
+    <div style="flex:1;font-size:13px;color:var(--text2);line-height:1.5">${c.text}</div>
+    <span onclick="deleteCorrection(${i})" style="font-size:18px;color:var(--text3);cursor:pointer;padding-left:6px;flex-shrink:0;line-height:1">×</span>
+  </div>`).join('');
+}
+function openAddCorrection(){document.getElementById('add-correction-modal').classList.add('open');}
+function closeAddCorrection(){document.getElementById('add-correction-modal').classList.remove('open');document.getElementById('correction-input').value='';}
+function saveCorrection(){
+  const text=document.getElementById('correction-input').value.trim();if(!text)return;
+  if(!S.corrections)S.corrections=[];
+  S.corrections.push({text,date:new Date().toLocaleDateString('es-MX')});
+  persist();closeAddCorrection();renderCorrectionsList();showToast('Corrección guardada');
+}
+function deleteCorrection(i){S.corrections.splice(i,1);persist();renderCorrectionsList();showToast('Eliminada');}
+
+function showToast(msg){
+  const t=document.getElementById('toast');t.textContent=msg;t.classList.add('show');
+  setTimeout(()=>t.classList.remove('show'),2200);
+}
+document.querySelectorAll('.modal-bg').forEach(bg=>{bg.addEventListener('click',e=>{if(e.target===bg)bg.classList.remove('open');});});
+if('serviceWorker' in navigator)navigator.serviceWorker.register('./sw.js').catch(()=>{});
+</script>
+
+<!-- Firebase con autenticación Google -->
+<script type="module">
+  import { initializeApp } from "https://www.gstatic.com/firebasejs/12.11.0/firebase-app.js";
+  import { getAuth, GoogleAuthProvider, signInWithPopup, signOut, onAuthStateChanged } from "https://www.gstatic.com/firebasejs/12.11.0/firebase-auth.js";
+
+  const firebaseConfig = {
+    apiKey: "AIzaSyAMQAqZFTya_IRLNaw4nO8rCR6S6HKLcKU",
+    authDomain: "lumen-app-ff839.firebaseapp.com",
+    projectId: "lumen-app-ff839",
+    storageBucket: "lumen-app-ff839.firebasestorage.app",
+    messagingSenderId: "71807741500",
+    appId: "1:71807741500:web:d6b83565b5c62422625d39"
+  };
+
+  const app = initializeApp(firebaseConfig);
+  const auth = getAuth(app);
+  const provider = new GoogleAuthProvider();
+
+  // Detectar si ya hay sesión activa
+  onAuthStateChanged(auth, (user) => {
+    const loginScreen = document.getElementById('login-screen');
+    const loginLoading = document.getElementById('login-loading');
+    if (user) {
+      // Usuario autenticado — ocultar pantalla de login
+      loginScreen.classList.add('hidden');
+      loginLoading.style.display = 'none';
+      console.log('Sesión activa:', user.displayName);
+    } else {
+      // Sin sesión — mostrar pantalla de login
+      loginScreen.classList.remove('hidden');
+      loginLoading.style.display = 'none';
+    }
+  });
+
+  // Función global para iniciar sesión
+  window.loginConGoogle = async function() {
+    const loginLoading = document.getElementById('login-loading');
+    loginLoading.style.display = 'block';
+    try {
+      await signInWithPopup(auth, provider);
+    } catch (error) {
+      loginLoading.style.display = 'none';
+      console.error('Error al iniciar sesión:', error.message);
+      alert('No se pudo iniciar sesión. Intenta de nuevo.');
+    }
+  };
+
+  // Función global para cerrar sesión
+  window.cerrarSesion = async function() {
+    if (!confirm('¿Cerrar sesión?')) return;
+    await signOut(auth);
+  };
+</script>
+</body>
+</html>

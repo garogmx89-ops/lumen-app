@@ -915,3 +915,32 @@ body.light .theme-toggle-knob {
   font-size: 0.8rem;
   color: var(--texto-secundario);
 }
+
+/* ── Módulo Agenda/Alertas ────────────────────────── */
+.alerta-card-titulo {
+  display: flex;
+  align-items: center;
+  gap: 0.4rem;
+  flex-wrap: wrap;
+}
+
+.alerta-vencida {
+  display: inline-block;
+  margin-top: 0.3rem;
+  font-size: 0.82rem;
+  font-weight: 600;
+  color: #9B2226;
+}
+
+.alerta-proxima {
+  display: inline-block;
+  margin-top: 0.3rem;
+  font-size: 0.82rem;
+  font-weight: 600;
+  color: #E9C46A;
+}
+
+.alerta-card--vencida {
+  border-left-color: #9B2226;
+  opacity: 0.85;
+}

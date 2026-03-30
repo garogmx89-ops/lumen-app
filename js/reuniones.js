@@ -1,11 +1,13 @@
 // js/reuniones.js
-// Módulo Reuniones — guarda y muestra reuniones en Firestore
+// Módulo Reuniones — guarda, muestra y elimina reuniones en Firestore
 
 import { auth, db } from "./firebase-config.js";
 import { onAuthStateChanged } from "https://www.gstatic.com/firebasejs/10.12.0/firebase-auth.js";
 import {
   collection,
   addDoc,
+  deleteDoc,
+  doc,
   onSnapshot,
   orderBy,
   query,
@@ -14,10 +16,9 @@ import {
 
 // Esperamos a que Firebase confirme quién es el usuario
 onAuthStateChanged(auth, (user) => {
-  if (!user) return; // Si no hay sesión, no hacemos nada
+  if (!user) return;
 
-  // Referencia a la colección de reuniones de este usuario en Firestore
-  // Ruta: usuarios → {uid} → reuniones
+  // Ruta en Firestore: usuarios → {uid} → reuniones
   const reunionesRef = collection(db, "usuarios", user.uid, "reuniones");
 
   // --- GUARDAR REUNIÓN ---
@@ -29,23 +30,20 @@ onAuthStateChanged(auth, (user) => {
       const participantes = document.getElementById("reunion-participantes").value.trim();
       const acuerdos = document.getElementById("reunion-acuerdos").value.trim();
 
-      // Validación mínima: el título es obligatorio
       if (!titulo) {
         alert("El título de la reunión es obligatorio.");
         return;
       }
 
       try {
-        // addDoc guarda un documento nuevo en Firestore con un ID automático
         await addDoc(reunionesRef, {
           titulo,
           fecha,
           participantes,
           acuerdos,
-          creadoEn: serverTimestamp() // Firestore pone la fecha exacta del servidor
+          creadoEn: serverTimestamp()
         });
 
-        // Limpiar el formulario después de guardar
         document.getElementById("reunion-titulo").value = "";
         document.getElementById("reunion-fecha").value = "";
         document.getElementById("reunion-participantes").value = "";
@@ -58,9 +56,7 @@ onAuthStateChanged(auth, (user) => {
     });
   }
 
-  // --- LEER Y MOSTRAR REUNIONES EN TIEMPO REAL ---
-  // onSnapshot escucha cambios en Firestore y actualiza la lista automáticamente
-  // orderBy ordena las reuniones de más reciente a más antigua
+  // --- LEER, MOSTRAR Y ELIMINAR REUNIONES ---
   const q = query(reunionesRef, orderBy("creadoEn", "desc"));
 
   onSnapshot(q, (snapshot) => {
@@ -72,12 +68,17 @@ onAuthStateChanged(auth, (user) => {
       return;
     }
 
-    // Construimos el HTML de cada tarjeta de reunión
-    contenedor.innerHTML = snapshot.docs.map((doc) => {
-      const d = doc.data();
+    // Construimos cada tarjeta incluyendo el ID del documento
+    contenedor.innerHTML = snapshot.docs.map((documento) => {
+      const d = documento.data();
+      const id = documento.id; // ID único que Firebase asignó a esta reunión
+
       return `
         <div class="reunion-card">
-          <div class="reunion-card-titulo">${d.titulo}</div>
+          <div class="reunion-card-header">
+            <div class="reunion-card-titulo">${d.titulo}</div>
+            <button class="btn-eliminar" data-id="${id}" title="Eliminar reunión">🗑️</button>
+          </div>
           <div class="reunion-card-meta">
             ${d.fecha ? `📅 ${formatearFecha(d.fecha)}` : ""}
             ${d.participantes ? `· 👥 ${d.participantes}` : ""}
@@ -86,6 +87,24 @@ onAuthStateChanged(auth, (user) => {
         </div>
       `;
     }).join("");
+
+    // Asignamos el evento de eliminar a cada botón de basura
+    // Esto se hace DESPUÉS de insertar el HTML, porque los botones no existían antes
+    contenedor.querySelectorAll(".btn-eliminar").forEach((btn) => {
+      btn.addEventListener("click", async () => {
+        const id = btn.dataset.id; // Leemos el ID que guardamos en data-id
+        const confirmar = confirm("¿Eliminar esta reunión? Esta acción no se puede deshacer.");
+        if (!confirmar) return;
+
+        try {
+          // doc() construye la referencia exacta al documento que queremos borrar
+          await deleteDoc(doc(db, "usuarios", user.uid, "reuniones", id));
+        } catch (error) {
+          console.error("Error al eliminar reunión:", error);
+          alert("No se pudo eliminar. Revisa la consola.");
+        }
+      });
+    });
   });
 });
 

@@ -953,3 +953,29 @@ body.light .theme-toggle-knob {
   align-items: flex-start;
   margin-top: 0.4rem;
 }
+
+/* ── Módulo Contexto ──────────────────────────────── */
+.contexto-montos {
+  display: flex;
+  gap: 1.5rem;
+  margin: 0.5rem 0;
+}
+
+.contexto-monto {
+  display: flex;
+  flex-direction: column;
+  gap: 0.1rem;
+}
+
+.contexto-monto-label {
+  font-size: 0.75rem;
+  color: var(--texto-secundario);
+  text-transform: uppercase;
+  letter-spacing: 0.05em;
+}
+
+.contexto-monto-valor {
+  font-size: 1rem;
+  font-weight: 700;
+  color: var(--acento);
+}

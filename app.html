@@ -709,13 +709,60 @@
 
         </div>
 
-        <!-- CONTEXTO -->
+<!-- CONTEXTO -->
         <div class="panel" id="panel-contexto">
-          <div class="coming-soon">
-            <div class="coming-soon-icon">🌐</div>
-            <div class="coming-soon-title">Contexto</div>
-            <div class="coming-soon-text">Módulo en construcción — Fase 2</div>
+
+          <div class="reunion-form-card">
+            <h2 class="panel-title">Nuevo Contexto</h2>
+
+            <div class="form-row">
+              <div class="form-group">
+                <label for="contexto-nombre">Fondo o programa presupuestal</label>
+                <input type="text" id="contexto-nombre" placeholder="Ej. FISE, Construyendo Bienestar">
+              </div>
+              <div class="form-group form-group--corto">
+                <label for="contexto-periodo">Ejercicio fiscal</label>
+                <input type="text" id="contexto-periodo" placeholder="Ej. 2025">
+              </div>
+            </div>
+
+            <div class="form-row">
+              <div class="form-group">
+                <label for="contexto-asignado">Monto asignado</label>
+                <input type="text" id="contexto-asignado" placeholder="Ej. $12,450,000">
+              </div>
+              <div class="form-group">
+                <label for="contexto-ejercido">Monto ejercido</label>
+                <input type="text" id="contexto-ejercido" placeholder="Ej. $8,320,000">
+              </div>
+            </div>
+
+            <div class="form-group">
+              <label for="contexto-indicadores">Indicadores clave</label>
+              <textarea id="contexto-indicadores" rows="2" placeholder="Ej. Avance físico: 67% / Beneficiarios: 1,230 / Meta: 1,840"></textarea>
+            </div>
+
+            <div class="form-group">
+              <label for="contexto-notas">Notas o contexto general</label>
+              <textarea id="contexto-notas" rows="3" placeholder="Ej. Recurso federal sujeto a comprobación trimestral. Cierre de ejercicio el 31 de diciembre."></textarea>
+            </div>
+
+            <button class="btn-primary" id="btn-guardar-contexto">Guardar contexto</button>
           </div>
+
+          <!-- Filtro por periodo -->
+          <div class="norma-filtros" id="contexto-filtros">
+            <button class="filtro-btn filtro-activo" data-filtro="todos">Todos</button>
+          </div>
+
+          <!-- Lista -->
+          <div class="reuniones-lista">
+            <h2 class="panel-title">Contextos registrados</h2>
+            <div id="contexto-contenido">
+              <p class="lista-vacia">No hay contextos registrados aún.</p>
+            </div>
+          </div>
+
         </div>
 
       </div>
@@ -821,6 +868,7 @@
   <script src="js/procesos.js" type="module"></script>
   <script src="js/agenda.js" type="module"></script>
   <script src="js/territorio.js" type="module"></script>
+  <script src="js/contexto.js" type="module"></script>
 
 </body>
 </html>

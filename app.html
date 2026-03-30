@@ -453,13 +453,66 @@
 
         </div>
 
-        <!-- ANÁLISIS -->
+<!-- ANÁLISIS -->
         <div class="panel" id="panel-analisis">
-          <div class="coming-soon">
-            <div class="coming-soon-icon">🔍</div>
-            <div class="coming-soon-title">Análisis</div>
-            <div class="coming-soon-text">Módulo en construcción — Fase 2</div>
+
+          <!-- Formulario para registrar análisis -->
+          <div class="reunion-form-card">
+            <h2 class="panel-title">Nuevo Análisis</h2>
+
+            <div class="form-group">
+              <label for="analisis-pregunta">Pregunta institucional</label>
+              <input type="text" id="analisis-pregunta" placeholder="Ej. ¿Puede SEDUVOT emitir dictamen sin validación de COEPLA?">
+            </div>
+
+            <div class="form-row">
+              <div class="form-group">
+                <label for="analisis-estado">Estado</label>
+                <select id="analisis-estado">
+                  <option value="Abierto">Abierto</option>
+                  <option value="En proceso">En proceso</option>
+                  <option value="Resuelto">Resuelto</option>
+                </select>
+              </div>
+              <div class="form-group">
+                <label for="analisis-norma">Norma relacionada</label>
+                <input type="text" id="analisis-norma" placeholder="Ej. LGAH Art. 59">
+              </div>
+            </div>
+
+            <div class="analisis-capas">
+              <div class="capa-label">⚖️ Ley — qué dice la norma</div>
+              <textarea class="capa-input" id="analisis-ley" rows="2" placeholder="Ej. El Art. 59 establece que..."></textarea>
+
+              <div class="capa-label">🏛️ Práctica — cómo se aplica</div>
+              <textarea class="capa-input" id="analisis-practica" rows="2" placeholder="Ej. En la práctica, SEDUVOT solicita..."></textarea>
+
+              <div class="capa-label">📂 Precedente — casos anteriores</div>
+              <textarea class="capa-input" id="analisis-precedente" rows="2" placeholder="Ej. En 2023, el caso X resolvió que..."></textarea>
+
+              <div class="capa-label">🤖 IA — interpretación</div>
+              <textarea class="capa-input" id="analisis-ia" rows="2" placeholder="Ej. La interpretación más razonable es..."></textarea>
+            </div>
+
+            <button class="btn-primary" id="btn-guardar-analisis">Guardar análisis</button>
           </div>
+
+          <!-- Filtro por estado -->
+          <div class="norma-filtros">
+            <button class="filtro-btn filtro-activo" data-filtro="todos">Todos</button>
+            <button class="filtro-btn" data-filtro="Abierto">Abierto</button>
+            <button class="filtro-btn" data-filtro="En proceso">En proceso</button>
+            <button class="filtro-btn" data-filtro="Resuelto">Resuelto</button>
+          </div>
+
+          <!-- Lista de análisis -->
+          <div class="reuniones-lista">
+            <h2 class="panel-title">Análisis registrados</h2>
+            <div id="analisis-contenido">
+              <p class="lista-vacia">No hay análisis registrados aún.</p>
+            </div>
+          </div>
+
         </div>
 
         <!-- PROCESOS -->
@@ -597,6 +650,7 @@
   <script src="js/reuniones.js" type="module"></script>
   <script src="js/entidades.js" type="module"></script>
   <script src="js/normatividad.js" type="module"></script>
+  <script src="js/analisis.js" type="module"></script>
 
 </body>
 </html>

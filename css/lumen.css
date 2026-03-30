@@ -705,3 +705,68 @@ body.light .theme-toggle-knob {
   letter-spacing: 0.03em;
   white-space: nowrap;
 }
+
+/* ── Módulo Análisis ──────────────────────────────── */
+.analisis-capas {
+  display: flex;
+  flex-direction: column;
+  gap: 0.5rem;
+  margin-bottom: 1rem;
+}
+
+.capa-label {
+  font-size: 0.82rem;
+  font-weight: 600;
+  color: var(--acento);
+  margin-top: 0.5rem;
+}
+
+.capa-input {
+  background: var(--fondo);
+  border: 1px solid var(--borde);
+  border-radius: 8px;
+  padding: 0.6rem 0.8rem;
+  color: var(--texto);
+  font-size: 0.9rem;
+  font-family: inherit;
+  resize: vertical;
+  width: 100%;
+  box-sizing: border-box;
+}
+
+.capa-input:focus {
+  outline: none;
+  border-color: var(--acento);
+}
+
+.analisis-card-pregunta {
+  display: flex;
+  align-items: flex-start;
+  gap: 0.5rem;
+  flex-wrap: wrap;
+}
+
+.analisis-capas-display {
+  display: flex;
+  flex-direction: column;
+  gap: 0.4rem;
+  margin-top: 0.6rem;
+}
+
+.capa-display {
+  display: flex;
+  gap: 0.5rem;
+  font-size: 0.85rem;
+  align-items: flex-start;
+}
+
+.capa-titulo {
+  font-weight: 600;
+  color: var(--acento);
+  white-space: nowrap;
+  min-width: 90px;
+}
+
+.capa-texto {
+  color: var(--texto);
+}

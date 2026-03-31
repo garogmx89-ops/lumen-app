@@ -1052,3 +1052,20 @@ body.light input[type="date"] {
 .btn-editar:hover {
   opacity: 1;
 }
+
+/* Fechas de normatividad */
+.norma-fechas {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0.75rem;
+  margin: 0.4rem 0;
+}
+
+.norma-fecha-item {
+  font-size: 0.82rem;
+  color: var(--text2);
+}
+
+.norma-fecha-reforma {
+  color: var(--accent);
+}

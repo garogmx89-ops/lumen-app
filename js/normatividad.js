@@ -22,11 +22,12 @@ onAuthStateChanged(auth, (user) => {
 
   // --- LIMPIAR FORMULARIO ---
   function limpiarFormulario() {
-    document.getElementById("norma-nombre").value      = "";
-    document.getElementById("norma-tipo").value        = "";
-    document.getElementById("norma-fecha").value       = "";
-    document.getElementById("norma-resumen").value     = "";
-    document.getElementById("norma-anotaciones").value = "";
+    document.getElementById("norma-nombre").value        = "";
+    document.getElementById("norma-tipo").value          = "";
+    document.getElementById("norma-fecha").value         = "";
+    document.getElementById("norma-fecha-reforma").value = ""; // NUEVO
+    document.getElementById("norma-resumen").value       = "";
+    document.getElementById("norma-anotaciones").value   = "";
 
     document.querySelector("#panel-normatividad .reunion-form-card h2").textContent = "Nueva Norma";
     document.getElementById("btn-cancelar-norma").style.display = "none";
@@ -35,16 +36,16 @@ onAuthStateChanged(auth, (user) => {
 
   // --- ACTIVAR MODO EDICIÓN ---
   function activarEdicion(id) {
-    // Buscamos los datos en el array local, que siempre está actualizado
     const norma = todasLasNormas.find(n => n.id === id);
     if (!norma) return;
 
     modoEdicion = id;
-    document.getElementById("norma-nombre").value      = norma.nombre      || "";
-    document.getElementById("norma-tipo").value        = norma.tipo        || "";
-    document.getElementById("norma-fecha").value       = norma.fecha       || "";
-    document.getElementById("norma-resumen").value     = norma.resumen     || "";
-    document.getElementById("norma-anotaciones").value = norma.anotaciones || "";
+    document.getElementById("norma-nombre").value        = norma.nombre        || "";
+    document.getElementById("norma-tipo").value          = norma.tipo          || "";
+    document.getElementById("norma-fecha").value         = norma.fecha         || "";
+    document.getElementById("norma-fecha-reforma").value = norma.fechaReforma  || ""; // NUEVO
+    document.getElementById("norma-resumen").value       = norma.resumen       || "";
+    document.getElementById("norma-anotaciones").value   = norma.anotaciones   || "";
 
     document.querySelector("#panel-normatividad .reunion-form-card h2").textContent = "Editar Norma";
     document.getElementById("btn-cancelar-norma").style.display = "inline-block";
@@ -58,20 +59,24 @@ onAuthStateChanged(auth, (user) => {
     btnGuardar.parentNode.replaceChild(btnNuevo, btnGuardar);
 
     btnNuevo.addEventListener("click", async () => {
-      const nombre      = document.getElementById("norma-nombre").value.trim();
-      const tipo        = document.getElementById("norma-tipo").value;
-      const fecha       = document.getElementById("norma-fecha").value;
-      const resumen     = document.getElementById("norma-resumen").value.trim();
-      const anotaciones = document.getElementById("norma-anotaciones").value.trim();
+      const nombre       = document.getElementById("norma-nombre").value.trim();
+      const tipo         = document.getElementById("norma-tipo").value;
+      const fecha        = document.getElementById("norma-fecha").value;
+      const fechaReforma = document.getElementById("norma-fecha-reforma").value; // NUEVO
+      const resumen      = document.getElementById("norma-resumen").value.trim();
+      const anotaciones  = document.getElementById("norma-anotaciones").value.trim();
 
       if (!nombre) { alert("El nombre del documento es obligatorio."); return; }
 
       try {
         if (modoEdicion) {
           const docRef = doc(db, "usuarios", user.uid, "normatividad", modoEdicion);
-          await updateDoc(docRef, { nombre, tipo, fecha, resumen, anotaciones });
+          await updateDoc(docRef, { nombre, tipo, fecha, fechaReforma, resumen, anotaciones }); // NUEVO campo
         } else {
-          await addDoc(normasRef, { nombre, tipo, fecha, resumen, anotaciones, creadoEn: serverTimestamp() });
+          await addDoc(normasRef, {
+            nombre, tipo, fecha, fechaReforma, resumen, anotaciones, // NUEVO campo
+            creadoEn: serverTimestamp()
+          });
         }
         limpiarFormulario();
       } catch (error) {
@@ -131,7 +136,10 @@ onAuthStateChanged(auth, (user) => {
               <button class="btn-eliminar" data-id="${n.id}" title="Eliminar norma">🗑️</button>
             </div>
           </div>
-          ${n.fecha ? `<div class="reunion-card-meta">📅 ${formatearFecha(n.fecha)}</div>` : ""}
+          <div class="norma-fechas">
+            ${n.fecha ? `<span class="norma-fecha-item">📅 Publicación original: <strong>${formatearFecha(n.fecha)}</strong></span>` : ""}
+            ${n.fechaReforma ? `<span class="norma-fecha-item norma-fecha-reforma">🔄 Última reforma: <strong>${formatearFecha(n.fechaReforma)}</strong></span>` : ""}
+          </div>
           ${n.resumen ? `<div class="reunion-card-acuerdos"><strong>Resumen:</strong> ${n.resumen}</div>` : ""}
           ${n.anotaciones ? `<div class="reunion-card-acuerdos"><strong>Notas de aplicación:</strong> ${n.anotaciones}</div>` : ""}
         </div>

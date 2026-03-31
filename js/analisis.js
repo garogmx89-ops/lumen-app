@@ -1,6 +1,4 @@
 // js/analisis.js
-// Módulo Análisis — 4 capas por pregunta institucional
-
 import { auth, db } from "./firebase-config.js";
 import { onAuthStateChanged } from "https://www.gstatic.com/firebasejs/10.12.0/firebase-auth.js";
 import {
@@ -21,18 +19,34 @@ let modoEdicion = null;
 onAuthStateChanged(auth, (user) => {
   if (!user) return;
 
-  const analisisRef = collection(db, "usuarios", user.uid, "analisis");
+  const analisisRef    = collection(db, "usuarios", user.uid, "analisis");
+  const normasRef      = collection(db, "usuarios", user.uid, "normatividad");
+
+  // --- CARGAR CATÁLOGO DE NORMAS EN EL SELECTOR ---
+  const qNormas = query(normasRef, orderBy("creadoEn", "desc"));
+  onSnapshot(qNormas, (snapshot) => {
+    const select = document.getElementById("analisis-norma-select");
+    if (!select) return;
+    select.innerHTML = '<option value="">— Seleccionar del catálogo —</option>';
+    snapshot.docs.forEach(d => {
+      const n = d.data();
+      const option = document.createElement("option");
+      option.value = n.nombre; // Guardamos el nombre como valor
+      option.textContent = n.tipo ? `[${n.tipo}] ${n.nombre}` : n.nombre;
+      select.appendChild(option);
+    });
+  });
 
   // --- LIMPIAR FORMULARIO ---
   function limpiarFormulario() {
-    document.getElementById("analisis-pregunta").value   = "";
-    document.getElementById("analisis-estado").value     = "Abierto";
-    document.getElementById("analisis-norma").value      = "";
-    document.getElementById("analisis-ley").value        = "";
-    document.getElementById("analisis-practica").value   = "";
-    document.getElementById("analisis-precedente").value = "";
-    document.getElementById("analisis-ia").value         = "";
-
+    document.getElementById("analisis-pregunta").value       = "";
+    document.getElementById("analisis-estado").value         = "Abierto";
+    document.getElementById("analisis-norma-select").value   = "";
+    document.getElementById("analisis-norma").value          = "";
+    document.getElementById("analisis-ley").value            = "";
+    document.getElementById("analisis-practica").value       = "";
+    document.getElementById("analisis-precedente").value     = "";
+    document.getElementById("analisis-ia").value             = "";
     document.querySelector("#panel-analisis .reunion-form-card h2").textContent = "Nuevo Análisis";
     document.getElementById("btn-cancelar-analisis").style.display = "none";
     modoEdicion = null;
@@ -52,6 +66,13 @@ onAuthStateChanged(auth, (user) => {
     document.getElementById("analisis-precedente").value = analisis.precedente || "";
     document.getElementById("analisis-ia").value         = analisis.ia         || "";
 
+    // Si la norma guardada coincide con una del catálogo, la preseleccionamos
+    const select = document.getElementById("analisis-norma-select");
+    if (select) {
+      const opcion = Array.from(select.options).find(o => o.value === analisis.norma);
+      select.value = opcion ? analisis.norma : "";
+    }
+
     document.querySelector("#panel-analisis .reunion-form-card h2").textContent = "Editar Análisis";
     document.getElementById("btn-cancelar-analisis").style.display = "inline-block";
     document.getElementById("panel-analisis").scrollIntoView({ behavior: "smooth" });
@@ -66,16 +87,16 @@ onAuthStateChanged(auth, (user) => {
     btnNuevo.addEventListener("click", async () => {
       const pregunta   = document.getElementById("analisis-pregunta").value.trim();
       const estado     = document.getElementById("analisis-estado").value;
-      const norma      = document.getElementById("analisis-norma").value.trim();
+      const normaSelect = document.getElementById("analisis-norma-select").value;
+      const normaTexto = document.getElementById("analisis-norma").value.trim();
+      // Prioridad: si seleccionó del catálogo, usamos ese; si no, el texto libre
+      const norma      = normaSelect || normaTexto;
       const ley        = document.getElementById("analisis-ley").value.trim();
       const practica   = document.getElementById("analisis-practica").value.trim();
       const precedente = document.getElementById("analisis-precedente").value.trim();
       const ia         = document.getElementById("analisis-ia").value.trim();
 
-      if (!pregunta) {
-        alert("La pregunta institucional es obligatoria.");
-        return;
-      }
+      if (!pregunta) { alert("La pregunta institucional es obligatoria."); return; }
 
       try {
         if (modoEdicion) {
@@ -146,7 +167,7 @@ onAuthStateChanged(auth, (user) => {
               <button class="btn-eliminar" data-id="${a.id}" title="Eliminar análisis">🗑️</button>
             </div>
           </div>
-          ${a.norma ? `<div class="reunion-card-meta">📄 Norma: ${a.norma}</div>` : ""}
+          ${a.norma ? `<div class="reunion-card-meta">📄 Norma: <strong>${a.norma}</strong></div>` : ""}
           <div class="analisis-capas-display">
             ${a.ley        ? `<div class="capa-display"><span class="capa-titulo">⚖️ Ley</span><span class="capa-texto">${a.ley}</span></div>` : ""}
             ${a.practica   ? `<div class="capa-display"><span class="capa-titulo">🏛️ Práctica</span><span class="capa-texto">${a.practica}</span></div>` : ""}
@@ -157,12 +178,10 @@ onAuthStateChanged(auth, (user) => {
       `;
     }).join("");
 
-    // Botones EDITAR
     contenedor.querySelectorAll(".btn-editar").forEach((btn) => {
       btn.addEventListener("click", () => activarEdicion(btn.dataset.id));
     });
 
-    // Botones ELIMINAR
     contenedor.querySelectorAll(".btn-eliminar").forEach((btn) => {
       btn.addEventListener("click", async () => {
         if (!confirm("¿Eliminar este análisis? Esta acción no se puede deshacer.")) return;

@@ -316,9 +316,18 @@
             </div>
 
             <div class="form-group">
-              <label for="reunion-participantes">Participantes</label>
-              <textarea id="reunion-participantes" rows="2" placeholder="Ej. Directora, Coord. Técnico, COEPLA"></textarea>
+              <label>Participantes</label>
+            <div id="reunion-participantes-selector" class="participantes-selector">
+            <div id="reunion-participantes-seleccionados" class="participantes-seleccionados"></div>
+              <select id="reunion-participantes-select" class="participantes-select">
+              <option value="">— Agregar entidad participante —</option>
+              </select>
             </div>
+  <!-- Campo oculto para compatibilidad con registros anteriores -->
+  <textarea id="reunion-participantes" rows="1"
+    placeholder="O escribe participantes adicionales no registrados en Entidades"
+    style="margin-top:0.5rem; font-size:0.82rem;"></textarea>
+</div>
 
             <div class="form-group">
               <label for="reunion-acuerdos">Acuerdos y compromisos</label>
@@ -494,10 +503,12 @@
                 </select>
               </div>
               <div class="form-group">
-                <label for="analisis-norma">Norma relacionada</label>
-                <input type="text" id="analisis-norma" placeholder="Ej. LGAH Art. 59">
+                <label for="analisis-norma-select">Norma relacionada</label>
+                <select id="analisis-norma-select" class="participantes-select">
+                <option value="">— Seleccionar del catálogo —</option>
+                </select>
+                <input type="text" id="analisis-norma" placeholder="O escribe una norma no registrada en el catálogo" style="margin-top:0.5rem; font-size:0.82rem;">
               </div>
-            </div>
 
             <div class="analisis-capas">
               <div class="capa-label">⚖️ Ley — qué dice la norma</div>
@@ -562,8 +573,11 @@
                 </select>
               </div>
               <div class="form-group">
-                <label for="proceso-norma">Norma o fundamento legal</label>
-                <input type="text" id="proceso-norma" placeholder="Ej. Art. 59 LGAH">
+                <label for="proceso-norma-select">Norma o fundamento legal</label>
+                <select id="proceso-norma-select" class="participantes-select">
+                <option value="">— Seleccionar del catálogo —</option>
+                </select>
+                <input type="text" id="proceso-norma" placeholder="O escribe un fundamento no registrado en el catálogo" style="margin-top:0.5rem; font-size:0.82rem;">
               </div>
             </div>
 

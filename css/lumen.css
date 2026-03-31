@@ -1141,3 +1141,66 @@ input[type="file"]::file-selector-button {
 input[type="file"]::file-selector-button:hover {
   opacity: 0.85;
 }
+
+/* Vinculación entre módulos — participantes y normas */
+.participantes-selector {
+  display: flex;
+  flex-direction: column;
+  gap: 0.4rem;
+}
+
+.participantes-seleccionados {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0.4rem;
+  min-height: 0;
+}
+
+.participante-tag {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.3rem;
+  background: var(--accent);
+  color: #fff;
+  border-radius: 20px;
+  padding: 0.2rem 0.6rem;
+  font-size: 0.78rem;
+}
+
+.participante-tag-quitar {
+  background: none;
+  border: none;
+  color: #fff;
+  cursor: pointer;
+  font-size: 0.72rem;
+  padding: 0;
+  opacity: 0.8;
+}
+
+.participante-tag-quitar:hover { opacity: 1; }
+
+.participantes-select {
+  width: 100%;
+  padding: 0.45rem 0.75rem;
+  background: var(--bg3);
+  border: 1px solid var(--border);
+  border-radius: 8px;
+  color: var(--text);
+  font-size: 0.85rem;
+}
+
+.participantes-tags-display {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0.35rem;
+  margin: 0.3rem 0;
+}
+
+.participante-tag-display {
+  background: var(--bg3);
+  border: 1px solid var(--border);
+  border-radius: 20px;
+  padding: 0.15rem 0.55rem;
+  font-size: 0.78rem;
+  color: var(--text2);
+}

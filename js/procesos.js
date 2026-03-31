@@ -82,14 +82,31 @@ renderPasos();
 onAuthStateChanged(auth, (user) => {
   if (!user) return;
 
-  const procesosRef = collection(db, "usuarios", user.uid, "procesos");
+const procesosRef = collection(db, "usuarios", user.uid, "procesos");
+const normasRefP  = collection(db, "usuarios", user.uid, "normatividad");
+
+// --- CARGAR CATÁLOGO DE NORMAS EN EL SELECTOR ---
+const qNormasP = query(normasRefP, orderBy("creadoEn", "desc"));
+onSnapshot(qNormasP, (snapshot) => {
+  const select = document.getElementById("proceso-norma-select");
+  if (!select) return;
+  select.innerHTML = '<option value="">— Seleccionar del catálogo —</option>';
+  snapshot.docs.forEach(d => {
+    const n = d.data();
+    const option = document.createElement("option");
+    option.value = n.nombre;
+    option.textContent = n.tipo ? `[${n.tipo}] ${n.nombre}` : n.nombre;
+    select.appendChild(option);
+  });
+});
 
   // --- LIMPIAR FORMULARIO ---
   function limpiarFormulario() {
     document.getElementById("proceso-nombre").value      = "";
     document.getElementById("proceso-descripcion").value = "";
     document.getElementById("proceso-estado").value      = "Activo";
-    document.getElementById("proceso-norma").value       = "";
+    document.getElementById("proceso-norma-select").value = "";
+    document.getElementById("proceso-norma").value         = "";
 
     // Resetear pasos en memoria y redibujar la lista vacía
     pasos = [];
@@ -111,7 +128,12 @@ onAuthStateChanged(auth, (user) => {
     document.getElementById("proceso-nombre").value      = proceso.nombre      || "";
     document.getElementById("proceso-descripcion").value = proceso.descripcion || "";
     document.getElementById("proceso-estado").value      = proceso.estado      || "Activo";
-    document.getElementById("proceso-norma").value       = proceso.norma       || "";
+    document.getElementById("proceso-norma").value        = proceso.norma || "";
+const selectP = document.getElementById("proceso-norma-select");
+if (selectP) {
+  const opcionP = Array.from(selectP.options).find(o => o.value === proceso.norma);
+  selectP.value = opcionP ? proceso.norma : "";
+}
 
     // Cargar los pasos guardados al array en memoria y redibujarlos
     // Sin esto, el formulario mostraría la lista de pasos vacía
@@ -133,7 +155,9 @@ onAuthStateChanged(auth, (user) => {
       const nombre      = document.getElementById("proceso-nombre").value.trim();
       const descripcion = document.getElementById("proceso-descripcion").value.trim();
       const estado      = document.getElementById("proceso-estado").value;
-      const norma       = document.getElementById("proceso-norma").value.trim();
+      const normaSelectP = document.getElementById("proceso-norma-select").value;
+    const normaTextoP  = document.getElementById("proceso-norma").value.trim();
+    const norma        = normaSelectP || normaTextoP;
 
       if (!nombre) {
         alert("El nombre del proceso es obligatorio.");

@@ -4,7 +4,7 @@
 import { auth, db } from "./firebase-config.js";
 import { onAuthStateChanged } from "https://www.gstatic.com/firebasejs/10.12.0/firebase-auth.js";
 import {
-  collection, addDoc, deleteDoc, doc,
+  collection, addDoc, updateDoc, deleteDoc, doc,
   onSnapshot, orderBy, query, serverTimestamp
 } from "https://www.gstatic.com/firebasejs/10.12.0/firebase-firestore.js";
 
@@ -22,12 +22,45 @@ const iconoTipo = {
 };
 
 let todosLosTerritorios = [];
-let filtroActivo = "todos";
+let filtroActivo        = "todos";
+let modoEdicion         = null;
 
 onAuthStateChanged(auth, (user) => {
   if (!user) return;
 
   const territoriosRef = collection(db, "usuarios", user.uid, "territorios");
+
+  // --- LIMPIAR FORMULARIO ---
+  function limpiarFormulario() {
+    document.getElementById("territorio-nombre").value      = "";
+    document.getElementById("territorio-tipo").value        = "";
+    document.getElementById("territorio-estado").value      = "Activo";
+    document.getElementById("territorio-programa").value    = "";
+    document.getElementById("territorio-descripcion").value = "";
+    document.getElementById("territorio-indicadores").value = "";
+
+    document.querySelector("#panel-territorio .reunion-form-card h2").textContent = "Nuevo Territorio";
+    document.getElementById("btn-cancelar-territorio").style.display = "none";
+    modoEdicion = null;
+  }
+
+  // --- ACTIVAR MODO EDICIÓN ---
+  function activarEdicion(id) {
+    const territorio = todosLosTerritorios.find(t => t.id === id);
+    if (!territorio) return;
+
+    modoEdicion = id;
+    document.getElementById("territorio-nombre").value      = territorio.nombre      || "";
+    document.getElementById("territorio-tipo").value        = territorio.tipo        || "";
+    document.getElementById("territorio-estado").value      = territorio.estado      || "Activo";
+    document.getElementById("territorio-programa").value    = territorio.programa    || "";
+    document.getElementById("territorio-descripcion").value = territorio.descripcion || "";
+    document.getElementById("territorio-indicadores").value = territorio.indicadores || "";
+
+    document.querySelector("#panel-territorio .reunion-form-card h2").textContent = "Editar Territorio";
+    document.getElementById("btn-cancelar-territorio").style.display = "inline-block";
+    document.getElementById("panel-territorio").scrollIntoView({ behavior: "smooth" });
+  }
 
   // --- BOTÓN GUARDAR ---
   const btnGuardar = document.getElementById("btn-guardar-territorio");
@@ -49,23 +82,27 @@ onAuthStateChanged(auth, (user) => {
       }
 
       try {
-        await addDoc(territoriosRef, {
-          nombre, tipo, estado, programa, descripcion, indicadores,
-          creadoEn: serverTimestamp()
-        });
-
-        document.getElementById("territorio-nombre").value      = "";
-        document.getElementById("territorio-tipo").value        = "";
-        document.getElementById("territorio-estado").value      = "Activo";
-        document.getElementById("territorio-programa").value    = "";
-        document.getElementById("territorio-descripcion").value = "";
-        document.getElementById("territorio-indicadores").value = "";
-
+        if (modoEdicion) {
+          const docRef = doc(db, "usuarios", user.uid, "territorios", modoEdicion);
+          await updateDoc(docRef, { nombre, tipo, estado, programa, descripcion, indicadores });
+        } else {
+          await addDoc(territoriosRef, {
+            nombre, tipo, estado, programa, descripcion, indicadores,
+            creadoEn: serverTimestamp()
+          });
+        }
+        limpiarFormulario();
       } catch (error) {
         console.error("Error al guardar territorio:", error);
         alert("Hubo un error al guardar. Revisa la consola.");
       }
     });
+  }
+
+  // --- BOTÓN CANCELAR ---
+  const btnCancelar = document.getElementById("btn-cancelar-territorio");
+  if (btnCancelar) {
+    btnCancelar.addEventListener("click", () => limpiarFormulario());
   }
 
   // --- FILTROS ---
@@ -101,7 +138,7 @@ onAuthStateChanged(auth, (user) => {
 
     contenedor.innerHTML = filtrados.map((t) => {
       const color = colorEstado[t.estado] || "#555";
-      const icono = iconoTipo[t.tipo] || "📍";
+      const icono = iconoTipo[t.tipo]     || "📍";
 
       return `
         <div class="reunion-card territorio-card">
@@ -112,9 +149,12 @@ onAuthStateChanged(auth, (user) => {
               ${t.tipo ? `<span class="entidad-siglas-badge">${t.tipo}</span>` : ""}
               <span class="norma-tipo-badge" style="background:${color}">${t.estado}</span>
             </div>
-            <button class="btn-eliminar" data-id="${t.id}" title="Eliminar territorio">🗑️</button>
+            <div class="reunion-card-acciones">
+              <button class="btn-editar" data-id="${t.id}" title="Editar territorio">✏️</button>
+              <button class="btn-eliminar" data-id="${t.id}" title="Eliminar territorio">🗑️</button>
+            </div>
           </div>
-          ${t.programa ? `<div class="reunion-card-meta">📋 ${t.programa}</div>` : ""}
+          ${t.programa    ? `<div class="reunion-card-meta">📋 ${t.programa}</div>` : ""}
           ${t.descripcion ? `<div class="reunion-card-acuerdos">${t.descripcion}</div>` : ""}
           ${t.indicadores ? `
             <div class="territorio-indicadores">
@@ -125,11 +165,18 @@ onAuthStateChanged(auth, (user) => {
       `;
     }).join("");
 
+    // Botones EDITAR
+    contenedor.querySelectorAll(".btn-editar").forEach((btn) => {
+      btn.addEventListener("click", () => activarEdicion(btn.dataset.id));
+    });
+
+    // Botones ELIMINAR
     contenedor.querySelectorAll(".btn-eliminar").forEach((btn) => {
       btn.addEventListener("click", async () => {
         if (!confirm("¿Eliminar este territorio? Esta acción no se puede deshacer.")) return;
         try {
           await deleteDoc(doc(db, "usuarios", user.uid, "territorios", btn.dataset.id));
+          if (modoEdicion === btn.dataset.id) limpiarFormulario();
         } catch (error) {
           console.error("Error al eliminar:", error);
           alert("No se pudo eliminar. Revisa la consola.");

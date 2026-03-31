@@ -1204,3 +1204,20 @@ input[type="file"]::file-selector-button:hover {
   font-size: 0.78rem;
   color: var(--text2);
 }
+
+/* ── Tag remove button (×) ── */
+.tags-container .tag-remove {
+  background: none;
+  border: none;
+  color: inherit;
+  cursor: pointer;
+  font-size: 0.85rem;
+  line-height: 1;
+  margin-left: 4px;
+  opacity: 0.7;
+  padding: 0 2px;
+}
+
+.tags-container .tag-remove:hover {
+  opacity: 1;
+}

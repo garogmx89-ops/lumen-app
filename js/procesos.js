@@ -4,7 +4,7 @@
 import { auth, db } from "./firebase-config.js";
 import { onAuthStateChanged } from "https://www.gstatic.com/firebasejs/10.12.0/firebase-auth.js";
 import {
-  collection, addDoc, deleteDoc, doc,
+  collection, addDoc, updateDoc, deleteDoc, doc,
   onSnapshot, orderBy, query, serverTimestamp
 } from "https://www.gstatic.com/firebasejs/10.12.0/firebase-firestore.js";
 
@@ -15,15 +15,15 @@ const colorEstado = {
 };
 
 let todosLosProcesos = [];
-let filtroActivo = "todos";
+let filtroActivo     = "todos";
+let modoEdicion      = null;
 
-// --- LÓGICA DE PASOS DINÁMICOS ---
-// Cada paso es un objeto { nombre, detalle }
-// Los pasos viven en memoria mientras el usuario llena el formulario
+// --- PASOS DINÁMICOS ---
+// Este array vive en memoria mientras el usuario llena el formulario.
+// Al editar, se carga con los pasos del proceso existente.
 let pasos = [];
 
 function renderPasos() {
-  // Dibuja la lista de pasos en el formulario
   const lista = document.getElementById("pasos-lista");
   if (!lista) return;
 
@@ -58,7 +58,6 @@ function renderPasos() {
     });
   });
 
-  // Botón quitar paso
   lista.querySelectorAll(".btn-quitar-paso").forEach(btn => {
     btn.addEventListener("click", (e) => {
       pasos.splice(Number(e.target.dataset.index), 1);
@@ -67,7 +66,8 @@ function renderPasos() {
   });
 }
 
-// Botón agregar paso — se registra de inmediato, no depende del usuario
+// Botón agregar paso — se registra fuera del onAuthStateChanged
+// porque no depende del usuario, solo del DOM
 const btnAgregarPaso = document.getElementById("btn-agregar-paso");
 if (btnAgregarPaso) {
   btnAgregarPaso.addEventListener("click", () => {
@@ -76,7 +76,6 @@ if (btnAgregarPaso) {
   });
 }
 
-// Inicializar lista de pasos vacía
 renderPasos();
 
 // --- AUTENTICACIÓN ---
@@ -84,6 +83,45 @@ onAuthStateChanged(auth, (user) => {
   if (!user) return;
 
   const procesosRef = collection(db, "usuarios", user.uid, "procesos");
+
+  // --- LIMPIAR FORMULARIO ---
+  function limpiarFormulario() {
+    document.getElementById("proceso-nombre").value      = "";
+    document.getElementById("proceso-descripcion").value = "";
+    document.getElementById("proceso-estado").value      = "Activo";
+    document.getElementById("proceso-norma").value       = "";
+
+    // Resetear pasos en memoria y redibujar la lista vacía
+    pasos = [];
+    renderPasos();
+
+    document.querySelector("#panel-procesos .reunion-form-card h2").textContent = "Nuevo Proceso";
+    document.getElementById("btn-cancelar-proceso").style.display = "none";
+    modoEdicion = null;
+  }
+
+  // --- ACTIVAR MODO EDICIÓN ---
+  function activarEdicion(id) {
+    const proceso = todosLosProcesos.find(p => p.id === id);
+    if (!proceso) return;
+
+    modoEdicion = id;
+
+    // Llenar campos de texto
+    document.getElementById("proceso-nombre").value      = proceso.nombre      || "";
+    document.getElementById("proceso-descripcion").value = proceso.descripcion || "";
+    document.getElementById("proceso-estado").value      = proceso.estado      || "Activo";
+    document.getElementById("proceso-norma").value       = proceso.norma       || "";
+
+    // Cargar los pasos guardados al array en memoria y redibujarlos
+    // Sin esto, el formulario mostraría la lista de pasos vacía
+    pasos = proceso.pasos ? proceso.pasos.map(p => ({ ...p })) : [];
+    renderPasos();
+
+    document.querySelector("#panel-procesos .reunion-form-card h2").textContent = "Editar Proceso";
+    document.getElementById("btn-cancelar-proceso").style.display = "inline-block";
+    document.getElementById("panel-procesos").scrollIntoView({ behavior: "smooth" });
+  }
 
   // --- BOTÓN GUARDAR ---
   const btnGuardar = document.getElementById("btn-guardar-proceso");
@@ -106,25 +144,28 @@ onAuthStateChanged(auth, (user) => {
       const pasosValidos = pasos.filter(p => p.nombre.trim() !== "");
 
       try {
-        await addDoc(procesosRef, {
-          nombre, descripcion, estado, norma,
-          pasos: pasosValidos,
-          creadoEn: serverTimestamp()
-        });
-
-        // Limpiar formulario
-        document.getElementById("proceso-nombre").value      = "";
-        document.getElementById("proceso-descripcion").value = "";
-        document.getElementById("proceso-estado").value      = "Activo";
-        document.getElementById("proceso-norma").value       = "";
-        pasos = []; // Resetear pasos
-        renderPasos();
-
+        if (modoEdicion) {
+          const docRef = doc(db, "usuarios", user.uid, "procesos", modoEdicion);
+          await updateDoc(docRef, { nombre, descripcion, estado, norma, pasos: pasosValidos });
+        } else {
+          await addDoc(procesosRef, {
+            nombre, descripcion, estado, norma,
+            pasos: pasosValidos,
+            creadoEn: serverTimestamp()
+          });
+        }
+        limpiarFormulario();
       } catch (error) {
         console.error("Error al guardar proceso:", error);
         alert("Hubo un error al guardar. Revisa la consola.");
       }
     });
+  }
+
+  // --- BOTÓN CANCELAR ---
+  const btnCancelar = document.getElementById("btn-cancelar-proceso");
+  if (btnCancelar) {
+    btnCancelar.addEventListener("click", () => limpiarFormulario());
   }
 
   // --- FILTROS ---
@@ -181,7 +222,10 @@ onAuthStateChanged(auth, (user) => {
               <span class="norma-tipo-badge" style="background:${color}">${p.estado}</span>
               <span class="reunion-card-titulo">${p.nombre}</span>
             </div>
-            <button class="btn-eliminar" data-id="${p.id}" title="Eliminar proceso">🗑️</button>
+            <div class="reunion-card-acciones">
+              <button class="btn-editar" data-id="${p.id}" title="Editar proceso">✏️</button>
+              <button class="btn-eliminar" data-id="${p.id}" title="Eliminar proceso">🗑️</button>
+            </div>
           </div>
           ${p.norma       ? `<div class="reunion-card-meta">📄 ${p.norma}</div>` : ""}
           ${p.descripcion ? `<div class="reunion-card-acuerdos">${p.descripcion}</div>` : ""}
@@ -190,11 +234,18 @@ onAuthStateChanged(auth, (user) => {
       `;
     }).join("");
 
+    // Botones EDITAR
+    contenedor.querySelectorAll(".btn-editar").forEach((btn) => {
+      btn.addEventListener("click", () => activarEdicion(btn.dataset.id));
+    });
+
+    // Botones ELIMINAR
     contenedor.querySelectorAll(".btn-eliminar").forEach((btn) => {
       btn.addEventListener("click", async () => {
         if (!confirm("¿Eliminar este proceso? Esta acción no se puede deshacer.")) return;
         try {
           await deleteDoc(doc(db, "usuarios", user.uid, "procesos", btn.dataset.id));
+          if (modoEdicion === btn.dataset.id) limpiarFormulario();
         } catch (error) {
           console.error("Error al eliminar:", error);
           alert("No se pudo eliminar. Revisa la consola.");

@@ -1,11 +1,12 @@
 // js/entidades.js
-// Módulo Entidades — guarda, muestra y elimina entidades en Firestore
+// Módulo Entidades — crear, leer, editar y eliminar entidades en Firestore
 
 import { auth, db } from "./firebase-config.js";
 import { onAuthStateChanged } from "https://www.gstatic.com/firebasejs/10.12.0/firebase-auth.js";
 import {
   collection,
   addDoc,
+  updateDoc,
   deleteDoc,
   doc,
   onSnapshot,
@@ -14,7 +15,6 @@ import {
   serverTimestamp
 } from "https://www.gstatic.com/firebasejs/10.12.0/firebase-firestore.js";
 
-// Íconos por tipo de entidad
 const iconoTipo = {
   "Dependencia": "🏛️",
   "Programa":    "📋",
@@ -25,13 +25,45 @@ const iconoTipo = {
 onAuthStateChanged(auth, (user) => {
   if (!user) return;
 
-  // Ruta en Firestore: usuarios → {uid} → entidades
   const entidadesRef = collection(db, "usuarios", user.uid, "entidades");
 
-  // --- GUARDAR ENTIDAD ---
+  let modoEdicion = null;
+
+  // --- LIMPIAR FORMULARIO ---
+  function limpiarFormulario() {
+    document.getElementById("entidad-nombre").value       = "";
+    document.getElementById("entidad-siglas").value       = "";
+    document.getElementById("entidad-tipo").value         = "";
+    document.getElementById("entidad-titular").value      = "";
+    document.getElementById("entidad-atribuciones").value = "";
+
+    document.querySelector("#panel-entidades .reunion-form-card h2").textContent = "Nueva Entidad";
+    document.getElementById("btn-cancelar-entidad").style.display = "none";
+    modoEdicion = null;
+  }
+
+  // --- ACTIVAR MODO EDICIÓN ---
+  function activarEdicion(id, datos) {
+    modoEdicion = id;
+
+    document.getElementById("entidad-nombre").value       = datos.nombre       || "";
+    document.getElementById("entidad-siglas").value       = datos.siglas       || "";
+    document.getElementById("entidad-tipo").value         = datos.tipo         || "";
+    document.getElementById("entidad-titular").value      = datos.titular      || "";
+    document.getElementById("entidad-atribuciones").value = datos.atribuciones || "";
+
+    document.querySelector("#panel-entidades .reunion-form-card h2").textContent = "Editar Entidad";
+    document.getElementById("btn-cancelar-entidad").style.display = "inline-block";
+    document.getElementById("panel-entidades").scrollIntoView({ behavior: "smooth" });
+  }
+
+  // --- BOTÓN GUARDAR ---
   const btnGuardar = document.getElementById("btn-guardar-entidad");
   if (btnGuardar) {
-    btnGuardar.addEventListener("click", async () => {
+    const btnLimpio = btnGuardar.cloneNode(true);
+    btnGuardar.parentNode.replaceChild(btnLimpio, btnGuardar);
+
+    btnLimpio.addEventListener("click", async () => {
       const nombre       = document.getElementById("entidad-nombre").value.trim();
       const siglas       = document.getElementById("entidad-siglas").value.trim();
       const tipo         = document.getElementById("entidad-tipo").value;
@@ -44,22 +76,16 @@ onAuthStateChanged(auth, (user) => {
       }
 
       try {
-        await addDoc(entidadesRef, {
-          nombre,
-          siglas,
-          tipo,
-          titular,
-          atribuciones,
-          creadoEn: serverTimestamp()
-        });
-
-        // Limpiar formulario
-        document.getElementById("entidad-nombre").value       = "";
-        document.getElementById("entidad-siglas").value       = "";
-        document.getElementById("entidad-tipo").value         = "";
-        document.getElementById("entidad-titular").value      = "";
-        document.getElementById("entidad-atribuciones").value = "";
-
+        if (modoEdicion) {
+          const docRef = doc(db, "usuarios", user.uid, "entidades", modoEdicion);
+          await updateDoc(docRef, { nombre, siglas, tipo, titular, atribuciones });
+        } else {
+          await addDoc(entidadesRef, {
+            nombre, siglas, tipo, titular, atribuciones,
+            creadoEn: serverTimestamp()
+          });
+        }
+        limpiarFormulario();
       } catch (error) {
         console.error("Error al guardar entidad:", error);
         alert("Hubo un error al guardar. Revisa la consola.");
@@ -67,7 +93,13 @@ onAuthStateChanged(auth, (user) => {
     });
   }
 
-  // --- LEER, MOSTRAR Y ELIMINAR ENTIDADES ---
+  // --- BOTÓN CANCELAR ---
+  const btnCancelar = document.getElementById("btn-cancelar-entidad");
+  if (btnCancelar) {
+    btnCancelar.addEventListener("click", () => limpiarFormulario());
+  }
+
+  // --- LEER, MOSTRAR, EDITAR Y ELIMINAR ---
   const q = query(entidadesRef, orderBy("creadoEn", "desc"));
 
   onSnapshot(q, (snapshot) => {
@@ -92,7 +124,10 @@ onAuthStateChanged(auth, (user) => {
               <span class="reunion-card-titulo">${d.nombre}</span>
               ${d.siglas ? `<span class="entidad-siglas-badge">${d.siglas}</span>` : ""}
             </div>
-            <button class="btn-eliminar" data-id="${id}" title="Eliminar entidad">🗑️</button>
+            <div class="reunion-card-acciones">
+              <button class="btn-editar" data-id="${id}" title="Editar entidad">✏️</button>
+              <button class="btn-eliminar" data-id="${id}" title="Eliminar entidad">🗑️</button>
+            </div>
           </div>
           ${d.tipo || d.titular ? `
             <div class="reunion-card-meta">
@@ -107,15 +142,24 @@ onAuthStateChanged(auth, (user) => {
       `;
     }).join("");
 
-    // Eventos de eliminar
+    // Botones EDITAR
+    contenedor.querySelectorAll(".btn-editar").forEach((btn) => {
+      btn.addEventListener("click", () => {
+        const id = btn.dataset.id;
+        const encontrado = snapshot.docs.find((d) => d.id === id);
+        if (encontrado) activarEdicion(id, encontrado.data());
+      });
+    });
+
+    // Botones ELIMINAR
     contenedor.querySelectorAll(".btn-eliminar").forEach((btn) => {
       btn.addEventListener("click", async () => {
         const id = btn.dataset.id;
         const confirmar = confirm("¿Eliminar esta entidad? Esta acción no se puede deshacer.");
         if (!confirmar) return;
-
         try {
           await deleteDoc(doc(db, "usuarios", user.uid, "entidades", id));
+          if (modoEdicion === id) limpiarFormulario();
         } catch (error) {
           console.error("Error al eliminar entidad:", error);
           alert("No se pudo eliminar. Revisa la consola.");

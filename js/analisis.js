@@ -4,7 +4,7 @@
 import { auth, db } from "./firebase-config.js";
 import { onAuthStateChanged } from "https://www.gstatic.com/firebasejs/10.12.0/firebase-auth.js";
 import {
-  collection, addDoc, deleteDoc, doc,
+  collection, addDoc, updateDoc, deleteDoc, doc,
   onSnapshot, orderBy, query, serverTimestamp
 } from "https://www.gstatic.com/firebasejs/10.12.0/firebase-firestore.js";
 
@@ -16,11 +16,46 @@ const colorEstado = {
 
 let todosLosAnalisis = [];
 let filtroActivo = "todos";
+let modoEdicion = null;
 
 onAuthStateChanged(auth, (user) => {
   if (!user) return;
 
   const analisisRef = collection(db, "usuarios", user.uid, "analisis");
+
+  // --- LIMPIAR FORMULARIO ---
+  function limpiarFormulario() {
+    document.getElementById("analisis-pregunta").value   = "";
+    document.getElementById("analisis-estado").value     = "Abierto";
+    document.getElementById("analisis-norma").value      = "";
+    document.getElementById("analisis-ley").value        = "";
+    document.getElementById("analisis-practica").value   = "";
+    document.getElementById("analisis-precedente").value = "";
+    document.getElementById("analisis-ia").value         = "";
+
+    document.querySelector("#panel-analisis .reunion-form-card h2").textContent = "Nuevo Análisis";
+    document.getElementById("btn-cancelar-analisis").style.display = "none";
+    modoEdicion = null;
+  }
+
+  // --- ACTIVAR MODO EDICIÓN ---
+  function activarEdicion(id) {
+    const analisis = todosLosAnalisis.find(a => a.id === id);
+    if (!analisis) return;
+
+    modoEdicion = id;
+    document.getElementById("analisis-pregunta").value   = analisis.pregunta   || "";
+    document.getElementById("analisis-estado").value     = analisis.estado     || "Abierto";
+    document.getElementById("analisis-norma").value      = analisis.norma      || "";
+    document.getElementById("analisis-ley").value        = analisis.ley        || "";
+    document.getElementById("analisis-practica").value   = analisis.practica   || "";
+    document.getElementById("analisis-precedente").value = analisis.precedente || "";
+    document.getElementById("analisis-ia").value         = analisis.ia         || "";
+
+    document.querySelector("#panel-analisis .reunion-form-card h2").textContent = "Editar Análisis";
+    document.getElementById("btn-cancelar-analisis").style.display = "inline-block";
+    document.getElementById("panel-analisis").scrollIntoView({ behavior: "smooth" });
+  }
 
   // --- BOTÓN GUARDAR ---
   const btnGuardar = document.getElementById("btn-guardar-analisis");
@@ -43,25 +78,27 @@ onAuthStateChanged(auth, (user) => {
       }
 
       try {
-        await addDoc(analisisRef, {
-          pregunta, estado, norma, ley, practica, precedente, ia,
-          creadoEn: serverTimestamp()
-        });
-
-        // Limpiar formulario
-        document.getElementById("analisis-pregunta").value   = "";
-        document.getElementById("analisis-estado").value     = "Abierto";
-        document.getElementById("analisis-norma").value      = "";
-        document.getElementById("analisis-ley").value        = "";
-        document.getElementById("analisis-practica").value   = "";
-        document.getElementById("analisis-precedente").value = "";
-        document.getElementById("analisis-ia").value         = "";
-
+        if (modoEdicion) {
+          const docRef = doc(db, "usuarios", user.uid, "analisis", modoEdicion);
+          await updateDoc(docRef, { pregunta, estado, norma, ley, practica, precedente, ia });
+        } else {
+          await addDoc(analisisRef, {
+            pregunta, estado, norma, ley, practica, precedente, ia,
+            creadoEn: serverTimestamp()
+          });
+        }
+        limpiarFormulario();
       } catch (error) {
         console.error("Error al guardar análisis:", error);
         alert("Hubo un error al guardar. Revisa la consola.");
       }
     });
+  }
+
+  // --- BOTÓN CANCELAR ---
+  const btnCancelar = document.getElementById("btn-cancelar-analisis");
+  if (btnCancelar) {
+    btnCancelar.addEventListener("click", () => limpiarFormulario());
   }
 
   // --- FILTROS ---
@@ -104,7 +141,10 @@ onAuthStateChanged(auth, (user) => {
               <span class="norma-tipo-badge" style="background:${color}">${a.estado}</span>
               <span class="reunion-card-titulo">${a.pregunta}</span>
             </div>
-            <button class="btn-eliminar" data-id="${a.id}" title="Eliminar análisis">🗑️</button>
+            <div class="reunion-card-acciones">
+              <button class="btn-editar" data-id="${a.id}" title="Editar análisis">✏️</button>
+              <button class="btn-eliminar" data-id="${a.id}" title="Eliminar análisis">🗑️</button>
+            </div>
           </div>
           ${a.norma ? `<div class="reunion-card-meta">📄 Norma: ${a.norma}</div>` : ""}
           <div class="analisis-capas-display">
@@ -117,12 +157,18 @@ onAuthStateChanged(auth, (user) => {
       `;
     }).join("");
 
-    // Eventos eliminar
+    // Botones EDITAR
+    contenedor.querySelectorAll(".btn-editar").forEach((btn) => {
+      btn.addEventListener("click", () => activarEdicion(btn.dataset.id));
+    });
+
+    // Botones ELIMINAR
     contenedor.querySelectorAll(".btn-eliminar").forEach((btn) => {
       btn.addEventListener("click", async () => {
         if (!confirm("¿Eliminar este análisis? Esta acción no se puede deshacer.")) return;
         try {
           await deleteDoc(doc(db, "usuarios", user.uid, "analisis", btn.dataset.id));
+          if (modoEdicion === btn.dataset.id) limpiarFormulario();
         } catch (error) {
           console.error("Error al eliminar:", error);
           alert("No se pudo eliminar. Revisa la consola.");

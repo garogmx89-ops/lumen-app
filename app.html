@@ -649,11 +649,7 @@
               </div>
             </div>
 
-            <div class="form-row">
-              <div class="form-group">
-                <label for="alerta-norma">Norma o programa relacionado</label>
-                <input type="text" id="alerta-norma" placeholder="Ej. ROP FISE 2025 Art. 45">
-              </div>
+<div class="form-row">
               <div class="form-group">
                 <label for="alerta-estado">Estado</label>
                 <select id="alerta-estado">
@@ -661,6 +657,22 @@
                   <option value="Atendida">Atendida</option>
                 </select>
               </div>
+            </div>
+
+            <div class="form-group">
+              <label for="alerta-selector-proceso">Procesos vinculados</label>
+              <select id="alerta-selector-proceso">
+                <option value="">— Selecciona un proceso —</option>
+              </select>
+              <div id="alerta-tags-procesos" class="tags-container"></div>
+            </div>
+
+            <div class="form-group">
+              <label for="alerta-selector-norma">Normas vinculadas</label>
+              <select id="alerta-selector-norma">
+                <option value="">— Selecciona una norma —</option>
+              </select>
+              <div id="alerta-tags-normas" class="tags-container"></div>
             </div>
 
             <button class="btn-primary" id="btn-guardar-alerta">Guardar alerta</button>

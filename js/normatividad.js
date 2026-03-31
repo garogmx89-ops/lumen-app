@@ -6,6 +6,10 @@ import {
   onSnapshot, orderBy, query, serverTimestamp
 } from "https://www.gstatic.com/firebasejs/10.12.0/firebase-firestore.js";
 
+// ── Configuración de Cloudinary ──────────────────────────────────────
+const CLOUDINARY_CLOUD_NAME = "dosqx8cx9";
+const CLOUDINARY_UPLOAD_PRESET = "lumen_normas";
+
 const colorTipo = {
   "Ley": "#7B2FBE", "Reglamento": "#3A0CA3",
   "Lineamiento": "#0077B6", "Circular": "#2D6A4F", "Acuerdo": "#9B2226"
@@ -14,6 +18,25 @@ const colorTipo = {
 let todasLasNormas = [];
 let filtroActivo = "todos";
 let modoEdicion = null;
+let pdfUrlActual = null; // Guarda la URL del PDF del registro que se está editando
+
+// ── Función para subir PDF a Cloudinary ─────────────────────────────
+async function subirPdfACloudinary(archivo) {
+  const formData = new FormData();
+  formData.append("file", archivo);
+  formData.append("upload_preset", CLOUDINARY_UPLOAD_PRESET);
+  formData.append("resource_type", "raw"); // "raw" es para PDFs y archivos no-imagen
+
+  const response = await fetch(
+    `https://api.cloudinary.com/v1_1/${CLOUDINARY_CLOUD_NAME}/raw/upload`,
+    { method: "POST", body: formData }
+  );
+
+  if (!response.ok) throw new Error("Error al subir el PDF a Cloudinary");
+
+  const data = await response.json();
+  return data.secure_url; // URL https de descarga directa
+}
 
 onAuthStateChanged(auth, (user) => {
   if (!user) return;
@@ -25,9 +48,15 @@ onAuthStateChanged(auth, (user) => {
     document.getElementById("norma-nombre").value        = "";
     document.getElementById("norma-tipo").value          = "";
     document.getElementById("norma-fecha").value         = "";
-    document.getElementById("norma-fecha-reforma").value = ""; // NUEVO
+    document.getElementById("norma-fecha-reforma").value = "";
     document.getElementById("norma-resumen").value       = "";
     document.getElementById("norma-anotaciones").value   = "";
+    document.getElementById("norma-pdf").value           = "";
+
+    // Ocultar indicadores de PDF
+    document.getElementById("norma-pdf-actual").style.display  = "none";
+    document.getElementById("norma-pdf-subiendo").style.display = "none";
+    pdfUrlActual = null;
 
     document.querySelector("#panel-normatividad .reunion-form-card h2").textContent = "Nueva Norma";
     document.getElementById("btn-cancelar-norma").style.display = "none";
@@ -43,13 +72,34 @@ onAuthStateChanged(auth, (user) => {
     document.getElementById("norma-nombre").value        = norma.nombre        || "";
     document.getElementById("norma-tipo").value          = norma.tipo          || "";
     document.getElementById("norma-fecha").value         = norma.fecha         || "";
-    document.getElementById("norma-fecha-reforma").value = norma.fechaReforma  || ""; // NUEVO
+    document.getElementById("norma-fecha-reforma").value = norma.fechaReforma  || "";
     document.getElementById("norma-resumen").value       = norma.resumen       || "";
     document.getElementById("norma-anotaciones").value   = norma.anotaciones   || "";
+    document.getElementById("norma-pdf").value           = "";
+
+    // Si la norma ya tiene PDF, mostramos el nombre del archivo actual
+    pdfUrlActual = norma.pdfUrl || null;
+    if (pdfUrlActual) {
+      const nombreArchivo = pdfUrlActual.split("/").pop();
+      document.getElementById("norma-pdf-nombre").textContent = nombreArchivo;
+      document.getElementById("norma-pdf-actual").style.display = "flex";
+    } else {
+      document.getElementById("norma-pdf-actual").style.display = "none";
+    }
 
     document.querySelector("#panel-normatividad .reunion-form-card h2").textContent = "Editar Norma";
     document.getElementById("btn-cancelar-norma").style.display = "inline-block";
     document.getElementById("panel-normatividad").scrollIntoView({ behavior: "smooth" });
+  }
+
+  // --- BOTÓN QUITAR PDF (al editar, para eliminar el PDF existente) ---
+  const btnQuitarPdf = document.getElementById("btn-quitar-pdf");
+  if (btnQuitarPdf) {
+    btnQuitarPdf.addEventListener("click", () => {
+      pdfUrlActual = null;
+      document.getElementById("norma-pdf-actual").style.display = "none";
+      document.getElementById("norma-pdf").value = "";
+    });
   }
 
   // --- BOTÓN GUARDAR ---
@@ -62,26 +112,43 @@ onAuthStateChanged(auth, (user) => {
       const nombre       = document.getElementById("norma-nombre").value.trim();
       const tipo         = document.getElementById("norma-tipo").value;
       const fecha        = document.getElementById("norma-fecha").value;
-      const fechaReforma = document.getElementById("norma-fecha-reforma").value; // NUEVO
+      const fechaReforma = document.getElementById("norma-fecha-reforma").value;
       const resumen      = document.getElementById("norma-resumen").value.trim();
       const anotaciones  = document.getElementById("norma-anotaciones").value.trim();
+      const archivoPdf   = document.getElementById("norma-pdf").files[0];
 
       if (!nombre) { alert("El nombre del documento es obligatorio."); return; }
 
+      // Deshabilitar botón mientras se procesa
+      btnNuevo.disabled = true;
+      btnNuevo.textContent = "Guardando...";
+
       try {
+        let pdfUrl = pdfUrlActual; // Conserva el PDF existente si no se sube uno nuevo
+
+        // Si el usuario seleccionó un archivo nuevo, lo subimos primero
+        if (archivoPdf) {
+          document.getElementById("norma-pdf-subiendo").style.display = "block";
+          pdfUrl = await subirPdfACloudinary(archivoPdf);
+          document.getElementById("norma-pdf-subiendo").style.display = "none";
+        }
+
+        const datos = { nombre, tipo, fecha, fechaReforma, resumen, anotaciones, pdfUrl: pdfUrl || null };
+
         if (modoEdicion) {
           const docRef = doc(db, "usuarios", user.uid, "normatividad", modoEdicion);
-          await updateDoc(docRef, { nombre, tipo, fecha, fechaReforma, resumen, anotaciones }); // NUEVO campo
+          await updateDoc(docRef, datos);
         } else {
-          await addDoc(normasRef, {
-            nombre, tipo, fecha, fechaReforma, resumen, anotaciones, // NUEVO campo
-            creadoEn: serverTimestamp()
-          });
+          await addDoc(normasRef, { ...datos, creadoEn: serverTimestamp() });
         }
         limpiarFormulario();
       } catch (error) {
         console.error("Error al guardar norma:", error);
         alert("Hubo un error al guardar. Revisa la consola.");
+        document.getElementById("norma-pdf-subiendo").style.display = "none";
+      } finally {
+        btnNuevo.disabled = false;
+        btnNuevo.textContent = "Guardar norma";
       }
     });
   }
@@ -142,6 +209,10 @@ onAuthStateChanged(auth, (user) => {
           </div>
           ${n.resumen ? `<div class="reunion-card-acuerdos"><strong>Resumen:</strong> ${n.resumen}</div>` : ""}
           ${n.anotaciones ? `<div class="reunion-card-acuerdos"><strong>Notas de aplicación:</strong> ${n.anotaciones}</div>` : ""}
+          ${n.pdfUrl ? `
+            <div class="norma-pdf-link">
+              <a href="${n.pdfUrl}" target="_blank" class="btn-ver-pdf">📄 Ver PDF</a>
+            </div>` : ""}
         </div>
       `;
     }).join("");

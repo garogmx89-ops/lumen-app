@@ -1069,3 +1069,47 @@ body.light input[type="date"] {
 .norma-fecha-reforma {
   color: var(--accent);
 }
+
+/* PDF en Normatividad */
+.norma-pdf-actual {
+  display: flex;
+  align-items: center;
+  gap: 0.5rem;
+  font-size: 0.82rem;
+  color: var(--text2);
+  margin-top: 0.4rem;
+}
+
+.btn-quitar-pdf {
+  background: none;
+  border: none;
+  color: var(--coral);
+  cursor: pointer;
+  font-size: 0.78rem;
+  padding: 0;
+}
+
+.norma-pdf-subiendo {
+  font-size: 0.82rem;
+  color: var(--accent);
+  margin-top: 0.4rem;
+}
+
+.norma-pdf-link {
+  margin-top: 0.5rem;
+}
+
+.btn-ver-pdf {
+  display: inline-block;
+  font-size: 0.82rem;
+  color: var(--accent);
+  text-decoration: none;
+  border: 1px solid var(--accent);
+  border-radius: 6px;
+  padding: 0.2rem 0.6rem;
+}
+
+.btn-ver-pdf:hover {
+  background: var(--accent);
+  color: #fff;
+}

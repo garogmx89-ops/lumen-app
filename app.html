@@ -436,8 +436,20 @@
               <textarea id="norma-anotaciones" rows="3" placeholder="Ej. Aplica para validar dictámenes de cambio de uso de suelo en zonas urbanas"></textarea>
             </div>
 
-            <button class="btn-primary" id="btn-guardar-norma">Guardar norma</button>
-            <button class="btn-secondary" id="btn-cancelar-norma" style="display:none;">Cancelar edición</button>
+            <div class="form-group">
+              <label for="norma-pdf">Documento PDF <span style="color:var(--text2);font-weight:400;">(opcional)</span></label>
+              <input type="file" id="norma-pdf" accept=".pdf">
+            <div id="norma-pdf-actual" style="display:none;" class="norma-pdf-actual">
+             📎 <span id="norma-pdf-nombre"></span>
+             <button type="button" id="btn-quitar-pdf" class="btn-quitar-pdf">✕ Quitar</button>
+          </div>
+            <div id="norma-pdf-subiendo" style="display:none;" class="norma-pdf-subiendo">
+              ⏳ Subiendo PDF...
+  </div>
+</div>
+
+<button class="btn-primary" id="btn-guardar-norma">Guardar norma</button>
+<button class="btn-secondary" id="btn-cancelar-norma" style="display:none;">Cancelar edición</button>
           </div>
 
           <!-- Filtro por tipo -->

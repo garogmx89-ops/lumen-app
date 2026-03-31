@@ -15,38 +15,73 @@ const colorEstado = {
 let todosLosAnalisis = [];
 let filtroActivo = "todos";
 let modoEdicion = null;
+let normasSeleccionadas = []; // Array de {nombre} de normas seleccionadas
 
 onAuthStateChanged(auth, (user) => {
   if (!user) return;
 
-  const analisisRef    = collection(db, "usuarios", user.uid, "analisis");
-  const normasRef      = collection(db, "usuarios", user.uid, "normatividad");
+  const analisisRef = collection(db, "usuarios", user.uid, "analisis");
+  const normasRef   = collection(db, "usuarios", user.uid, "normatividad");
 
   // --- CARGAR CATÁLOGO DE NORMAS EN EL SELECTOR ---
   const qNormas = query(normasRef, orderBy("creadoEn", "desc"));
   onSnapshot(qNormas, (snapshot) => {
     const select = document.getElementById("analisis-norma-select");
     if (!select) return;
-    select.innerHTML = '<option value="">— Seleccionar del catálogo —</option>';
+    select.innerHTML = '<option value="">— Agregar norma del catálogo —</option>';
     snapshot.docs.forEach(d => {
       const n = d.data();
       const option = document.createElement("option");
-      option.value = n.nombre; // Guardamos el nombre como valor
+      option.value = n.nombre;
       option.textContent = n.tipo ? `[${n.tipo}] ${n.nombre}` : n.nombre;
       select.appendChild(option);
     });
   });
 
+  // --- SELECCIONAR NORMA DESDE EL MENÚ ---
+  document.getElementById("analisis-norma-select")?.addEventListener("change", (e) => {
+    const nombre = e.target.value;
+    if (!nombre) return;
+    if (normasSeleccionadas.find(n => n.nombre === nombre)) {
+      e.target.value = "";
+      return;
+    }
+    normasSeleccionadas.push({ nombre });
+    renderNormasSeleccionadas("analisis-normas-seleccionadas", normasSeleccionadas);
+    e.target.value = "";
+  });
+
+  // --- RENDERIZAR TAGS DE NORMAS ---
+  function renderNormasSeleccionadas(contenedorId, array) {
+    const contenedor = document.getElementById(contenedorId);
+    if (!contenedor) return;
+    if (array.length === 0) { contenedor.innerHTML = ""; return; }
+    contenedor.innerHTML = array.map((n, i) => `
+      <span class="participante-tag">
+        📄 ${n.nombre}
+        <button type="button" class="participante-tag-quitar" data-index="${i}">✕</button>
+      </span>
+    `).join("");
+    contenedor.querySelectorAll(".participante-tag-quitar").forEach(btn => {
+      btn.addEventListener("click", () => {
+        array.splice(Number(btn.dataset.index), 1);
+        renderNormasSeleccionadas(contenedorId, array);
+      });
+    });
+  }
+
   // --- LIMPIAR FORMULARIO ---
   function limpiarFormulario() {
-    document.getElementById("analisis-pregunta").value       = "";
-    document.getElementById("analisis-estado").value         = "Abierto";
-    document.getElementById("analisis-norma-select").value   = "";
-    document.getElementById("analisis-norma").value          = "";
-    document.getElementById("analisis-ley").value            = "";
-    document.getElementById("analisis-practica").value       = "";
-    document.getElementById("analisis-precedente").value     = "";
-    document.getElementById("analisis-ia").value             = "";
+    document.getElementById("analisis-pregunta").value   = "";
+    document.getElementById("analisis-estado").value     = "Abierto";
+    document.getElementById("analisis-norma-select").value = "";
+    document.getElementById("analisis-norma").value      = "";
+    document.getElementById("analisis-ley").value        = "";
+    document.getElementById("analisis-practica").value   = "";
+    document.getElementById("analisis-precedente").value = "";
+    document.getElementById("analisis-ia").value         = "";
+    normasSeleccionadas = [];
+    renderNormasSeleccionadas("analisis-normas-seleccionadas", normasSeleccionadas);
     document.querySelector("#panel-analisis .reunion-form-card h2").textContent = "Nuevo Análisis";
     document.getElementById("btn-cancelar-analisis").style.display = "none";
     modoEdicion = null;
@@ -66,12 +101,11 @@ onAuthStateChanged(auth, (user) => {
     document.getElementById("analisis-precedente").value = analisis.precedente || "";
     document.getElementById("analisis-ia").value         = analisis.ia         || "";
 
-    // Si la norma guardada coincide con una del catálogo, la preseleccionamos
-    const select = document.getElementById("analisis-norma-select");
-    if (select) {
-      const opcion = Array.from(select.options).find(o => o.value === analisis.norma);
-      select.value = opcion ? analisis.norma : "";
-    }
+    // Cargar normas vinculadas
+    normasSeleccionadas = Array.isArray(analisis.normasVinculadas)
+      ? analisis.normasVinculadas.map(n => ({ ...n }))
+      : [];
+    renderNormasSeleccionadas("analisis-normas-seleccionadas", normasSeleccionadas);
 
     document.querySelector("#panel-analisis .reunion-form-card h2").textContent = "Editar Análisis";
     document.getElementById("btn-cancelar-analisis").style.display = "inline-block";
@@ -87,10 +121,7 @@ onAuthStateChanged(auth, (user) => {
     btnNuevo.addEventListener("click", async () => {
       const pregunta   = document.getElementById("analisis-pregunta").value.trim();
       const estado     = document.getElementById("analisis-estado").value;
-      const normaSelect = document.getElementById("analisis-norma-select").value;
-      const normaTexto = document.getElementById("analisis-norma").value.trim();
-      // Prioridad: si seleccionó del catálogo, usamos ese; si no, el texto libre
-      const norma      = normaSelect || normaTexto;
+      const norma      = document.getElementById("analisis-norma").value.trim(); // texto libre
       const ley        = document.getElementById("analisis-ley").value.trim();
       const practica   = document.getElementById("analisis-practica").value.trim();
       const precedente = document.getElementById("analisis-precedente").value.trim();
@@ -99,14 +130,14 @@ onAuthStateChanged(auth, (user) => {
       if (!pregunta) { alert("La pregunta institucional es obligatoria."); return; }
 
       try {
+        const datos = {
+          pregunta, estado, norma, ley, practica, precedente, ia,
+          normasVinculadas: normasSeleccionadas
+        };
         if (modoEdicion) {
-          const docRef = doc(db, "usuarios", user.uid, "analisis", modoEdicion);
-          await updateDoc(docRef, { pregunta, estado, norma, ley, practica, precedente, ia });
+          await updateDoc(doc(db, "usuarios", user.uid, "analisis", modoEdicion), datos);
         } else {
-          await addDoc(analisisRef, {
-            pregunta, estado, norma, ley, practica, precedente, ia,
-            creadoEn: serverTimestamp()
-          });
+          await addDoc(analisisRef, { ...datos, creadoEn: serverTimestamp() });
         }
         limpiarFormulario();
       } catch (error) {
@@ -155,6 +186,15 @@ onAuthStateChanged(auth, (user) => {
 
     contenedor.innerHTML = filtrados.map((a) => {
       const color = colorEstado[a.estado] || "#555";
+
+      const tagsNormas = Array.isArray(a.normasVinculadas) && a.normasVinculadas.length > 0
+        ? `<div class="participantes-tags-display">
+            ${a.normasVinculadas.map(n =>
+              `<span class="participante-tag-display">📄 ${n.nombre}</span>`
+            ).join("")}
+           </div>`
+        : "";
+
       return `
         <div class="reunion-card analisis-card">
           <div class="reunion-card-header">
@@ -167,7 +207,8 @@ onAuthStateChanged(auth, (user) => {
               <button class="btn-eliminar" data-id="${a.id}" title="Eliminar análisis">🗑️</button>
             </div>
           </div>
-          ${a.norma ? `<div class="reunion-card-meta">📄 Norma: <strong>${a.norma}</strong></div>` : ""}
+          ${tagsNormas}
+          ${a.norma ? `<div class="reunion-card-meta">📄 ${a.norma}</div>` : ""}
           <div class="analisis-capas-display">
             ${a.ley        ? `<div class="capa-display"><span class="capa-titulo">⚖️ Ley</span><span class="capa-texto">${a.ley}</span></div>` : ""}
             ${a.practica   ? `<div class="capa-display"><span class="capa-titulo">🏛️ Práctica</span><span class="capa-texto">${a.practica}</span></div>` : ""}

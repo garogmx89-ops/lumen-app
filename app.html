@@ -505,11 +505,16 @@
 </div>
 
 <div class="form-group">
-  <label for="analisis-norma-select">Norma relacionada</label>
-  <select id="analisis-norma-select" class="participantes-select">
-    <option value="">— Seleccionar del catálogo —</option>
-  </select>
-  <input type="text" id="analisis-norma" placeholder="O escribe una norma no registrada en el catálogo" style="margin-top:0.5rem; font-size:0.82rem;">
+  <label>Normas relacionadas</label>
+  <div class="participantes-selector">
+    <div id="analisis-normas-seleccionadas" class="participantes-seleccionados"></div>
+    <select id="analisis-norma-select" class="participantes-select">
+      <option value="">— Agregar norma del catálogo —</option>
+    </select>
+  </div>
+  <input type="text" id="analisis-norma"
+    placeholder="O escribe una referencia adicional no registrada en el catálogo"
+    style="margin-top:0.5rem; font-size:0.82rem;">
 </div>
 
             <div class="analisis-capas">
@@ -574,13 +579,18 @@
                   <option value="Obsoleto">Obsoleto</option>
                 </select>
               </div>
-              <div class="form-group">
-                <label for="proceso-norma-select">Norma o fundamento legal</label>
-                <select id="proceso-norma-select" class="participantes-select">
-                <option value="">— Seleccionar del catálogo —</option>
-                </select>
-                <input type="text" id="proceso-norma" placeholder="O escribe un fundamento no registrado en el catálogo" style="margin-top:0.5rem; font-size:0.82rem;">
-              </div>
+<div class="form-group">
+  <label>Normas o fundamentos legales</label>
+  <div class="participantes-selector">
+    <div id="proceso-normas-seleccionadas" class="participantes-seleccionados"></div>
+    <select id="proceso-norma-select" class="participantes-select">
+      <option value="">— Agregar norma del catálogo —</option>
+    </select>
+  </div>
+  <input type="text" id="proceso-norma"
+    placeholder="O escribe un fundamento adicional no registrado en el catálogo"
+    style="margin-top:0.5rem; font-size:0.82rem;">
+</div>
             </div>
 
             <!-- Pasos dinámicos -->

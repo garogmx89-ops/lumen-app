@@ -1,6 +1,4 @@
 // js/procesos.js
-// Módulo Procesos — flujos paso a paso con normativa
-
 import { auth, db } from "./firebase-config.js";
 import { onAuthStateChanged } from "https://www.gstatic.com/firebasejs/10.12.0/firebase-auth.js";
 import {
@@ -9,20 +7,18 @@ import {
 } from "https://www.gstatic.com/firebasejs/10.12.0/firebase-firestore.js";
 
 const colorEstado = {
-  "Activo":       "#2D6A4F",
-  "En revisión":  "#0077B6",
-  "Obsoleto":     "#6C757D"
+  "Activo":      "#2D6A4F",
+  "En revisión": "#0077B6",
+  "Obsoleto":    "#6C757D"
 };
 
 let todosLosProcesos = [];
 let filtroActivo     = "todos";
 let modoEdicion      = null;
-
-// --- PASOS DINÁMICOS ---
-// Este array vive en memoria mientras el usuario llena el formulario.
-// Al editar, se carga con los pasos del proceso existente.
+let normasSeleccionadasProceso = [];
 let pasos = [];
 
+// --- PASOS DINÁMICOS ---
 function renderPasos() {
   const lista = document.getElementById("pasos-lista");
   if (!lista) return;
@@ -45,7 +41,6 @@ function renderPasos() {
     </div>
   `).join("");
 
-  // Sincronizar cambios en los inputs con el array pasos[]
   lista.querySelectorAll(".paso-nombre-input").forEach(input => {
     input.addEventListener("input", (e) => {
       pasos[e.target.dataset.index].nombre = e.target.value;
@@ -66,8 +61,6 @@ function renderPasos() {
   });
 }
 
-// Botón agregar paso — se registra fuera del onAuthStateChanged
-// porque no depende del usuario, solo del DOM
 const btnAgregarPaso = document.getElementById("btn-agregar-paso");
 if (btnAgregarPaso) {
   btnAgregarPaso.addEventListener("click", () => {
@@ -82,23 +75,55 @@ renderPasos();
 onAuthStateChanged(auth, (user) => {
   if (!user) return;
 
-const procesosRef = collection(db, "usuarios", user.uid, "procesos");
-const normasRefP  = collection(db, "usuarios", user.uid, "normatividad");
+  const procesosRef = collection(db, "usuarios", user.uid, "procesos");
+  const normasRefP  = collection(db, "usuarios", user.uid, "normatividad");
 
-// --- CARGAR CATÁLOGO DE NORMAS EN EL SELECTOR ---
-const qNormasP = query(normasRefP, orderBy("creadoEn", "desc"));
-onSnapshot(qNormasP, (snapshot) => {
-  const select = document.getElementById("proceso-norma-select");
-  if (!select) return;
-  select.innerHTML = '<option value="">— Seleccionar del catálogo —</option>';
-  snapshot.docs.forEach(d => {
-    const n = d.data();
-    const option = document.createElement("option");
-    option.value = n.nombre;
-    option.textContent = n.tipo ? `[${n.tipo}] ${n.nombre}` : n.nombre;
-    select.appendChild(option);
+  // --- CARGAR CATÁLOGO DE NORMAS ---
+  const qNormasP = query(normasRefP, orderBy("creadoEn", "desc"));
+  onSnapshot(qNormasP, (snapshot) => {
+    const select = document.getElementById("proceso-norma-select");
+    if (!select) return;
+    select.innerHTML = '<option value="">— Agregar norma del catálogo —</option>';
+    snapshot.docs.forEach(d => {
+      const n = d.data();
+      const option = document.createElement("option");
+      option.value = n.nombre;
+      option.textContent = n.tipo ? `[${n.tipo}] ${n.nombre}` : n.nombre;
+      select.appendChild(option);
+    });
   });
-});
+
+  // --- SELECCIONAR NORMA DESDE EL MENÚ ---
+  document.getElementById("proceso-norma-select")?.addEventListener("change", (e) => {
+    const nombre = e.target.value;
+    if (!nombre) return;
+    if (normasSeleccionadasProceso.find(n => n.nombre === nombre)) {
+      e.target.value = "";
+      return;
+    }
+    normasSeleccionadasProceso.push({ nombre });
+    renderNormasProceso();
+    e.target.value = "";
+  });
+
+  // --- RENDERIZAR TAGS DE NORMAS ---
+  function renderNormasProceso() {
+    const contenedor = document.getElementById("proceso-normas-seleccionadas");
+    if (!contenedor) return;
+    if (normasSeleccionadasProceso.length === 0) { contenedor.innerHTML = ""; return; }
+    contenedor.innerHTML = normasSeleccionadasProceso.map((n, i) => `
+      <span class="participante-tag">
+        📄 ${n.nombre}
+        <button type="button" class="participante-tag-quitar" data-index="${i}">✕</button>
+      </span>
+    `).join("");
+    contenedor.querySelectorAll(".participante-tag-quitar").forEach(btn => {
+      btn.addEventListener("click", () => {
+        normasSeleccionadasProceso.splice(Number(btn.dataset.index), 1);
+        renderNormasProceso();
+      });
+    });
+  }
 
   // --- LIMPIAR FORMULARIO ---
   function limpiarFormulario() {
@@ -106,12 +131,11 @@ onSnapshot(qNormasP, (snapshot) => {
     document.getElementById("proceso-descripcion").value = "";
     document.getElementById("proceso-estado").value      = "Activo";
     document.getElementById("proceso-norma-select").value = "";
-    document.getElementById("proceso-norma").value         = "";
-
-    // Resetear pasos en memoria y redibujar la lista vacía
+    document.getElementById("proceso-norma").value        = "";
     pasos = [];
     renderPasos();
-
+    normasSeleccionadasProceso = [];
+    renderNormasProceso();
     document.querySelector("#panel-procesos .reunion-form-card h2").textContent = "Nuevo Proceso";
     document.getElementById("btn-cancelar-proceso").style.display = "none";
     modoEdicion = null;
@@ -123,22 +147,19 @@ onSnapshot(qNormasP, (snapshot) => {
     if (!proceso) return;
 
     modoEdicion = id;
-
-    // Llenar campos de texto
     document.getElementById("proceso-nombre").value      = proceso.nombre      || "";
     document.getElementById("proceso-descripcion").value = proceso.descripcion || "";
     document.getElementById("proceso-estado").value      = proceso.estado      || "Activo";
-    document.getElementById("proceso-norma").value        = proceso.norma || "";
-const selectP = document.getElementById("proceso-norma-select");
-if (selectP) {
-  const opcionP = Array.from(selectP.options).find(o => o.value === proceso.norma);
-  selectP.value = opcionP ? proceso.norma : "";
-}
+    document.getElementById("proceso-norma").value        = proceso.norma      || "";
+    document.getElementById("proceso-norma-select").value = "";
 
-    // Cargar los pasos guardados al array en memoria y redibujarlos
-    // Sin esto, el formulario mostraría la lista de pasos vacía
     pasos = proceso.pasos ? proceso.pasos.map(p => ({ ...p })) : [];
     renderPasos();
+
+    normasSeleccionadasProceso = Array.isArray(proceso.normasVinculadas)
+      ? proceso.normasVinculadas.map(n => ({ ...n }))
+      : [];
+    renderNormasProceso();
 
     document.querySelector("#panel-procesos .reunion-form-card h2").textContent = "Editar Proceso";
     document.getElementById("btn-cancelar-proceso").style.display = "inline-block";
@@ -155,28 +176,22 @@ if (selectP) {
       const nombre      = document.getElementById("proceso-nombre").value.trim();
       const descripcion = document.getElementById("proceso-descripcion").value.trim();
       const estado      = document.getElementById("proceso-estado").value;
-      const normaSelectP = document.getElementById("proceso-norma-select").value;
-    const normaTextoP  = document.getElementById("proceso-norma").value.trim();
-    const norma        = normaSelectP || normaTextoP;
+      const norma       = document.getElementById("proceso-norma").value.trim();
 
-      if (!nombre) {
-        alert("El nombre del proceso es obligatorio.");
-        return;
-      }
+      if (!nombre) { alert("El nombre del proceso es obligatorio."); return; }
 
-      // Filtramos pasos sin nombre antes de guardar
       const pasosValidos = pasos.filter(p => p.nombre.trim() !== "");
 
       try {
+        const datos = {
+          nombre, descripcion, estado, norma,
+          pasos: pasosValidos,
+          normasVinculadas: normasSeleccionadasProceso
+        };
         if (modoEdicion) {
-          const docRef = doc(db, "usuarios", user.uid, "procesos", modoEdicion);
-          await updateDoc(docRef, { nombre, descripcion, estado, norma, pasos: pasosValidos });
+          await updateDoc(doc(db, "usuarios", user.uid, "procesos", modoEdicion), datos);
         } else {
-          await addDoc(procesosRef, {
-            nombre, descripcion, estado, norma,
-            pasos: pasosValidos,
-            creadoEn: serverTimestamp()
-          });
+          await addDoc(procesosRef, { ...datos, creadoEn: serverTimestamp() });
         }
         limpiarFormulario();
       } catch (error) {
@@ -225,6 +240,15 @@ if (selectP) {
 
     contenedor.innerHTML = filtrados.map((p) => {
       const color = colorEstado[p.estado] || "#555";
+
+      const tagsNormas = Array.isArray(p.normasVinculadas) && p.normasVinculadas.length > 0
+        ? `<div class="participantes-tags-display">
+            ${p.normasVinculadas.map(n =>
+              `<span class="participante-tag-display">📄 ${n.nombre}</span>`
+            ).join("")}
+           </div>`
+        : "";
+
       const pasosHTML = p.pasos && p.pasos.length > 0
         ? `<div class="proceso-pasos">
             ${p.pasos.map((paso, i) => `
@@ -251,6 +275,7 @@ if (selectP) {
               <button class="btn-eliminar" data-id="${p.id}" title="Eliminar proceso">🗑️</button>
             </div>
           </div>
+          ${tagsNormas}
           ${p.norma       ? `<div class="reunion-card-meta">📄 ${p.norma}</div>` : ""}
           ${p.descripcion ? `<div class="reunion-card-acuerdos">${p.descripcion}</div>` : ""}
           ${pasosHTML}
@@ -258,12 +283,10 @@ if (selectP) {
       `;
     }).join("");
 
-    // Botones EDITAR
     contenedor.querySelectorAll(".btn-editar").forEach((btn) => {
       btn.addEventListener("click", () => activarEdicion(btn.dataset.id));
     });
 
-    // Botones ELIMINAR
     contenedor.querySelectorAll(".btn-eliminar").forEach((btn) => {
       btn.addEventListener("click", async () => {
         if (!confirm("¿Eliminar este proceso? Esta acción no se puede deshacer.")) return;

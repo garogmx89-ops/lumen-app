@@ -25,7 +25,7 @@ async function subirPdfACloudinary(archivo) {
   const formData = new FormData();
   formData.append("file", archivo);
   formData.append("upload_preset", CLOUDINARY_UPLOAD_PRESET);
-  formData.append("resource_type", "raw"); // "raw" es para PDFs y archivos no-imagen
+  formData.append("resource_type", "raw");
 
   const response = await fetch(
     `https://api.cloudinary.com/v1_1/${CLOUDINARY_CLOUD_NAME}/raw/upload`,
@@ -35,7 +35,10 @@ async function subirPdfACloudinary(archivo) {
   if (!response.ok) throw new Error("Error al subir el PDF a Cloudinary");
 
   const data = await response.json();
-  return data.secure_url; // URL https de descarga directa
+
+  // Convertimos la URL a formato de descarga directa que Cloudinary sí permite
+  // Cambia /raw/upload/ por /raw/upload/fl_attachment/
+  return data.secure_url.replace("/raw/upload/", "/raw/upload/fl_attachment/");
 }
 
 onAuthStateChanged(auth, (user) => {

@@ -986,3 +986,69 @@ body.light .theme-toggle-knob {
   gap: 0.4rem;
   align-items: center;
 }
+
+/* ── Fix: inputs con variables correctas ─────────── */
+.form-group input,
+.form-group textarea,
+.form-group select,
+.capa-input,
+.paso-nombre-input,
+.paso-detalle-input {
+  background: var(--bg3);
+  border-color: var(--border);
+  color: var(--text);
+}
+
+.form-group input:focus,
+.form-group textarea:focus,
+.form-group select:focus,
+.capa-input:focus,
+.paso-nombre-input:focus,
+.paso-detalle-input:focus {
+  border-color: var(--accent);
+}
+
+/* Fix: input tipo fecha — ícono de calendario visible */
+input[type="datetime-local"],
+input[type="date"] {
+  color-scheme: dark;
+}
+body.light input[type="datetime-local"],
+body.light input[type="date"] {
+  color-scheme: light;
+}
+
+/* ── Botón secundario (Cancelar edición) ─────────── */
+.btn-secondary {
+  background: transparent;
+  color: var(--text2);
+  border: 1px solid var(--border);
+  border-radius: 8px;
+  padding: 0.7rem 1.4rem;
+  font-size: 0.95rem;
+  cursor: pointer;
+  font-weight: 600;
+  width: 100%;
+  margin-top: 0.5rem;
+  transition: background var(--trans), color var(--trans);
+}
+.btn-secondary:hover {
+  background: var(--surface);
+  color: var(--text);
+}
+
+/* ── Botón editar en tarjetas ────────────────────── */
+.btn-editar {
+  background: none;
+  border: none;
+  cursor: pointer;
+  font-size: 1rem;
+  opacity: 0.4;
+  transition: opacity 0.2s;
+  padding: 0;
+  line-height: 1;
+  flex-shrink: 0;
+}
+.btn-editar:hover {
+  opacity: 1;
+}

@@ -2,7 +2,7 @@
 import { auth, db } from "./firebase-config.js";
 import { onAuthStateChanged } from "https://www.gstatic.com/firebasejs/10.12.0/firebase-auth.js";
 import {
-  collection, addDoc, deleteDoc, doc,
+  collection, addDoc, updateDoc, deleteDoc, doc,
   onSnapshot, orderBy, query, serverTimestamp
 } from "https://www.gstatic.com/firebasejs/10.12.0/firebase-firestore.js";
 
@@ -13,17 +13,47 @@ const colorTipo = {
 
 let todasLasNormas = [];
 let filtroActivo = "todos";
+let modoEdicion = null;
 
-// Esperamos a que el usuario esté confirmado ANTES de registrar cualquier evento
 onAuthStateChanged(auth, (user) => {
   if (!user) return;
 
   const normasRef = collection(db, "usuarios", user.uid, "normatividad");
 
+  // --- LIMPIAR FORMULARIO ---
+  function limpiarFormulario() {
+    document.getElementById("norma-nombre").value      = "";
+    document.getElementById("norma-tipo").value        = "";
+    document.getElementById("norma-fecha").value       = "";
+    document.getElementById("norma-resumen").value     = "";
+    document.getElementById("norma-anotaciones").value = "";
+
+    document.querySelector("#panel-normatividad .reunion-form-card h2").textContent = "Nueva Norma";
+    document.getElementById("btn-cancelar-norma").style.display = "none";
+    modoEdicion = null;
+  }
+
+  // --- ACTIVAR MODO EDICIÓN ---
+  function activarEdicion(id) {
+    // Buscamos los datos en el array local, que siempre está actualizado
+    const norma = todasLasNormas.find(n => n.id === id);
+    if (!norma) return;
+
+    modoEdicion = id;
+    document.getElementById("norma-nombre").value      = norma.nombre      || "";
+    document.getElementById("norma-tipo").value        = norma.tipo        || "";
+    document.getElementById("norma-fecha").value       = norma.fecha       || "";
+    document.getElementById("norma-resumen").value     = norma.resumen     || "";
+    document.getElementById("norma-anotaciones").value = norma.anotaciones || "";
+
+    document.querySelector("#panel-normatividad .reunion-form-card h2").textContent = "Editar Norma";
+    document.getElementById("btn-cancelar-norma").style.display = "inline-block";
+    document.getElementById("panel-normatividad").scrollIntoView({ behavior: "smooth" });
+  }
+
   // --- BOTÓN GUARDAR ---
   const btnGuardar = document.getElementById("btn-guardar-norma");
   if (btnGuardar) {
-    // Clonamos el botón para eliminar cualquier listener anterior
     const btnNuevo = btnGuardar.cloneNode(true);
     btnGuardar.parentNode.replaceChild(btnNuevo, btnGuardar);
 
@@ -37,17 +67,24 @@ onAuthStateChanged(auth, (user) => {
       if (!nombre) { alert("El nombre del documento es obligatorio."); return; }
 
       try {
-        await addDoc(normasRef, { nombre, tipo, fecha, resumen, anotaciones, creadoEn: serverTimestamp() });
-        document.getElementById("norma-nombre").value      = "";
-        document.getElementById("norma-tipo").value        = "";
-        document.getElementById("norma-fecha").value       = "";
-        document.getElementById("norma-resumen").value     = "";
-        document.getElementById("norma-anotaciones").value = "";
+        if (modoEdicion) {
+          const docRef = doc(db, "usuarios", user.uid, "normatividad", modoEdicion);
+          await updateDoc(docRef, { nombre, tipo, fecha, resumen, anotaciones });
+        } else {
+          await addDoc(normasRef, { nombre, tipo, fecha, resumen, anotaciones, creadoEn: serverTimestamp() });
+        }
+        limpiarFormulario();
       } catch (error) {
         console.error("Error al guardar norma:", error);
         alert("Hubo un error al guardar. Revisa la consola.");
       }
     });
+  }
+
+  // --- BOTÓN CANCELAR ---
+  const btnCancelar = document.getElementById("btn-cancelar-norma");
+  if (btnCancelar) {
+    btnCancelar.addEventListener("click", () => limpiarFormulario());
   }
 
   // --- FILTROS ---
@@ -89,7 +126,10 @@ onAuthStateChanged(auth, (user) => {
               ${n.tipo ? `<span class="norma-tipo-badge" style="background:${color}">${n.tipo}</span>` : ""}
               <span class="reunion-card-titulo">${n.nombre}</span>
             </div>
-            <button class="btn-eliminar" data-id="${n.id}" title="Eliminar norma">🗑️</button>
+            <div class="reunion-card-acciones">
+              <button class="btn-editar" data-id="${n.id}" title="Editar norma">✏️</button>
+              <button class="btn-eliminar" data-id="${n.id}" title="Eliminar norma">🗑️</button>
+            </div>
           </div>
           ${n.fecha ? `<div class="reunion-card-meta">📅 ${formatearFecha(n.fecha)}</div>` : ""}
           ${n.resumen ? `<div class="reunion-card-acuerdos"><strong>Resumen:</strong> ${n.resumen}</div>` : ""}
@@ -98,11 +138,18 @@ onAuthStateChanged(auth, (user) => {
       `;
     }).join("");
 
+    // Botones EDITAR
+    contenedor.querySelectorAll(".btn-editar").forEach((btn) => {
+      btn.addEventListener("click", () => activarEdicion(btn.dataset.id));
+    });
+
+    // Botones ELIMINAR
     contenedor.querySelectorAll(".btn-eliminar").forEach((btn) => {
       btn.addEventListener("click", async () => {
         if (!confirm("¿Eliminar esta norma? Esta acción no se puede deshacer.")) return;
         try {
           await deleteDoc(doc(db, "usuarios", user.uid, "normatividad", btn.dataset.id));
+          if (modoEdicion === btn.dataset.id) limpiarFormulario();
         } catch (error) {
           console.error("Error al eliminar:", error);
           alert("No se pudo eliminar. Revisa la consola.");

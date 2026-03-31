@@ -4,17 +4,53 @@
 import { auth, db } from "./firebase-config.js";
 import { onAuthStateChanged } from "https://www.gstatic.com/firebasejs/10.12.0/firebase-auth.js";
 import {
-  collection, addDoc, deleteDoc, doc,
+  collection, addDoc, updateDoc, deleteDoc, doc,
   onSnapshot, orderBy, query, serverTimestamp
 } from "https://www.gstatic.com/firebasejs/10.12.0/firebase-firestore.js";
 
 let todosLosContextos = [];
-let filtroActivo = "todos";
+let filtroActivo      = "todos";
+let modoEdicion       = null;
 
 onAuthStateChanged(auth, (user) => {
   if (!user) return;
 
   const contextosRef = collection(db, "usuarios", user.uid, "contextos");
+
+  // --- LIMPIAR FORMULARIO ---
+  function limpiarFormulario() {
+    document.getElementById("contexto-nombre").value      = "";
+    document.getElementById("contexto-periodo").value     = "";
+    document.getElementById("contexto-asignado").value    = "";
+    document.getElementById("contexto-ejercido").value    = "";
+    document.getElementById("contexto-indicadores").value = "";
+    document.getElementById("contexto-notas").value       = "";
+
+    document.querySelector("#panel-contexto .reunion-form-card h2").textContent = "Nuevo Contexto";
+    document.getElementById("btn-cancelar-contexto").style.display = "none";
+    modoEdicion = null;
+
+    // Redibujar filtros para reflejar el estado actual
+    actualizarFiltrosPeriodo();
+  }
+
+  // --- ACTIVAR MODO EDICIÓN ---
+  function activarEdicion(id) {
+    const contexto = todosLosContextos.find(c => c.id === id);
+    if (!contexto) return;
+
+    modoEdicion = id;
+    document.getElementById("contexto-nombre").value      = contexto.nombre      || "";
+    document.getElementById("contexto-periodo").value     = contexto.periodo     || "";
+    document.getElementById("contexto-asignado").value    = contexto.asignado    || "";
+    document.getElementById("contexto-ejercido").value    = contexto.ejercido    || "";
+    document.getElementById("contexto-indicadores").value = contexto.indicadores || "";
+    document.getElementById("contexto-notas").value       = contexto.notas       || "";
+
+    document.querySelector("#panel-contexto .reunion-form-card h2").textContent = "Editar Contexto";
+    document.getElementById("btn-cancelar-contexto").style.display = "inline-block";
+    document.getElementById("panel-contexto").scrollIntoView({ behavior: "smooth" });
+  }
 
   // --- BOTÓN GUARDAR ---
   const btnGuardar = document.getElementById("btn-guardar-contexto");
@@ -36,26 +72,27 @@ onAuthStateChanged(auth, (user) => {
       }
 
       try {
-        await addDoc(contextosRef, {
-          nombre, periodo, asignado, ejercido, indicadores, notas,
-          creadoEn: serverTimestamp()
-        });
-
-        document.getElementById("contexto-nombre").value      = "";
-        document.getElementById("contexto-periodo").value     = "";
-        document.getElementById("contexto-asignado").value    = "";
-        document.getElementById("contexto-ejercido").value    = "";
-        document.getElementById("contexto-indicadores").value = "";
-        document.getElementById("contexto-notas").value       = "";
-
-        // Actualizar filtros de periodo después de guardar
-        actualizarFiltrosPeriodo();
-
+        if (modoEdicion) {
+          const docRef = doc(db, "usuarios", user.uid, "contextos", modoEdicion);
+          await updateDoc(docRef, { nombre, periodo, asignado, ejercido, indicadores, notas });
+        } else {
+          await addDoc(contextosRef, {
+            nombre, periodo, asignado, ejercido, indicadores, notas,
+            creadoEn: serverTimestamp()
+          });
+        }
+        limpiarFormulario();
       } catch (error) {
         console.error("Error al guardar contexto:", error);
         alert("Hubo un error al guardar. Revisa la consola.");
       }
     });
+  }
+
+  // --- BOTÓN CANCELAR ---
+  const btnCancelar = document.getElementById("btn-cancelar-contexto");
+  if (btnCancelar) {
+    btnCancelar.addEventListener("click", () => limpiarFormulario());
   }
 
   // --- LEER EN TIEMPO REAL ---
@@ -66,7 +103,7 @@ onAuthStateChanged(auth, (user) => {
     renderContextos();
   });
 
-  // Genera dinámicamente los botones de filtro por periodo (año fiscal)
+  // Genera dinámicamente los botones de filtro por periodo
   // según los periodos que existan en los registros guardados
   function actualizarFiltrosPeriodo() {
     const contenedorFiltros = document.getElementById("contexto-filtros");
@@ -117,7 +154,10 @@ onAuthStateChanged(auth, (user) => {
               <span class="reunion-card-titulo">📊 ${c.nombre}</span>
               ${c.periodo ? `<span class="entidad-siglas-badge">${c.periodo}</span>` : ""}
             </div>
-            <button class="btn-eliminar" data-id="${c.id}" title="Eliminar contexto">🗑️</button>
+            <div class="reunion-card-acciones">
+              <button class="btn-editar" data-id="${c.id}" title="Editar contexto">✏️</button>
+              <button class="btn-eliminar" data-id="${c.id}" title="Eliminar contexto">🗑️</button>
+            </div>
           </div>
           ${c.asignado || c.ejercido ? `
             <div class="contexto-montos">
@@ -136,11 +176,18 @@ onAuthStateChanged(auth, (user) => {
       `;
     }).join("");
 
+    // Botones EDITAR
+    contenedor.querySelectorAll(".btn-editar").forEach((btn) => {
+      btn.addEventListener("click", () => activarEdicion(btn.dataset.id));
+    });
+
+    // Botones ELIMINAR
     contenedor.querySelectorAll(".btn-eliminar").forEach((btn) => {
       btn.addEventListener("click", async () => {
         if (!confirm("¿Eliminar este contexto? Esta acción no se puede deshacer.")) return;
         try {
           await deleteDoc(doc(db, "usuarios", user.uid, "contextos", btn.dataset.id));
+          if (modoEdicion === btn.dataset.id) limpiarFormulario();
         } catch (error) {
           console.error("Error al eliminar:", error);
           alert("No se pudo eliminar. Revisa la consola.");

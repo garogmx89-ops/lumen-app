@@ -4,7 +4,7 @@
 import { auth, db } from "./firebase-config.js";
 import { onAuthStateChanged } from "https://www.gstatic.com/firebasejs/10.12.0/firebase-auth.js";
 import {
-  collection, addDoc, deleteDoc, doc,
+  collection, addDoc, updateDoc, deleteDoc, doc,
   onSnapshot, orderBy, query, serverTimestamp
 } from "https://www.gstatic.com/firebasejs/10.12.0/firebase-firestore.js";
 
@@ -20,12 +20,43 @@ const colorEstado = {
 };
 
 let todasLasAlertas = [];
-let filtroActivo = "todos";
+let filtroActivo    = "todos";
+let modoEdicion     = null;
 
 onAuthStateChanged(auth, (user) => {
   if (!user) return;
 
   const alertasRef = collection(db, "usuarios", user.uid, "agenda");
+
+  // --- LIMPIAR FORMULARIO ---
+  function limpiarFormulario() {
+    document.getElementById("alerta-titulo").value    = "";
+    document.getElementById("alerta-fecha").value     = "";
+    document.getElementById("alerta-prioridad").value = "Alta";
+    document.getElementById("alerta-norma").value     = "";
+    document.getElementById("alerta-estado").value    = "Pendiente";
+
+    document.querySelector("#panel-agenda .reunion-form-card h2").textContent = "Nueva Alerta";
+    document.getElementById("btn-cancelar-alerta").style.display = "none";
+    modoEdicion = null;
+  }
+
+  // --- ACTIVAR MODO EDICIÓN ---
+  function activarEdicion(id) {
+    const alerta = todasLasAlertas.find(a => a.id === id);
+    if (!alerta) return;
+
+    modoEdicion = id;
+    document.getElementById("alerta-titulo").value    = alerta.titulo    || "";
+    document.getElementById("alerta-fecha").value     = alerta.fecha     || "";
+    document.getElementById("alerta-prioridad").value = alerta.prioridad || "Alta";
+    document.getElementById("alerta-norma").value     = alerta.norma     || "";
+    document.getElementById("alerta-estado").value    = alerta.estado    || "Pendiente";
+
+    document.querySelector("#panel-agenda .reunion-form-card h2").textContent = "Editar Alerta";
+    document.getElementById("btn-cancelar-alerta").style.display = "inline-block";
+    document.getElementById("panel-agenda").scrollIntoView({ behavior: "smooth" });
+  }
 
   // --- BOTÓN GUARDAR ---
   const btnGuardar = document.getElementById("btn-guardar-alerta");
@@ -40,32 +71,31 @@ onAuthStateChanged(auth, (user) => {
       const norma     = document.getElementById("alerta-norma").value.trim();
       const estado    = document.getElementById("alerta-estado").value;
 
-      if (!titulo) {
-        alert("El título de la alerta es obligatorio.");
-        return;
-      }
-      if (!fecha) {
-        alert("La fecha de vencimiento es obligatoria.");
-        return;
-      }
+      if (!titulo) { alert("El título de la alerta es obligatorio."); return; }
+      if (!fecha)  { alert("La fecha de vencimiento es obligatoria."); return; }
 
       try {
-        await addDoc(alertasRef, {
-          titulo, fecha, prioridad, norma, estado,
-          creadoEn: serverTimestamp()
-        });
-
-        document.getElementById("alerta-titulo").value    = "";
-        document.getElementById("alerta-fecha").value     = "";
-        document.getElementById("alerta-prioridad").value = "Alta";
-        document.getElementById("alerta-norma").value     = "";
-        document.getElementById("alerta-estado").value    = "Pendiente";
-
+        if (modoEdicion) {
+          const docRef = doc(db, "usuarios", user.uid, "agenda", modoEdicion);
+          await updateDoc(docRef, { titulo, fecha, prioridad, norma, estado });
+        } else {
+          await addDoc(alertasRef, {
+            titulo, fecha, prioridad, norma, estado,
+            creadoEn: serverTimestamp()
+          });
+        }
+        limpiarFormulario();
       } catch (error) {
         console.error("Error al guardar alerta:", error);
         alert("Hubo un error al guardar. Revisa la consola.");
       }
     });
+  }
+
+  // --- BOTÓN CANCELAR ---
+  const btnCancelar = document.getElementById("btn-cancelar-alerta");
+  if (btnCancelar) {
+    btnCancelar.addEventListener("click", () => limpiarFormulario());
   }
 
   // --- FILTROS ---
@@ -80,7 +110,7 @@ onAuthStateChanged(auth, (user) => {
   });
 
   // --- LEER EN TIEMPO REAL ---
-  // Ordenamos por fecha de vencimiento para que las más urgentes aparezcan primero
+  // Ordenamos por fecha de vencimiento — las más urgentes primero
   const q = query(alertasRef, orderBy("fecha", "asc"));
   onSnapshot(q, (snapshot) => {
     todasLasAlertas = snapshot.docs.map(d => ({ id: d.id, ...d.data() }));
@@ -108,21 +138,19 @@ onAuthStateChanged(auth, (user) => {
 
     contenedor.innerHTML = filtradas.map((a) => {
       const colorP = colorPrioridad[a.prioridad] || "#555";
-      const colorE = colorEstado[a.estado] || "#555";
+      const colorE = colorEstado[a.estado]       || "#555";
 
-      // Calcular días restantes para el vencimiento
-      let diasRestantes = null;
-      let alertaVencimiento = "";
+      // Calcular días restantes para mostrar advertencias de vencimiento
+      let diasRestantes      = null;
+      let alertaVencimiento  = "";
       if (a.fecha) {
         const [year, month, day] = a.fecha.split("-");
         const fechaVence = new Date(Number(year), Number(month) - 1, Number(day));
         diasRestantes = Math.ceil((fechaVence - hoy) / (1000 * 60 * 60 * 24));
 
         if (diasRestantes < 0 && a.estado === "Pendiente") {
-          // Vencida
           alertaVencimiento = `<span class="alerta-vencida">⚠️ Vencida hace ${Math.abs(diasRestantes)} día(s)</span>`;
         } else if (diasRestantes <= 3 && diasRestantes >= 0 && a.estado === "Pendiente") {
-          // Próxima a vencer
           alertaVencimiento = `<span class="alerta-proxima">🔔 Vence en ${diasRestantes === 0 ? "hoy" : diasRestantes + " día(s)"}</span>`;
         }
       }
@@ -135,7 +163,10 @@ onAuthStateChanged(auth, (user) => {
               <span class="norma-tipo-badge" style="background:${colorE}">${a.estado}</span>
               <span class="reunion-card-titulo">${a.titulo}</span>
             </div>
-            <button class="btn-eliminar" data-id="${a.id}" title="Eliminar alerta">🗑️</button>
+            <div class="reunion-card-acciones">
+              <button class="btn-editar" data-id="${a.id}" title="Editar alerta">✏️</button>
+              <button class="btn-eliminar" data-id="${a.id}" title="Eliminar alerta">🗑️</button>
+            </div>
           </div>
           <div class="reunion-card-meta">
             ${a.fecha ? `📅 Vence: ${formatearFecha(a.fecha)}` : ""}
@@ -146,11 +177,18 @@ onAuthStateChanged(auth, (user) => {
       `;
     }).join("");
 
+    // Botones EDITAR
+    contenedor.querySelectorAll(".btn-editar").forEach((btn) => {
+      btn.addEventListener("click", () => activarEdicion(btn.dataset.id));
+    });
+
+    // Botones ELIMINAR
     contenedor.querySelectorAll(".btn-eliminar").forEach((btn) => {
       btn.addEventListener("click", async () => {
         if (!confirm("¿Eliminar esta alerta? Esta acción no se puede deshacer.")) return;
         try {
           await deleteDoc(doc(db, "usuarios", user.uid, "agenda", btn.dataset.id));
+          if (modoEdicion === btn.dataset.id) limpiarFormulario();
         } catch (error) {
           console.error("Error al eliminar:", error);
           alert("No se pudo eliminar. Revisa la consola.");

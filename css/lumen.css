@@ -722,11 +722,11 @@ body.light .theme-toggle-knob {
 }
 
 .capa-input {
-  background: var(--fondo);
-  border: 1px solid var(--borde);
+  background: var(--bg3);
+  border: 1px solid var(--border);
   border-radius: 8px;
   padding: 0.6rem 0.8rem;
-  color: var(--texto);
+  color: var(--text1);
   font-size: 0.9rem;
   font-family: inherit;
   resize: vertical;

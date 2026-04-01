@@ -74,7 +74,8 @@ onAuthStateChanged(auth, (user) => {
   function limpiarFormulario() {
     document.getElementById("analisis-pregunta").value   = "";
     document.getElementById("analisis-estado").value     = "Abierto";
-    document.getElementById("analisis-norma-select").value = "";
+    const selectNorma = document.getElementById("analisis-norma-select");
+    if (selectNorma) selectNorma.value = "";
     document.getElementById("analisis-norma").value      = "";
     document.getElementById("analisis-ley").value        = "";
     document.getElementById("analisis-practica").value   = "";

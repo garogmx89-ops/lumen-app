@@ -330,9 +330,15 @@ onAuthStateChanged(auth, (user) => {
   }
 
   // ─── GENERAR ANÁLISIS IA ──────────────────────────────────────────────────
-  async function generarAnalisisIA(id, btnOrigen) {
+  async function generarAnalisisIA(id, btnOrigen, forzarRegeneracion = false) {
     const contexto = todosLosContextos.find(c => c.id === id);
     if (!contexto) return;
+
+    // Si ya hay análisis guardado y no se pidió regenerar, mostrar al instante
+    if (contexto.analisisIA && !forzarRegeneracion) {
+      mostrarModalIA(contexto.nombre, contexto.analisisIA, id);
+      return;
+    }
 
     btnOrigen.disabled    = true;
     btnOrigen.textContent = "⏳";
@@ -392,7 +398,11 @@ Tono institucional, lenguaje técnico-administrativo. Máximo 300 palabras. Resp
       });
       const data = await response.json();
       const texto = data.briefing || "No se pudo generar el análisis.";
-      mostrarModalIA(contexto.nombre, texto);
+
+      // Guardar en Firestore para no regenerar la próxima vez
+      await updateDoc(doc(db, "usuarios", user.uid, "contextos", id), { analisisIA: texto });
+
+      mostrarModalIA(contexto.nombre, texto, id);
     } catch (error) {
       console.error("Error al llamar a la IA:", error);
       alert("❌ Error al conectar con la IA. Intenta de nuevo.");
@@ -403,18 +413,40 @@ Tono institucional, lenguaje técnico-administrativo. Máximo 300 palabras. Resp
   }
 
   // ─── MODAL PARA MOSTRAR ANÁLISIS IA ──────────────────────────────────────
-  function mostrarModalIA(titulo, texto) {
+  function mostrarModalIA(titulo, texto, id, cargando = false) {
     // Reutilizar el modal de briefing de Reuniones si existe en el DOM
-    const modalExistente = document.getElementById("modal-briefing");
+    const modalExistente = document.getElementById("briefing-modal");
     if (modalExistente) {
-      const modalTitulo = document.getElementById("modal-briefing-titulo");
-      const modalCuerpo = document.getElementById("modal-briefing-cuerpo");
-      if (modalTitulo) modalTitulo.textContent = `✨ Análisis IA — ${titulo}`;
-      if (modalCuerpo) {
-        modalCuerpo.innerHTML = texto
-          .replace(/\*\*(.+?)\*\*/g, "<strong>$1</strong>")
-          .replace(/^## (.+)$/gm, "<h3>$1</h3>")
-          .replace(/\n/g, "<br>");
+      const tituloEl = document.getElementById("briefing-modal-titulo");
+      const cuerpo   = document.getElementById("briefing-modal-cuerpo");
+      const footer   = document.getElementById("briefing-modal-footer");
+
+      if (tituloEl) tituloEl.textContent = `✨ Análisis IA — ${titulo}`;
+
+      if (cargando) {
+        if (cuerpo) cuerpo.innerHTML = `<p class="briefing-cargando">✨ Analizando contexto presupuestal...</p>`;
+        if (footer) footer.innerHTML = "";
+      } else {
+        if (cuerpo) {
+          cuerpo.innerHTML = texto
+            .replace(/\*\*(.+?)\*\*/g, "<strong>$1</strong>")
+            .replace(/^## (.+)$/gm, "<h3>$1</h3>")
+            .replace(/\n/g, "<br>");
+        }
+        if (footer) {
+          footer.innerHTML = `
+            <button id="btn-regenerar-contexto-ia"
+              style="margin-top:1rem;background:none;border:1px solid var(--border);
+                     color:var(--text2);border-radius:8px;padding:0.5rem 1rem;
+                     cursor:pointer;font-size:0.85rem;font-family:inherit;">
+              🔄 Regenerar análisis
+            </button>
+          `;
+          document.getElementById("btn-regenerar-contexto-ia").addEventListener("click", () => {
+            const btn = document.querySelector(`.btn-briefing-ia[data-id="${id}"]`);
+            if (btn) generarAnalisisIA(id, btn, true);
+          });
+        }
       }
       modalExistente.style.display = "flex";
       return;
@@ -431,10 +463,21 @@ Tono institucional, lenguaje técnico-administrativo. Máximo 300 palabras. Resp
       display:flex;align-items:center;justify-content:center;
       z-index:1000;padding:1rem;
     `;
-    const html = texto
-      .replace(/\*\*(.+?)\*\*/g, "<strong>$1</strong>")
-      .replace(/^## (.+)$/gm, "<h3>$1</h3>")
-      .replace(/\n/g, "<br>");
+    const htmlContenido = cargando
+      ? `<p style="color:var(--text2)">✨ Analizando contexto presupuestal...</p>`
+      : texto
+          .replace(/\*\*(.+?)\*\*/g, "<strong>$1</strong>")
+          .replace(/^## (.+)$/gm, "<h3>$1</h3>")
+          .replace(/\n/g, "<br>");
+
+    const botonRegenerar = cargando ? "" : `
+      <button id="btn-regenerar-fallback"
+        style="margin-top:1rem;background:none;border:1px solid var(--border);
+               color:var(--text2);border-radius:8px;padding:0.5rem 1rem;
+               cursor:pointer;font-size:0.85rem;font-family:inherit;">
+        🔄 Regenerar análisis
+      </button>`;
+
     modal.innerHTML = `
       <div style="background:var(--bg2);border:1px solid var(--border);border-radius:12px;
                   padding:1.5rem;max-width:600px;width:100%;max-height:80vh;overflow-y:auto;">
@@ -443,13 +486,25 @@ Tono institucional, lenguaje técnico-administrativo. Máximo 300 palabras. Resp
           <button id="cerrar-modal-contexto-ia"
             style="background:none;border:none;color:var(--text2);font-size:1.2rem;cursor:pointer;">✕</button>
         </div>
-        <div style="color:var(--text);line-height:1.6;font-size:0.9rem">${html}</div>
+        <div style="color:var(--text);line-height:1.6;font-size:0.9rem">${htmlContenido}</div>
+        ${botonRegenerar}
       </div>
     `;
     document.body.appendChild(modal);
     document.getElementById("cerrar-modal-contexto-ia")
       .addEventListener("click", () => modal.remove());
-    modal.addEventListener("click", (e) => { if (e.target === modal) modal.remove(); });
+    // NO cerrar al hacer clic fuera — eliminado intencionalmente
+
+    if (!cargando) {
+      const btnReg = document.getElementById("btn-regenerar-fallback");
+      if (btnReg) {
+        btnReg.addEventListener("click", () => {
+          modal.remove();
+          const btn = document.querySelector(`.btn-briefing-ia[data-id="${id}"]`);
+          if (btn) generarAnalisisIA(id, btn, true);
+        });
+      }
+    }
   }
 
 });

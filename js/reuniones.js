@@ -137,17 +137,21 @@ onAuthStateChanged(auth, (user) => {
   // ─── FUNCIÓN: GENERAR BRIEFING IA ─────────────────────────────────────────
   // Esta función recibe los datos de una reunión, arma un prompt detallado,
   // llama a la API de Claude y muestra el resultado en un modal.
-  async function generarBriefing(datos) {
-    // Mostramos el modal inmediatamente con estado de carga
-    mostrarModal("⏳ Generando briefing...", true);
+  async function generarBriefing(id, datos, forzarRegeneracion = false) {
+    // Si ya hay briefing guardado y no se pidió regenerar, mostrar al instante
+    if (datos.briefing && !forzarRegeneracion) {
+      mostrarModal(datos.titulo, datos.briefing, id, datos);
+      return;
+    }
 
-    // Construimos la lista de participantes para el prompt
+    // Mostrar modal en estado de carga
+    mostrarModal(datos.titulo, null, id, datos, true);
+
     const participantesTexto = [
       ...(datos.participantesVinculados || []).map(p => p.nombre),
       datos.participantes || ""
     ].filter(Boolean).join(", ") || "No especificados";
 
-    // El prompt le dice a Claude exactamente qué queremos
     const prompt = `Eres un asistente especializado en gestión institucional pública de México.
 Genera un briefing ejecutivo estructurado para la siguiente reunión de trabajo de SEDUVOT Zacatecas.
 
@@ -167,7 +171,7 @@ El briefing debe incluir exactamente estas secciones:
 Responde únicamente con el briefing, sin introducciones ni comentarios adicionales.
 Usa un tono institucional profesional, en español.`;
 
-try {
+    try {
       const response = await fetch("https://lumen-briefing.garogmx89.workers.dev", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
@@ -176,30 +180,33 @@ try {
 
       const data = await response.json();
       const texto = data.briefing || "No se pudo generar el briefing.";
-      mostrarModal(texto, false);
+
+      // Guardar en Firestore para no regenerar la próxima vez
+      await updateDoc(doc(db, "usuarios", user.uid, "reuniones", id), { briefing: texto });
+
+      mostrarModal(datos.titulo, texto, id, datos);
 
     } catch (error) {
       console.error("Error al llamar a la API:", error);
-      mostrarModal("❌ Hubo un error al conectar con la IA. Revisa tu conexión e intenta de nuevo.", false);
+      mostrarModal(datos.titulo, "❌ Hubo un error al conectar con la IA. Revisa tu conexión e intenta de nuevo.", id, datos);
     }
   }
 
   // ─── MODAL: MOSTRAR RESULTADO ─────────────────────────────────────────────
-  // Crea o reutiliza un modal flotante para mostrar el briefing
-  function mostrarModal(contenido, cargando) {
+  function mostrarModal(titulo, contenido, id, datos, cargando = false) {
     let modal = document.getElementById("briefing-modal");
 
-    // Si no existe, lo creamos una sola vez
     if (!modal) {
       modal = document.createElement("div");
       modal.id = "briefing-modal";
       modal.innerHTML = `
         <div id="briefing-modal-inner">
           <div id="briefing-modal-header">
-            <span>📋 Briefing IA</span>
+            <span id="briefing-modal-titulo">📋 Briefing IA</span>
             <button id="briefing-modal-cerrar">✕</button>
           </div>
           <div id="briefing-modal-cuerpo"></div>
+          <div id="briefing-modal-footer"></div>
         </div>
       `;
       document.body.appendChild(modal);
@@ -207,21 +214,20 @@ try {
       document.getElementById("briefing-modal-cerrar").addEventListener("click", () => {
         modal.style.display = "none";
       });
-
-      // Cerrar al hacer clic fuera del modal
-      modal.addEventListener("click", (e) => {
-        if (e.target === modal) modal.style.display = "none";
-      });
+      // NO cerrar al hacer clic fuera — eliminado intencionalmente
     }
 
-    const cuerpo = document.getElementById("briefing-modal-cuerpo");
+    const tituloEl = document.getElementById("briefing-modal-titulo");
+    const cuerpo   = document.getElementById("briefing-modal-cuerpo");
+    const footer   = document.getElementById("briefing-modal-footer");
+
+    if (tituloEl) tituloEl.textContent = `📋 ${titulo}`;
 
     if (cargando) {
-      // Mientras carga mostramos un spinner de texto
       cuerpo.innerHTML = `<p class="briefing-cargando">✨ Analizando datos de la reunión...</p>`;
+      footer.innerHTML = "";
     } else {
-      // Convertimos saltos de línea en párrafos para mejor lectura
-cuerpo.innerHTML = contenido
+      cuerpo.innerHTML = contenido
         .split("\n")
         .filter(l => l.trim())
         .map(l => {
@@ -231,6 +237,18 @@ cuerpo.innerHTML = contenido
           return `<p>${l}</p>`;
         })
         .join("");
+
+      footer.innerHTML = `
+        <button id="btn-regenerar-briefing"
+          style="margin-top:1rem;background:none;border:1px solid var(--border);
+                 color:var(--text2);border-radius:8px;padding:0.5rem 1rem;
+                 cursor:pointer;font-size:0.85rem;font-family:inherit;">
+          🔄 Regenerar briefing
+        </button>
+      `;
+      document.getElementById("btn-regenerar-briefing").addEventListener("click", () => {
+        generarBriefing(id, datos, true);
+      });
     }
 
     modal.style.display = "flex";
@@ -283,7 +301,7 @@ cuerpo.innerHTML = contenido
     contenedor.querySelectorAll(".btn-briefing-ia").forEach((btn) => {
       btn.addEventListener("click", () => {
         const documentoEncontrado = snapshot.docs.find(d => d.id === btn.dataset.id);
-        if (documentoEncontrado) generarBriefing(documentoEncontrado.data());
+        if (documentoEncontrado) generarBriefing(btn.dataset.id, documentoEncontrado.data());
       });
     });
 

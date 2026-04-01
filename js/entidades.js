@@ -117,7 +117,7 @@ onAuthStateChanged(auth, (user) => {
       const icono = iconoTipo[d.tipo] || "🏢";
 
       return `
-        <div class="reunion-card entidad-card">
+        <div class="reunion-card entidad-card entidad-card--clickable" data-id="${id}" style="cursor:pointer">
           <div class="reunion-card-header">
             <div class="entidad-card-nombre">
               <span class="entidad-tipo-icono">${icono}</span>
@@ -141,6 +141,16 @@ onAuthStateChanged(auth, (user) => {
         </div>
       `;
     }).join("");
+
+    // Clic en tarjeta → modal de detalle
+    contenedor.querySelectorAll(".entidad-card--clickable").forEach((card) => {
+      card.addEventListener("click", (e) => {
+        if (e.target.closest("button")) return;
+        const id = card.dataset.id;
+        const encontrado = snapshot.docs.find(d => d.id === id);
+        if (encontrado) mostrarDetalle(id, encontrado.data());
+      });
+    });
 
     // Botones EDITAR
     contenedor.querySelectorAll(".btn-editar").forEach((btn) => {
@@ -167,4 +177,71 @@ onAuthStateChanged(auth, (user) => {
       });
     });
   });
+
+  // ─── MODAL DE DETALLE ────────────────────────────────────────────────────
+  function mostrarDetalle(id, datos) {
+    const icono = iconoTipo[datos.tipo] || "🏢";
+
+    let modal = document.getElementById("detalle-entidad-modal");
+    if (!modal) {
+      modal = document.createElement("div");
+      modal.id = "detalle-entidad-modal";
+      modal.style.cssText = "position:fixed;inset:0;background:rgba(0,0,0,0.6);"
+        + "display:flex;align-items:center;justify-content:center;z-index:800;padding:1rem;";
+      document.body.appendChild(modal);
+    }
+
+    modal.innerHTML = '<div style="background:var(--bg2);border:1px solid var(--border);border-radius:14px;'
+      + 'width:100%;max-width:520px;max-height:85vh;overflow-y:auto;box-shadow:var(--shadow);">'
+
+      // Header
+      + '<div style="display:flex;justify-content:space-between;align-items:flex-start;'
+      + 'padding:1.2rem 1.4rem 1rem;border-bottom:1px solid var(--border);'
+      + 'position:sticky;top:0;background:var(--bg2);z-index:1;">'
+      + '<div>'
+      + '<div style="font-size:1rem;font-weight:700;color:var(--text)">'
+      + icono + ' ' + (datos.nombre || "Sin nombre")
+      + (datos.siglas ? ' <span style="background:var(--accent);color:white;font-size:0.72rem;'
+        + 'font-weight:700;padding:0.15rem 0.5rem;border-radius:20px;margin-left:0.4rem">'
+        + datos.siglas + '</span>' : '')
+      + '</div>'
+      + (datos.tipo ? '<div style="font-size:0.8rem;color:var(--text2);margin-top:0.2rem">'
+        + datos.tipo + '</div>' : '')
+      + '</div>'
+      + '<button id="detalle-entidad-cerrar" style="background:none;border:none;color:var(--text2);'
+      + 'font-size:1.1rem;cursor:pointer;padding:0.2rem;flex-shrink:0;margin-left:1rem;">✕</button>'
+      + '</div>'
+
+      // Cuerpo
+      + '<div style="padding:1.2rem 1.4rem;display:flex;flex-direction:column;gap:1rem;">'
+      + (datos.titular ? '<div class="detalle-seccion">'
+        + '<div class="detalle-seccion-titulo">👤 Titular</div>'
+        + '<div class="detalle-seccion-texto">' + datos.titular + '</div></div>' : '')
+      + (datos.atribuciones ? '<div class="detalle-seccion">'
+        + '<div class="detalle-seccion-titulo">📋 Atribuciones</div>'
+        + '<div class="detalle-seccion-texto">' + datos.atribuciones + '</div></div>' : '')
+      + '</div>'
+
+      // Footer
+      + '<div style="padding:1rem 1.4rem;border-top:1px solid var(--border);'
+      + 'display:flex;justify-content:flex-end;position:sticky;bottom:0;background:var(--bg2);">'
+      + '<button id="detalle-entidad-editar" style="background:var(--accent);color:white;border:none;'
+      + 'border-radius:8px;padding:0.55rem 1.2rem;font-size:0.875rem;cursor:pointer;'
+      + 'font-family:inherit;font-weight:600;">✏️ Editar</button>'
+      + '</div>'
+      + '</div>';
+
+    document.getElementById("detalle-entidad-cerrar").addEventListener("click", () => {
+      modal.style.display = "none";
+    });
+    modal.addEventListener("click", (e) => { if (e.target === modal) modal.style.display = "none"; });
+
+    document.getElementById("detalle-entidad-editar").addEventListener("click", () => {
+      modal.style.display = "none";
+      activarEdicion(id, datos);
+    });
+
+    modal.style.display = "flex";
+  }
+
 });

@@ -538,8 +538,7 @@ Tono institucional, lenguaje técnico-administrativo. Máximo 300 palabras. Resp
       ? '<div class="detalle-seccion">'
         + '<div class="detalle-seccion-titulo">✨ Análisis IA</div>'
         + '<div class="detalle-briefing-texto">'
-        + c.analisisIA.replace(/\*\*(.+?)\*\*/g, "<strong>$1</strong>").replace(/
-/g, "<br>")
+        + c.analisisIA.replace(/\*\*(.+?)\*\*/g, "<strong>$1</strong>").split("\n").join("<br>")
         + '</div></div>'
       : "";
 

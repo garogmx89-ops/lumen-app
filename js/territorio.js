@@ -141,7 +141,7 @@ onAuthStateChanged(auth, (user) => {
       const icono = iconoTipo[t.tipo]     || "📍";
 
       return `
-        <div class="reunion-card territorio-card">
+        <div class="reunion-card territorio-card territorio-card--clickable" data-id="${t.id}" style="cursor:pointer">
           <div class="reunion-card-header">
             <div class="entidad-card-nombre">
               <span>${icono}</span>
@@ -165,6 +165,15 @@ onAuthStateChanged(auth, (user) => {
       `;
     }).join("");
 
+    // Clic en tarjeta → modal de detalle
+    contenedor.querySelectorAll(".territorio-card--clickable").forEach((card) => {
+      card.addEventListener("click", (e) => {
+        if (e.target.closest("button")) return;
+        const t = todosLosTerritorios.find(t => t.id === card.dataset.id);
+        if (t) mostrarDetalle(t);
+      });
+    });
+
     // Botones EDITAR
     contenedor.querySelectorAll(".btn-editar").forEach((btn) => {
       btn.addEventListener("click", () => activarEdicion(btn.dataset.id));
@@ -184,4 +193,68 @@ onAuthStateChanged(auth, (user) => {
       });
     });
   }
+  // ─── MODAL DE DETALLE ────────────────────────────────────────────────────
+  function mostrarDetalle(t) {
+    const color = colorEstado[t.estado] || "#555";
+    const icono = iconoTipo[t.tipo]     || "📍";
+
+    let modal = document.getElementById("detalle-territorio-modal");
+    if (!modal) {
+      modal = document.createElement("div");
+      modal.id = "detalle-territorio-modal";
+      modal.style.cssText = "position:fixed;inset:0;background:rgba(0,0,0,0.6);"
+        + "display:flex;align-items:center;justify-content:center;z-index:800;padding:1rem;";
+      document.body.appendChild(modal);
+    }
+
+    modal.innerHTML = '<div style="background:var(--bg2);border:1px solid var(--border);border-radius:14px;'
+      + 'width:100%;max-width:540px;max-height:85vh;overflow-y:auto;box-shadow:var(--shadow);">'
+      // Header
+      + '<div style="display:flex;justify-content:space-between;align-items:flex-start;'
+      + 'padding:1.2rem 1.4rem 1rem;border-bottom:1px solid var(--border);'
+      + 'position:sticky;top:0;background:var(--bg2);z-index:1;">'
+      + '<div>'
+      + '<div style="font-size:1rem;font-weight:700;color:var(--text)">'
+      + icono + ' ' + (t.nombre || "Sin nombre") + '</div>'
+      + '<div style="display:flex;gap:0.4rem;flex-wrap:wrap;margin-top:0.4rem">'
+      + (t.tipo ? '<span style="background:var(--bg3);color:var(--text2);font-size:0.75rem;'
+        + 'padding:0.15rem 0.5rem;border-radius:20px">' + t.tipo + '</span>' : '')
+      + (t.estado ? '<span style="background:' + color + ';color:white;font-size:0.75rem;'
+        + 'padding:0.15rem 0.5rem;border-radius:20px">' + t.estado + '</span>' : '')
+      + '</div></div>'
+      + '<button id="detalle-territorio-cerrar" style="background:none;border:none;color:var(--text2);'
+      + 'font-size:1.1rem;cursor:pointer;padding:0.2rem;flex-shrink:0;margin-left:1rem;">✕</button>'
+      + '</div>'
+      // Cuerpo
+      + '<div style="padding:1.2rem 1.4rem;display:flex;flex-direction:column;gap:1rem;">'
+      + (t.programa ? '<div class="detalle-seccion">'
+        + '<div class="detalle-seccion-titulo">📋 Programa vinculado</div>'
+        + '<div class="detalle-seccion-texto">' + t.programa + '</div></div>' : '')
+      + (t.descripcion ? '<div class="detalle-seccion">'
+        + '<div class="detalle-seccion-titulo">📝 Descripción</div>'
+        + '<div class="detalle-seccion-texto">' + t.descripcion + '</div></div>' : '')
+      + (t.indicadores ? '<div class="detalle-seccion">'
+        + '<div class="detalle-seccion-titulo">📊 Indicadores</div>'
+        + '<div class="detalle-seccion-texto">' + t.indicadores + '</div></div>' : '')
+      + '</div>'
+      // Footer
+      + '<div style="padding:1rem 1.4rem;border-top:1px solid var(--border);'
+      + 'display:flex;justify-content:flex-end;position:sticky;bottom:0;background:var(--bg2);">'
+      + '<button id="detalle-territorio-editar" style="background:var(--accent);color:white;border:none;'
+      + 'border-radius:8px;padding:0.55rem 1.2rem;font-size:0.875rem;cursor:pointer;'
+      + 'font-family:inherit;font-weight:600;">✏️ Editar</button>'
+      + '</div>'
+      + '</div>';
+
+    document.getElementById("detalle-territorio-cerrar").addEventListener("click", () => {
+      modal.style.display = "none";
+    });
+    modal.addEventListener("click", (e) => { if (e.target === modal) modal.style.display = "none"; });
+    document.getElementById("detalle-territorio-editar").addEventListener("click", () => {
+      modal.style.display = "none";
+      activarEdicion(t.id);
+    });
+    modal.style.display = "flex";
+  }
+
 });

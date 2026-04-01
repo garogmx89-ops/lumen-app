@@ -274,7 +274,7 @@ onAuthStateChanged(auth, (user) => {
         : "";
 
       return `
-        <div class="reunion-card contexto-card">
+        <div class="reunion-card contexto-card contexto-card--clickable" data-id="${c.id}" style="cursor:pointer">
           <div class="reunion-card-header">
             <div class="entidad-card-nombre">
               <span class="reunion-card-titulo">📊 ${c.nombre}</span>
@@ -303,6 +303,15 @@ onAuthStateChanged(auth, (user) => {
         </div>
       `;
     }).join("");
+
+    // Clic en tarjeta → modal de detalle
+    contenedor.querySelectorAll(".contexto-card--clickable").forEach((card) => {
+      card.addEventListener("click", (e) => {
+        if (e.target.closest("button")) return;
+        const ctx = todosLosContextos.find(c => c.id === card.dataset.id);
+        if (ctx) mostrarDetalle(ctx);
+      });
+    });
 
     // Botón ✨ Análisis IA
     contenedor.querySelectorAll(".btn-briefing-ia").forEach((btn) => {
@@ -505,6 +514,101 @@ Tono institucional, lenguaje técnico-administrativo. Máximo 300 palabras. Resp
         });
       }
     }
+  }
+
+  // ─── MODAL DE DETALLE ────────────────────────────────────────────────────
+  function mostrarDetalle(c) {
+    let modal = document.getElementById("detalle-contexto-modal");
+    if (!modal) {
+      modal = document.createElement("div");
+      modal.id = "detalle-contexto-modal";
+      modal.style.cssText = "position:fixed;inset:0;background:rgba(0,0,0,0.6);"
+        + "display:flex;align-items:center;justify-content:center;z-index:800;padding:1rem;";
+      document.body.appendChild(modal);
+    }
+
+    const tagsNormas = (c.normasVinculadas || [])
+      .map(n => '<span class="participante-tag" style="font-size:0.8rem">📄 ' + n.nombre + '</span>')
+      .join("") || "";
+    const tagsEntidades = (c.entidadesVinculadas || [])
+      .map(e => '<span class="participante-tag" style="font-size:0.8rem">🏛️ ' + e.nombre + '</span>')
+      .join("") || "";
+
+    const analisisHtml = c.analisisIA
+      ? '<div class="detalle-seccion">'
+        + '<div class="detalle-seccion-titulo">✨ Análisis IA</div>'
+        + '<div class="detalle-briefing-texto">'
+        + c.analisisIA.replace(/\*\*(.+?)\*\*/g, "<strong>$1</strong>").replace(/
+/g, "<br>")
+        + '</div></div>'
+      : "";
+
+    modal.innerHTML = '<div style="background:var(--bg2);border:1px solid var(--border);border-radius:14px;'
+      + 'width:100%;max-width:560px;max-height:85vh;overflow-y:auto;box-shadow:var(--shadow);">'
+      // Header
+      + '<div style="display:flex;justify-content:space-between;align-items:flex-start;'
+      + 'padding:1.2rem 1.4rem 1rem;border-bottom:1px solid var(--border);'
+      + 'position:sticky;top:0;background:var(--bg2);z-index:1;">'
+      + '<div>'
+      + '<div style="font-size:1rem;font-weight:700;color:var(--text)">📊 ' + (c.nombre || "Sin nombre") + '</div>'
+      + (c.periodo ? '<div style="font-size:0.8rem;color:var(--text2);margin-top:0.2rem">Ejercicio fiscal: ' + c.periodo + '</div>' : '')
+      + '</div>'
+      + '<button id="detalle-contexto-cerrar" style="background:none;border:none;color:var(--text2);'
+      + 'font-size:1.1rem;cursor:pointer;padding:0.2rem;flex-shrink:0;margin-left:1rem;">✕</button>'
+      + '</div>'
+      // Cuerpo
+      + '<div style="padding:1.2rem 1.4rem;display:flex;flex-direction:column;gap:1rem;">'
+      + ((c.asignado || c.ejercido) ? '<div class="detalle-seccion">'
+        + '<div class="detalle-seccion-titulo">💰 Presupuesto</div>'
+        + '<div style="display:flex;gap:1.5rem;margin-top:0.3rem">'
+        + (c.asignado ? '<div><div style="font-size:0.75rem;color:var(--text2)">Asignado</div>'
+          + '<div style="font-weight:700;color:var(--text)">' + c.asignado + '</div></div>' : '')
+        + (c.ejercido ? '<div><div style="font-size:0.75rem;color:var(--text2)">Ejercido</div>'
+          + '<div style="font-weight:700;color:var(--text)">' + c.ejercido + '</div></div>' : '')
+        + '</div></div>' : '')
+      + (c.indicadores ? '<div class="detalle-seccion">'
+        + '<div class="detalle-seccion-titulo">📈 Indicadores clave</div>'
+        + '<div class="detalle-seccion-texto">' + c.indicadores + '</div></div>' : '')
+      + (c.notas ? '<div class="detalle-seccion">'
+        + '<div class="detalle-seccion-titulo">📝 Notas</div>'
+        + '<div class="detalle-seccion-texto">' + c.notas + '</div></div>' : '')
+      + ((tagsNormas || tagsEntidades) ? '<div class="detalle-seccion">'
+        + '<div class="detalle-seccion-titulo">🔗 Vínculos</div>'
+        + '<div style="display:flex;flex-wrap:wrap;gap:0.4rem;margin-top:0.4rem">'
+        + tagsNormas + tagsEntidades + '</div></div>' : '')
+      + analisisHtml
+      + '</div>'
+      // Footer
+      + '<div style="padding:1rem 1.4rem;border-top:1px solid var(--border);'
+      + 'display:flex;gap:0.75rem;justify-content:flex-end;'
+      + 'position:sticky;bottom:0;background:var(--bg2);">'
+      + '<button id="detalle-contexto-editar" style="background:var(--accent);color:white;border:none;'
+      + 'border-radius:8px;padding:0.55rem 1.2rem;font-size:0.875rem;cursor:pointer;'
+      + 'font-family:inherit;font-weight:600;">✏️ Editar</button>'
+      + '<button id="detalle-contexto-ia" style="background:none;border:1px solid var(--border);'
+      + 'color:var(--text2);border-radius:8px;padding:0.55rem 1.2rem;font-size:0.875rem;'
+      + 'cursor:pointer;font-family:inherit;">'
+      + (c.analisisIA ? "✨ Ver análisis" : "✨ Generar análisis") + '</button>'
+      + '</div>'
+      + '</div>';
+
+    document.getElementById("detalle-contexto-cerrar").addEventListener("click", () => {
+      modal.style.display = "none";
+    });
+    modal.addEventListener("click", (e) => { if (e.target === modal) modal.style.display = "none"; });
+
+    document.getElementById("detalle-contexto-editar").addEventListener("click", () => {
+      modal.style.display = "none";
+      activarEdicion(c.id);
+    });
+
+    document.getElementById("detalle-contexto-ia").addEventListener("click", () => {
+      modal.style.display = "none";
+      const btn = document.querySelector('.btn-briefing-ia[data-id="' + c.id + '"]');
+      if (btn) generarAnalisisIA(c.id, btn);
+    });
+
+    modal.style.display = "flex";
   }
 
 });

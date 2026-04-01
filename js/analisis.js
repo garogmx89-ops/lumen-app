@@ -70,21 +70,23 @@ onAuthStateChanged(auth, (user) => {
     });
   }
 
-  // --- LIMPIAR FORMULARIO ---
+// --- LIMPIAR FORMULARIO ---
   function limpiarFormulario() {
-    document.getElementById("analisis-pregunta").value   = "";
-    document.getElementById("analisis-estado").value     = "Abierto";
-    const selectNorma = document.getElementById("analisis-norma-select");
-    if (selectNorma) selectNorma.value = "";
-    document.getElementById("analisis-norma").value      = "";
-    document.getElementById("analisis-ley").value        = "";
-    document.getElementById("analisis-practica").value   = "";
-    document.getElementById("analisis-precedente").value = "";
-    document.getElementById("analisis-ia").value         = "";
+    const set = (id, val) => { const el = document.getElementById(id); if (el) el.value = val; };
+    set("analisis-pregunta",   "");
+    set("analisis-estado",     "Abierto");
+    set("analisis-norma-select", "");
+    set("analisis-norma",      "");
+    set("analisis-ley",        "");
+    set("analisis-practica",   "");
+    set("analisis-precedente", "");
+    set("analisis-ia",         "");
     normasSeleccionadas = [];
     renderNormasSeleccionadas("analisis-normas-seleccionadas", normasSeleccionadas);
-    document.querySelector("#panel-analisis .reunion-form-card h2").textContent = "Nuevo Análisis";
-    document.getElementById("btn-cancelar-analisis").style.display = "none";
+    const titulo = document.querySelector("#panel-analisis .reunion-form-card h2");
+    if (titulo) titulo.textContent = "Nuevo Análisis";
+    const btnCancelar = document.getElementById("btn-cancelar-analisis");
+    if (btnCancelar) btnCancelar.style.display = "none";
     modoEdicion = null;
   }
 

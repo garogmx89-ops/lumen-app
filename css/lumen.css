@@ -1297,15 +1297,11 @@ input[type="file"]::file-selector-button:hover {
 
 .btn-briefing-ia:hover { opacity: 1; }
 
-/* ── Fix final: color de texto en todos los inputs ── */
-.form-group input,
-.form-group textarea,
-.form-group select,
+/* ── Fix final: color de texto en inputs ── */
 .capa-input,
 .paso-nombre-input,
-.paso-detalle-input,
-.participantes-select {
-  color: var(--text) !important;
-  background: var(--bg3) !important;
-  border-color: var(--border) !important;
+.paso-detalle-input {
+  color: var(--text);
+  background: var(--bg3);
+  border-color: var(--border);
 }

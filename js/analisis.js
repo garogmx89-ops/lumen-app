@@ -13,9 +13,13 @@ const colorEstado = {
 };
 
 let todosLosAnalisis = [];
-let filtroActivo = "todos";
-let modoEdicion = null;
-let normasSeleccionadas = []; // Array de {nombre} de normas seleccionadas
+let filtroActivo     = "todos";
+let modoEdicion      = null;
+let normasSeleccionadas = [];
+
+// Helper: asigna valor a un elemento si existe
+const set = (id, val) => { const el = document.getElementById(id); if (el) el.value = val; };
+const get = (id) => { const el = document.getElementById(id); return el ? el.value.trim() : ""; };
 
 onAuthStateChanged(auth, (user) => {
   if (!user) return;
@@ -23,9 +27,8 @@ onAuthStateChanged(auth, (user) => {
   const analisisRef = collection(db, "usuarios", user.uid, "analisis");
   const normasRef   = collection(db, "usuarios", user.uid, "normatividad");
 
-  // --- CARGAR CATÁLOGO DE NORMAS EN EL SELECTOR ---
-  const qNormas = query(normasRef, orderBy("creadoEn", "desc"));
-  onSnapshot(qNormas, (snapshot) => {
+  // ─── CARGAR CATÁLOGO DE NORMAS ────────────────────────────────────────────
+  onSnapshot(query(normasRef, orderBy("creadoEn", "desc")), (snapshot) => {
     const select = document.getElementById("analisis-norma-select");
     if (!select) return;
     select.innerHTML = '<option value="">— Agregar norma del catálogo —</option>';
@@ -38,25 +41,22 @@ onAuthStateChanged(auth, (user) => {
     });
   });
 
-  // --- SELECCIONAR NORMA DESDE EL MENÚ ---
+  // ─── SELECCIONAR NORMA ────────────────────────────────────────────────────
   document.getElementById("analisis-norma-select")?.addEventListener("change", (e) => {
     const nombre = e.target.value;
     if (!nombre) return;
-    if (normasSeleccionadas.find(n => n.nombre === nombre)) {
-      e.target.value = "";
-      return;
-    }
+    if (normasSeleccionadas.find(n => n.nombre === nombre)) { e.target.value = ""; return; }
     normasSeleccionadas.push({ nombre });
-    renderNormasSeleccionadas("analisis-normas-seleccionadas", normasSeleccionadas);
+    renderNormasSeleccionadas();
     e.target.value = "";
   });
 
-  // --- RENDERIZAR TAGS DE NORMAS ---
-  function renderNormasSeleccionadas(contenedorId, array) {
-    const contenedor = document.getElementById(contenedorId);
+  // ─── RENDER TAGS NORMAS ───────────────────────────────────────────────────
+  function renderNormasSeleccionadas() {
+    const contenedor = document.getElementById("analisis-normas-seleccionadas");
     if (!contenedor) return;
-    if (array.length === 0) { contenedor.innerHTML = ""; return; }
-    contenedor.innerHTML = array.map((n, i) => `
+    if (normasSeleccionadas.length === 0) { contenedor.innerHTML = ""; return; }
+    contenedor.innerHTML = normasSeleccionadas.map((n, i) => `
       <span class="participante-tag">
         📄 ${n.nombre}
         <button type="button" class="participante-tag-quitar" data-index="${i}">✕</button>
@@ -64,25 +64,24 @@ onAuthStateChanged(auth, (user) => {
     `).join("");
     contenedor.querySelectorAll(".participante-tag-quitar").forEach(btn => {
       btn.addEventListener("click", () => {
-        array.splice(Number(btn.dataset.index), 1);
-        renderNormasSeleccionadas(contenedorId, array);
+        normasSeleccionadas.splice(Number(btn.dataset.index), 1);
+        renderNormasSeleccionadas();
       });
     });
   }
 
-// --- LIMPIAR FORMULARIO ---
+  // ─── LIMPIAR FORMULARIO ───────────────────────────────────────────────────
   function limpiarFormulario() {
-    const set = (id, val) => { const el = document.getElementById(id); if (el) el.value = val; };
-    set("analisis-pregunta",   "");
-    set("analisis-estado",     "Abierto");
-    set("analisis-norma-select", "");
-    set("analisis-norma",      "");
-    set("analisis-ley",        "");
-    set("analisis-practica",   "");
-    set("analisis-precedente", "");
-    set("analisis-ia",         "");
+    set("analisis-pregunta",    "");
+    set("analisis-estado",      "Abierto");
+    set("analisis-norma-select","");
+    set("analisis-norma",       "");
+    set("analisis-ley",         "");
+    set("analisis-practica",    "");
+    set("analisis-precedente",  "");
+    set("analisis-ia",          "");
     normasSeleccionadas = [];
-    renderNormasSeleccionadas("analisis-normas-seleccionadas", normasSeleccionadas);
+    renderNormasSeleccionadas();
     const titulo = document.querySelector("#panel-analisis .reunion-form-card h2");
     if (titulo) titulo.textContent = "Nuevo Análisis";
     const btnCancelar = document.getElementById("btn-cancelar-analisis");
@@ -90,53 +89,49 @@ onAuthStateChanged(auth, (user) => {
     modoEdicion = null;
   }
 
-  // --- ACTIVAR MODO EDICIÓN ---
+  // ─── ACTIVAR MODO EDICIÓN ─────────────────────────────────────────────────
   function activarEdicion(id) {
     const analisis = todosLosAnalisis.find(a => a.id === id);
     if (!analisis) return;
-
     modoEdicion = id;
-    document.getElementById("analisis-pregunta").value   = analisis.pregunta   || "";
-    document.getElementById("analisis-estado").value     = analisis.estado     || "Abierto";
-    document.getElementById("analisis-norma").value      = analisis.norma      || "";
-    document.getElementById("analisis-ley").value        = analisis.ley        || "";
-    document.getElementById("analisis-practica").value   = analisis.practica   || "";
-    document.getElementById("analisis-precedente").value = analisis.precedente || "";
-    document.getElementById("analisis-ia").value         = analisis.ia         || "";
-
-    // Cargar normas vinculadas
+    set("analisis-pregunta",   analisis.pregunta   || "");
+    set("analisis-estado",     analisis.estado     || "Abierto");
+    set("analisis-norma",      analisis.norma      || "");
+    set("analisis-ley",        analisis.ley        || "");
+    set("analisis-practica",   analisis.practica   || "");
+    set("analisis-precedente", analisis.precedente || "");
+    set("analisis-ia",         analisis.ia         || "");
     normasSeleccionadas = Array.isArray(analisis.normasVinculadas)
       ? analisis.normasVinculadas.map(n => ({ ...n }))
       : [];
-    renderNormasSeleccionadas("analisis-normas-seleccionadas", normasSeleccionadas);
-
-    document.querySelector("#panel-analisis .reunion-form-card h2").textContent = "Editar Análisis";
-    document.getElementById("btn-cancelar-analisis").style.display = "inline-block";
-    document.getElementById("panel-analisis").scrollIntoView({ behavior: "smooth" });
+    renderNormasSeleccionadas();
+    const titulo = document.querySelector("#panel-analisis .reunion-form-card h2");
+    if (titulo) titulo.textContent = "Editar Análisis";
+    const btnCancelar = document.getElementById("btn-cancelar-analisis");
+    if (btnCancelar) btnCancelar.style.display = "inline-block";
+    document.getElementById("panel-analisis")?.scrollIntoView({ behavior: "smooth" });
   }
 
-  // --- BOTÓN GUARDAR ---
+  // ─── BOTÓN GUARDAR ────────────────────────────────────────────────────────
   const btnGuardar = document.getElementById("btn-guardar-analisis");
   if (btnGuardar) {
     const btnNuevo = btnGuardar.cloneNode(true);
     btnGuardar.parentNode.replaceChild(btnNuevo, btnGuardar);
 
     btnNuevo.addEventListener("click", async () => {
-      const pregunta   = document.getElementById("analisis-pregunta").value.trim();
-      const estado     = document.getElementById("analisis-estado").value;
-      const norma      = document.getElementById("analisis-norma").value.trim(); // texto libre
-      const ley        = document.getElementById("analisis-ley").value.trim();
-      const practica   = document.getElementById("analisis-practica").value.trim();
-      const precedente = document.getElementById("analisis-precedente").value.trim();
-      const ia         = document.getElementById("analisis-ia").value.trim();
+      const pregunta   = get("analisis-pregunta");
+      const estado     = get("analisis-estado");
+      const norma      = get("analisis-norma");
+      const ley        = get("analisis-ley");
+      const practica   = get("analisis-practica");
+      const precedente = get("analisis-precedente");
+      const ia         = get("analisis-ia");
 
       if (!pregunta) { alert("La pregunta institucional es obligatoria."); return; }
 
       try {
-        const datos = {
-          pregunta, estado, norma, ley, practica, precedente, ia,
-          normasVinculadas: normasSeleccionadas
-        };
+        const datos = { pregunta, estado, norma, ley, practica, precedente, ia,
+          normasVinculadas: normasSeleccionadas };
         if (modoEdicion) {
           await updateDoc(doc(db, "usuarios", user.uid, "analisis", modoEdicion), datos);
         } else {
@@ -150,33 +145,28 @@ onAuthStateChanged(auth, (user) => {
     });
   }
 
-// --- BOTÓN CANCELAR ---
+  // ─── BOTÓN CANCELAR ───────────────────────────────────────────────────────
   const btnCancelar = document.getElementById("btn-cancelar-analisis");
   if (btnCancelar) {
     btnCancelar.addEventListener("click", () => limpiarFormulario());
   }
 
-  // --- BOTÓN GENERAR IA ---
+  // ─── BOTÓN GENERAR IA ─────────────────────────────────────────────────────
   const btnGenerarIA = document.getElementById("btn-generar-ia-analisis");
   if (btnGenerarIA) {
     btnGenerarIA.addEventListener("click", async () => {
-      const pregunta   = document.getElementById("analisis-pregunta").value.trim();
-      const ley        = document.getElementById("analisis-ley").value.trim();
-      const practica   = document.getElementById("analisis-practica").value.trim();
-      const precedente = document.getElementById("analisis-precedente").value.trim();
+      const pregunta   = get("analisis-pregunta");
+      const ley        = get("analisis-ley");
+      const practica   = get("analisis-practica");
+      const precedente = get("analisis-precedente");
 
-      if (!pregunta) {
-        alert("Escribe primero la pregunta institucional.");
-        return;
-      }
+      if (!pregunta) { alert("Escribe primero la pregunta institucional."); return; }
 
-      // Indicador visual de carga en el campo IA
       const campoIA = document.getElementById("analisis-ia");
-      campoIA.value = "⏳ Generando interpretación...";
+      if (campoIA) campoIA.value = "⏳ Generando interpretación...";
       btnGenerarIA.disabled = true;
       btnGenerarIA.textContent = "⏳ Generando...";
 
-      // Construimos el prompt con contexto institucional
       const normasTexto = normasSeleccionadas.map(n => n.nombre).join(", ") || "No especificadas";
 
       const prompt = `Eres un asesor jurídico-administrativo especializado en políticas públicas de vivienda y desarrollo urbano en México, con experiencia en el marco normativo federal y estatal aplicable a SEDUVOT Zacatecas.
@@ -211,13 +201,11 @@ Responde únicamente con el contenido de la capa IA, sin introducciones ni comen
           headers: { "Content-Type": "application/json" },
           body: JSON.stringify({ prompt })
         });
-
         const data = await response.json();
-        campoIA.value = data.briefing || "No se pudo generar la interpretación.";
-
+        if (campoIA) campoIA.value = data.briefing || "No se pudo generar la interpretación.";
       } catch (error) {
         console.error("Error al llamar a la IA:", error);
-        campoIA.value = "❌ Error al conectar con la IA. Intenta de nuevo.";
+        if (campoIA) campoIA.value = "❌ Error al conectar con la IA. Intenta de nuevo.";
       } finally {
         btnGenerarIA.disabled = false;
         btnGenerarIA.textContent = "✨ Generar con IA";
@@ -225,7 +213,7 @@ Responde únicamente con el contenido de la capa IA, sin introducciones ni comen
     });
   }
 
-  // --- FILTROS ---
+  // ─── FILTROS ──────────────────────────────────────────────────────────────
   document.querySelectorAll("#panel-analisis .filtro-btn").forEach((btn) => {
     btn.addEventListener("click", () => {
       document.querySelectorAll("#panel-analisis .filtro-btn")
@@ -236,13 +224,14 @@ Responde únicamente con el contenido de la capa IA, sin introducciones ni comen
     });
   });
 
-  // --- LEER EN TIEMPO REAL ---
+  // ─── LEER EN TIEMPO REAL ──────────────────────────────────────────────────
   const q = query(analisisRef, orderBy("creadoEn", "desc"));
   onSnapshot(q, (snapshot) => {
     todosLosAnalisis = snapshot.docs.map(d => ({ id: d.id, ...d.data() }));
     renderAnalisis();
   });
 
+  // ─── RENDER TARJETAS ──────────────────────────────────────────────────────
   function renderAnalisis() {
     const contenedor = document.getElementById("analisis-contenido");
     if (!contenedor) return;
@@ -258,7 +247,6 @@ Responde únicamente con el contenido de la capa IA, sin introducciones ni comen
 
     contenedor.innerHTML = filtrados.map((a) => {
       const color = colorEstado[a.estado] || "#555";
-
       const tagsNormas = Array.isArray(a.normasVinculadas) && a.normasVinculadas.length > 0
         ? `<div class="participantes-tags-display">
             ${a.normasVinculadas.map(n =>
@@ -266,7 +254,6 @@ Responde únicamente con el contenido de la capa IA, sin introducciones ni comen
             ).join("")}
            </div>`
         : "";
-
       return `
         <div class="reunion-card analisis-card">
           <div class="reunion-card-header">
@@ -275,7 +262,7 @@ Responde únicamente con el contenido de la capa IA, sin introducciones ni comen
               <span class="reunion-card-titulo">${a.pregunta}</span>
             </div>
             <div class="reunion-card-acciones">
-              <button class="btn-editar" data-id="${a.id}" title="Editar análisis">✏️</button>
+              <button class="btn-editar"   data-id="${a.id}" title="Editar análisis">✏️</button>
               <button class="btn-eliminar" data-id="${a.id}" title="Eliminar análisis">🗑️</button>
             </div>
           </div>

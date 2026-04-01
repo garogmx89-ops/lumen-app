@@ -221,10 +221,15 @@ try {
       cuerpo.innerHTML = `<p class="briefing-cargando">✨ Analizando datos de la reunión...</p>`;
     } else {
       // Convertimos saltos de línea en párrafos para mejor lectura
-      cuerpo.innerHTML = contenido
+cuerpo.innerHTML = contenido
         .split("\n")
         .filter(l => l.trim())
-        .map(l => `<p>${l}</p>`)
+        .map(l => {
+          if (l.startsWith("## ")) return `<h3>${l.replace("## ", "")}</h3>`;
+          if (l.startsWith("# "))  return `<h2>${l.replace("# ", "")}</h2>`;
+          l = l.replace(/\*\*(.+?)\*\*/g, "<strong>$1</strong>");
+          return `<p>${l}</p>`;
+        })
         .join("");
     }
 

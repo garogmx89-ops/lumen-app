@@ -1429,3 +1429,34 @@ input[type="file"]::file-selector-button:hover {
 }
 
 #search-resultados { padding: 0.5rem 0; }
+
+/* ── Modal de detalle ────────────────────────────── */
+.detalle-seccion {
+  display: flex;
+  flex-direction: column;
+  gap: 0.3rem;
+}
+
+.detalle-seccion-titulo {
+  font-size: 0.75rem;
+  font-weight: 700;
+  color: var(--text2);
+  text-transform: uppercase;
+  letter-spacing: 0.05em;
+}
+
+.detalle-seccion-texto {
+  font-size: 0.9rem;
+  color: var(--text);
+  line-height: 1.6;
+  white-space: pre-wrap;
+}
+
+.detalle-briefing-texto {
+  font-size: 0.875rem;
+  color: var(--text);
+  line-height: 1.6;
+}
+
+.detalle-briefing-texto p  { margin-bottom: 0.4rem; }
+.detalle-briefing-texto h4 { color: var(--accent); font-size: 0.85rem; margin: 0.6rem 0 0.2rem; }

@@ -278,7 +278,7 @@ Usa un tono institucional profesional, en español.`;
         : "";
 
       return `
-        <div class="reunion-card">
+        <div class="reunion-card reunion-card--clickable" data-id="${id}" style="cursor:pointer">
           <div class="reunion-card-header">
             <div class="reunion-card-titulo">${d.titulo}</div>
             <div class="reunion-card-acciones">
@@ -296,6 +296,18 @@ Usa un tono institucional profesional, en español.`;
         </div>
       `;
     }).join("");
+
+    // Clic en tarjeta → abrir modal de detalle
+    // Usamos stopPropagation en los botones para que no se propague al card
+    contenedor.querySelectorAll(".reunion-card--clickable").forEach((card) => {
+      card.addEventListener("click", (e) => {
+        // Si el clic fue en un botón, no abrir el detalle
+        if (e.target.closest("button")) return;
+        const id = card.dataset.id;
+        const doc = snapshot.docs.find(d => d.id === id);
+        if (doc) mostrarDetalle(id, doc.data());
+      });
+    });
 
     // Botones BRIEFING IA
     contenedor.querySelectorAll(".btn-briefing-ia").forEach((btn) => {
@@ -327,6 +339,134 @@ Usa un tono institucional profesional, en español.`;
       });
     });
   });
+
+  // ─── MODAL DE DETALLE ────────────────────────────────────────────────────
+  // Muestra todos los campos del registro en un modal limpio y estructurado.
+  // También muestra el briefing IA si ya existe, y un botón para editar.
+  function mostrarDetalle(id, datos) {
+    // Crear o reutilizar el modal
+    let modal = document.getElementById("detalle-modal");
+    if (!modal) {
+      modal = document.createElement("div");
+      modal.id = "detalle-modal";
+      modal.style.cssText = `
+        position:fixed;inset:0;background:rgba(0,0,0,0.6);
+        display:flex;align-items:center;justify-content:center;
+        z-index:800;padding:1rem;
+      `;
+      document.body.appendChild(modal);
+    }
+
+    // Participantes vinculados como tags
+    const tagsVinculados = (datos.participantesVinculados || [])
+      .map(p => `<span class="participante-tag" style="font-size:0.8rem">🏛️ ${p.nombre}</span>`)
+      .join("") || "";
+
+    // Briefing IA si existe
+    const briefingHtml = datos.briefing
+      ? `<div class="detalle-seccion">
+           <div class="detalle-seccion-titulo">✨ Briefing IA</div>
+           <div class="detalle-briefing-texto">${
+             datos.briefing
+               .split("
+").filter(l => l.trim())
+               .map(l => {
+                 if (l.startsWith("## ")) return `<h4>${l.replace("## ","")}</h4>`;
+                 l = l.replace(/\*\*(.+?)\*\*/g, "<strong>$1</strong>");
+                 return `<p>${l}</p>`;
+               }).join("")
+           }</div>
+         </div>`
+      : "";
+
+    modal.innerHTML = `
+      <div style="background:var(--bg2);border:1px solid var(--border);border-radius:14px;
+                  width:100%;max-width:580px;max-height:85vh;overflow-y:auto;box-shadow:var(--shadow);">
+
+        <!-- Header -->
+        <div style="display:flex;justify-content:space-between;align-items:flex-start;
+                    padding:1.2rem 1.4rem 1rem;border-bottom:1px solid var(--border);
+                    position:sticky;top:0;background:var(--bg2);z-index:1;">
+          <div>
+            <div style="font-size:1rem;font-weight:700;color:var(--text);line-height:1.3">
+              📅 ${datos.titulo || "Sin título"}
+            </div>
+            ${datos.fecha ? `<div style="font-size:0.8rem;color:var(--text2);margin-top:0.2rem">
+              ${formatearFecha(datos.fecha)}</div>` : ""}
+          </div>
+          <button id="detalle-cerrar"
+            style="background:none;border:none;color:var(--text2);font-size:1.1rem;
+                   cursor:pointer;padding:0.2rem;flex-shrink:0;margin-left:1rem;">✕</button>
+        </div>
+
+        <!-- Cuerpo -->
+        <div style="padding:1.2rem 1.4rem;display:flex;flex-direction:column;gap:1rem;">
+
+          ${tagsVinculados ? `
+            <div class="detalle-seccion">
+              <div class="detalle-seccion-titulo">🏛️ Entidades participantes</div>
+              <div style="display:flex;flex-wrap:wrap;gap:0.4rem;margin-top:0.4rem">${tagsVinculados}</div>
+            </div>` : ""}
+
+          ${datos.participantes ? `
+            <div class="detalle-seccion">
+              <div class="detalle-seccion-titulo">👥 Participantes</div>
+              <div class="detalle-seccion-texto">${datos.participantes}</div>
+            </div>` : ""}
+
+          ${datos.acuerdos ? `
+            <div class="detalle-seccion">
+              <div class="detalle-seccion-titulo">📋 Acuerdos y compromisos</div>
+              <div class="detalle-seccion-texto">${datos.acuerdos}</div>
+            </div>` : ""}
+
+          ${briefingHtml}
+
+        </div>
+
+        <!-- Footer con botones -->
+        <div style="padding:1rem 1.4rem;border-top:1px solid var(--border);
+                    display:flex;gap:0.75rem;justify-content:flex-end;
+                    position:sticky;bottom:0;background:var(--bg2);">
+          <button id="detalle-btn-editar"
+            style="background:var(--accent);color:white;border:none;border-radius:8px;
+                   padding:0.55rem 1.2rem;font-size:0.875rem;cursor:pointer;
+                   font-family:inherit;font-weight:600;">
+            ✏️ Editar
+          </button>
+          <button id="detalle-btn-briefing"
+            style="background:none;border:1px solid var(--border);color:var(--text2);
+                   border-radius:8px;padding:0.55rem 1.2rem;font-size:0.875rem;
+                   cursor:pointer;font-family:inherit;">
+            ${datos.briefing ? "✨ Ver briefing" : "✨ Generar briefing"}
+          </button>
+        </div>
+      </div>
+    `;
+
+    // Cerrar modal
+    document.getElementById("detalle-cerrar").addEventListener("click", () => {
+      modal.style.display = "none";
+    });
+    modal.addEventListener("click", (e) => {
+      if (e.target === modal) modal.style.display = "none";
+    });
+
+    // Botón Editar — cierra detalle y activa modo edición
+    document.getElementById("detalle-btn-editar").addEventListener("click", () => {
+      modal.style.display = "none";
+      activarEdicion(id, datos);
+    });
+
+    // Botón Briefing — abre el modal de IA
+    document.getElementById("detalle-btn-briefing").addEventListener("click", () => {
+      modal.style.display = "none";
+      generarBriefing(id, datos);
+    });
+
+    modal.style.display = "flex";
+  }
+
 });
 
 function formatearFecha(fechaStr) {

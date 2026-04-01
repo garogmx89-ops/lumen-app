@@ -6,6 +6,9 @@ import {
   onSnapshot, orderBy, query, serverTimestamp
 } from "https://www.gstatic.com/firebasejs/10.12.0/firebase-firestore.js";
 
+// Array global para exportar — se actualiza en tiempo real con onSnapshot
+let todasLasReuniones = [];
+
 onAuthStateChanged(auth, (user) => {
   if (!user) return;
 
@@ -257,8 +260,35 @@ Usa un tono institucional profesional, en español.`;
   // ─── LEER EN TIEMPO REAL ──────────────────────────────────────────────────
   const q = query(reunionesRef, orderBy("creadoEn", "desc"));
   onSnapshot(q, (snapshot) => {
+    // Actualizar array global para exportar
+    todasLasReuniones = snapshot.docs.map(d => ({ id: d.id, ...d.data() }));
+
     const contenedor = document.getElementById("reuniones-contenido");
     if (!contenedor) return;
+
+    // Botones de exportar — se renderizan una vez sobre la lista
+    const exportBar = document.getElementById("reuniones-export-bar");
+    if (exportBar && !exportBar.dataset.init) {
+      exportBar.dataset.init = "1";
+      exportBar.innerHTML = `
+        <button id="btn-exportar-excel-reuniones"
+          style="background:none;border:1px solid var(--border);color:var(--text2);
+                 border-radius:8px;padding:0.4rem 0.9rem;font-size:0.8rem;
+                 cursor:pointer;font-family:inherit;display:inline-flex;align-items:center;gap:0.4rem;">
+          📊 Exportar Excel
+        </button>
+        <button id="btn-exportar-pdf-reuniones"
+          style="background:none;border:1px solid var(--border);color:var(--text2);
+                 border-radius:8px;padding:0.4rem 0.9rem;font-size:0.8rem;
+                 cursor:pointer;font-family:inherit;display:inline-flex;align-items:center;gap:0.4rem;">
+          📄 Exportar PDF
+        </button>
+      `;
+      document.getElementById("btn-exportar-excel-reuniones")
+        .addEventListener("click", () => exportarExcelReuniones());
+      document.getElementById("btn-exportar-pdf-reuniones")
+        .addEventListener("click", () => exportarPDFModuloReuniones());
+    }
 
     if (snapshot.empty) {
       contenedor.innerHTML = '<p class="lista-vacia">No hay reuniones registradas aún.</p>';
@@ -439,6 +469,12 @@ Usa un tono institucional profesional, en español.`;
                    cursor:pointer;font-family:inherit;">
             ${datos.briefing ? "✨ Ver briefing" : "✨ Generar briefing"}
           </button>
+          <button id="detalle-btn-exportar-pdf"
+            style="background:none;border:1px solid var(--border);color:var(--text2);
+                   border-radius:8px;padding:0.55rem 1.2rem;font-size:0.875rem;
+                   cursor:pointer;font-family:inherit;">
+            📄 Exportar PDF
+          </button>
         </div>
       </div>
     `;
@@ -463,7 +499,290 @@ Usa un tono institucional profesional, en español.`;
       generarBriefing(id, datos);
     });
 
+    // Botón Exportar PDF individual
+    document.getElementById("detalle-btn-exportar-pdf").addEventListener("click", () => {
+      exportarPDFDetalleReunion(datos);
+    });
+
     modal.style.display = "flex";
+  }
+
+  // ─── EXPORTAR EXCEL (módulo completo) ─────────────────────────────────────
+  // Usa SheetJS (XLSX) disponible globalmente. Genera un archivo .xlsx con
+  // una fila por reunión y columnas por campo.
+  function exportarExcelReuniones() {
+    if (!todasLasReuniones.length) { alert("No hay reuniones para exportar."); return; }
+
+    // Cargar SheetJS dinámicamente si no está disponible
+    function generarExcel() {
+      const XLSX = window.XLSX;
+      if (!XLSX) { alert("Error al cargar la librería de Excel. Intenta de nuevo."); return; }
+
+      const filas = todasLasReuniones.map(r => ({
+        "Título":                r.titulo || "",
+        "Fecha":                 r.fecha ? formatearFechaExport(r.fecha) : "",
+        "Participantes":         r.participantes || "",
+        "Entidades vinculadas":  (r.participantesVinculados || []).map(p => p.nombre).join(", "),
+        "Acuerdos":              r.acuerdos || "",
+        "Briefing IA":           r.briefing ? "Sí" : "No",
+      }));
+
+      const ws = XLSX.utils.json_to_sheet(filas);
+      // Anchos de columna
+      ws["!cols"] = [{ wch: 35 }, { wch: 18 }, { wch: 30 }, { wch: 35 }, { wch: 50 }, { wch: 10 }];
+
+      const wb = XLSX.utils.book_new();
+      XLSX.utils.book_append_sheet(wb, ws, "Reuniones");
+      XLSX.writeFile(wb, "Lumen_Reuniones_" + fechaHoy() + ".xlsx");
+    }
+
+    if (window.XLSX) {
+      generarExcel();
+    } else {
+      const script = document.createElement("script");
+      script.src = "https://cdnjs.cloudflare.com/ajax/libs/xlsx/0.18.5/xlsx.full.min.js";
+      script.onload = generarExcel;
+      document.head.appendChild(script);
+    }
+  }
+
+  // ─── EXPORTAR PDF MÓDULO COMPLETO ─────────────────────────────────────────
+  // Usa jsPDF para generar un reporte con todas las reuniones.
+  function exportarPDFModuloReuniones() {
+    if (!todasLasReuniones.length) { alert("No hay reuniones para exportar."); return; }
+
+    function generarPDF() {
+      const { jsPDF } = window.jspdf;
+      if (!jsPDF) { alert("Error al cargar la librería de PDF. Intenta de nuevo."); return; }
+
+      const doc = new jsPDF({ orientation: "portrait", unit: "mm", format: "a4" });
+      const marginL = 20, marginR = 20, pageW = 210, contentW = pageW - marginL - marginR;
+      let y = 20;
+
+      function checkPage(needed = 15) {
+        if (y + needed > 280) { doc.addPage(); y = 20; }
+      }
+
+      // Encabezado
+      doc.setFillColor(74, 74, 138);
+      doc.rect(0, 0, 210, 22, "F");
+      doc.setTextColor(255, 255, 255);
+      doc.setFontSize(14); doc.setFont("helvetica", "bold");
+      doc.text("LUMEN — SEDUVOT Zacatecas", marginL, 10);
+      doc.setFontSize(9); doc.setFont("helvetica", "normal");
+      doc.text("Reporte de Reuniones · " + fechaHoy(), marginL, 17);
+      y = 30;
+
+      todasLasReuniones.forEach((r, i) => {
+        checkPage(30);
+
+        // Separador
+        doc.setDrawColor(200, 200, 200);
+        doc.line(marginL, y, pageW - marginR, y);
+        y += 5;
+
+        // Título
+        doc.setTextColor(74, 74, 138);
+        doc.setFontSize(11); doc.setFont("helvetica", "bold");
+        const tituloLines = doc.splitTextToSize((i + 1) + ". " + (r.titulo || "Sin título"), contentW);
+        doc.text(tituloLines, marginL, y);
+        y += tituloLines.length * 6;
+
+        // Fecha
+        if (r.fecha) {
+          doc.setTextColor(100, 100, 100);
+          doc.setFontSize(8); doc.setFont("helvetica", "normal");
+          doc.text("📅 " + formatearFechaExport(r.fecha), marginL, y);
+          y += 5;
+        }
+
+        // Entidades vinculadas
+        const entidades = (r.participantesVinculados || []).map(p => p.nombre).join(", ");
+        if (entidades) {
+          checkPage(8);
+          doc.setTextColor(60, 60, 60);
+          doc.setFontSize(8); doc.setFont("helvetica", "bold");
+          doc.text("Entidades: ", marginL, y);
+          doc.setFont("helvetica", "normal");
+          const entLines = doc.splitTextToSize(entidades, contentW - 22);
+          doc.text(entLines, marginL + 22, y);
+          y += Math.max(entLines.length * 4.5, 5);
+        }
+
+        // Participantes
+        if (r.participantes) {
+          checkPage(8);
+          doc.setFontSize(8); doc.setFont("helvetica", "bold");
+          doc.text("Participantes: ", marginL, y);
+          doc.setFont("helvetica", "normal");
+          const partLines = doc.splitTextToSize(r.participantes, contentW - 28);
+          doc.text(partLines, marginL + 28, y);
+          y += Math.max(partLines.length * 4.5, 5);
+        }
+
+        // Acuerdos
+        if (r.acuerdos) {
+          checkPage(10);
+          doc.setFontSize(8); doc.setFont("helvetica", "bold");
+          doc.text("Acuerdos:", marginL, y); y += 4;
+          doc.setFont("helvetica", "normal");
+          const acuLines = doc.splitTextToSize(r.acuerdos, contentW);
+          checkPage(acuLines.length * 4.5);
+          doc.text(acuLines, marginL, y);
+          y += acuLines.length * 4.5 + 3;
+        }
+
+        y += 4;
+      });
+
+      // Pie de página
+      const pageCount = doc.getNumberOfPages();
+      for (let i = 1; i <= pageCount; i++) {
+        doc.setPage(i);
+        doc.setFontSize(7); doc.setTextColor(150, 150, 150);
+        doc.text("Lumen · SEDUVOT Zacatecas · Página " + i + " de " + pageCount, marginL, 290);
+      }
+
+      doc.save("Lumen_Reuniones_" + fechaHoy() + ".pdf");
+    }
+
+    if (window.jspdf) {
+      generarPDF();
+    } else {
+      const script = document.createElement("script");
+      script.src = "https://cdnjs.cloudflare.com/ajax/libs/jspdf/2.5.1/jspdf.umd.min.js";
+      script.onload = generarPDF;
+      document.head.appendChild(script);
+    }
+  }
+
+  // ─── EXPORTAR PDF INDIVIDUAL (desde modal de detalle) ─────────────────────
+  // Genera una ficha ejecutiva de una sola reunión, incluyendo briefing IA.
+  function exportarPDFDetalleReunion(datos) {
+    function generarPDF() {
+      const { jsPDF } = window.jspdf;
+      if (!jsPDF) { alert("Error al cargar la librería de PDF. Intenta de nuevo."); return; }
+
+      const doc = new jsPDF({ orientation: "portrait", unit: "mm", format: "a4" });
+      const marginL = 20, marginR = 20, pageW = 210, contentW = pageW - marginL - marginR;
+      let y = 20;
+
+      function checkPage(needed = 15) {
+        if (y + needed > 280) { doc.addPage(); y = 20; }
+      }
+
+      function seccion(titulo, texto) {
+        if (!texto) return;
+        checkPage(15);
+        doc.setFillColor(245, 245, 250);
+        doc.rect(marginL, y - 3, contentW, 6, "F");
+        doc.setTextColor(74, 74, 138);
+        doc.setFontSize(9); doc.setFont("helvetica", "bold");
+        doc.text(titulo, marginL + 2, y + 1);
+        y += 7;
+        doc.setTextColor(50, 50, 50);
+        doc.setFontSize(9); doc.setFont("helvetica", "normal");
+        const lines = doc.splitTextToSize(texto, contentW);
+        checkPage(lines.length * 5);
+        doc.text(lines, marginL, y);
+        y += lines.length * 5 + 4;
+      }
+
+      // Encabezado institucional
+      doc.setFillColor(74, 74, 138);
+      doc.rect(0, 0, 210, 25, "F");
+      doc.setTextColor(255, 255, 255);
+      doc.setFontSize(8); doc.setFont("helvetica", "normal");
+      doc.text("SEDUVOT Zacatecas · Unidad de Planeación, Evaluación y Seguimiento", marginL, 8);
+      doc.setFontSize(13); doc.setFont("helvetica", "bold");
+      doc.text("Ficha de Reunión Institucional", marginL, 16);
+      doc.setFontSize(8); doc.setFont("helvetica", "normal");
+      doc.text("Generado por Lumen · " + fechaHoy(), marginL, 22);
+      y = 34;
+
+      // Título de la reunión
+      doc.setTextColor(30, 30, 30);
+      doc.setFontSize(14); doc.setFont("helvetica", "bold");
+      const titLines = doc.splitTextToSize(datos.titulo || "Sin título", contentW);
+      doc.text(titLines, marginL, y);
+      y += titLines.length * 7 + 2;
+
+      // Fecha
+      if (datos.fecha) {
+        doc.setTextColor(100, 100, 100);
+        doc.setFontSize(9); doc.setFont("helvetica", "normal");
+        doc.text("Fecha: " + formatearFechaExport(datos.fecha), marginL, y);
+        y += 7;
+      }
+
+      // Línea divisoria
+      doc.setDrawColor(74, 74, 138);
+      doc.setLineWidth(0.5);
+      doc.line(marginL, y, pageW - marginR, y);
+      y += 6;
+
+      // Entidades vinculadas
+      const entidades = (datos.participantesVinculados || []).map(p => p.nombre).join(", ");
+      seccion("Entidades participantes", entidades);
+
+      // Participantes
+      seccion("Participantes", datos.participantes);
+
+      // Acuerdos
+      seccion("Acuerdos y compromisos", datos.acuerdos);
+
+      // Briefing IA
+      if (datos.briefing) {
+        checkPage(15);
+        doc.setFillColor(235, 233, 255);
+        doc.rect(marginL, y - 3, contentW, 6, "F");
+        doc.setTextColor(74, 74, 138);
+        doc.setFontSize(9); doc.setFont("helvetica", "bold");
+        doc.text("✨ Briefing IA", marginL + 2, y + 1);
+        y += 8;
+        // Limpiar markdown
+        const briefingLimpio = datos.briefing
+          .replace(/\*\*(.+?)\*\*/g, "$1")
+          .replace(/^## /gm, "").replace(/^# /gm, "");
+        doc.setTextColor(50, 50, 50);
+        doc.setFontSize(8); doc.setFont("helvetica", "normal");
+        const bLines = doc.splitTextToSize(briefingLimpio, contentW);
+        checkPage(bLines.length * 4.5);
+        doc.text(bLines, marginL, y);
+        y += bLines.length * 4.5;
+      }
+
+      // Pie
+      doc.setFontSize(7); doc.setTextColor(150, 150, 150);
+      doc.text("Lumen · SEDUVOT Zacatecas · Documento generado automáticamente", marginL, 290);
+
+      doc.save("Reunion_" + (datos.titulo || "ficha").replace(/[^a-zA-Z0-9]/g, "_") + "_" + fechaHoy() + ".pdf");
+    }
+
+    if (window.jspdf) {
+      generarPDF();
+    } else {
+      const script = document.createElement("script");
+      script.src = "https://cdnjs.cloudflare.com/ajax/libs/jspdf/2.5.1/jspdf.umd.min.js";
+      script.onload = generarPDF;
+      document.head.appendChild(script);
+    }
+  }
+
+  // ─── HELPERS DE FECHA ─────────────────────────────────────────────────────
+  function fechaHoy() {
+    const hoy = new Date();
+    return hoy.getFullYear() + "-"
+      + String(hoy.getMonth() + 1).padStart(2, "0") + "-"
+      + String(hoy.getDate()).padStart(2, "0");
+  }
+
+  function formatearFechaExport(fechaStr) {
+    if (!fechaStr) return "";
+    // Intentar formato datetime (ISO) o fecha simple YYYY-MM-DD
+    const d = new Date(fechaStr);
+    if (!isNaN(d)) return d.toLocaleDateString("es-MX", { day: "2-digit", month: "short", year: "numeric" });
+    return fechaStr;
   }
 
 });

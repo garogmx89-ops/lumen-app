@@ -364,19 +364,18 @@ Usa un tono institucional profesional, en español.`;
 
     // Briefing IA si existe
     const briefingHtml = datos.briefing
-      ? `<div class="detalle-seccion">
-           <div class="detalle-seccion-titulo">✨ Briefing IA</div>
-           <div class="detalle-briefing-texto">${
-             datos.briefing
-               .split("
-").filter(l => l.trim())
-               .map(l => {
-                 if (l.startsWith("## ")) return `<h4>${l.replace("## ","")}</h4>`;
-                 l = l.replace(/\*\*(.+?)\*\*/g, "<strong>$1</strong>");
-                 return `<p>${l}</p>`;
-               }).join("")
-           }</div>
-         </div>`
+      ? (() => {
+          const lineas = datos.briefing.split("\n").filter(l => l.trim())
+            .map(l => {
+              if (l.startsWith("## ")) return "<h4>" + l.replace("## ", "") + "</h4>";
+              l = l.replace(/\*\*(.+?)\*\*/g, "<strong>$1</strong>");
+              return "<p>" + l + "</p>";
+            }).join("");
+          return '<div class="detalle-seccion">'
+            + '<div class="detalle-seccion-titulo">✨ Briefing IA</div>'
+            + '<div class="detalle-briefing-texto">' + lineas + "</div>"
+            + "</div>";
+        })()
       : "";
 
     modal.innerHTML = `

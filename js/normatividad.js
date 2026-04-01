@@ -195,7 +195,7 @@ onAuthStateChanged(auth, (user) => {
     contenedor.innerHTML = filtradas.map((n) => {
       const color = colorTipo[n.tipo] || "#555";
       return `
-        <div class="reunion-card norma-card">
+        <div class="reunion-card norma-card norma-card--clickable" data-id="${n.id}" style="cursor:pointer">
           <div class="reunion-card-header">
             <div class="norma-card-nombre">
               ${n.tipo ? `<span class="norma-tipo-badge" style="background:${color}">${n.tipo}</span>` : ""}
@@ -219,6 +219,15 @@ onAuthStateChanged(auth, (user) => {
         </div>
       `;
     }).join("");
+
+    // Clic en tarjeta → modal de detalle
+    contenedor.querySelectorAll(".norma-card--clickable").forEach((card) => {
+      card.addEventListener("click", (e) => {
+        if (e.target.closest("button") || e.target.closest("a")) return;
+        const norma = todasLasNormas.find(n => n.id === card.dataset.id);
+        if (norma) mostrarDetalle(norma);
+      });
+    });
 
     // Botones EDITAR
     contenedor.querySelectorAll(".btn-editar").forEach((btn) => {
@@ -245,5 +254,92 @@ function formatearFecha(fechaStr) {
   if (!fechaStr) return "";
   const [year, month, day] = fechaStr.split("-");
   return new Date(Number(year), Number(month) - 1, Number(day))
-    .toLocaleDateString("es-MX", { day: "2-digit", month: "short", year: "numeric" });
+    .toLocaleDateString("es-MX", { day: "2-digit", month: "short", year: "numeric" 
+  // ─── MODAL DE DETALLE ────────────────────────────────────────────────────
+  function mostrarDetalle(norma) {
+    const color = colorTipo[norma.tipo] || "#555";
+
+    let modal = document.getElementById("detalle-norma-modal");
+    if (!modal) {
+      modal = document.createElement("div");
+      modal.id = "detalle-norma-modal";
+      modal.style.cssText = "position:fixed;inset:0;background:rgba(0,0,0,0.6);"
+        + "display:flex;align-items:center;justify-content:center;z-index:800;padding:1rem;";
+      document.body.appendChild(modal);
+    }
+
+    const badgeTipo = norma.tipo
+      ? '<span style="background:' + color + ';color:white;font-size:0.72rem;font-weight:700;'
+        + 'padding:0.2rem 0.6rem;border-radius:20px;margin-right:0.5rem">' + norma.tipo + '</span>'
+      : "";
+
+    const fechas = (norma.fecha || norma.fechaReforma)
+      ? '<div class="detalle-seccion">'
+        + '<div class="detalle-seccion-titulo">📅 Fechas</div>'
+        + '<div style="display:flex;flex-direction:column;gap:0.3rem;margin-top:0.3rem">'
+        + (norma.fecha ? '<div class="detalle-seccion-texto">Publicación original: <strong>' + formatearFecha(norma.fecha) + '</strong></div>' : '')
+        + (norma.fechaReforma ? '<div class="detalle-seccion-texto">Última reforma: <strong>' + formatearFecha(norma.fechaReforma) + '</strong></div>' : '')
+        + '</div></div>'
+      : "";
+
+    const pdfBtn = norma.pdfUrl
+      ? '<a href="' + norma.pdfUrl + '" target="_blank" class="btn-ver-pdf" '
+        + 'style="background:none;border:1px solid var(--border);color:var(--text2);'
+        + 'border-radius:8px;padding:0.55rem 1.2rem;font-size:0.875rem;cursor:pointer;'
+        + 'font-family:inherit;text-decoration:none;">📄 Ver PDF</a>'
+      : "";
+
+    modal.innerHTML = '<div style="background:var(--bg2);border:1px solid var(--border);border-radius:14px;'
+      + 'width:100%;max-width:560px;max-height:85vh;overflow-y:auto;box-shadow:var(--shadow);">'
+
+      // Header
+      + '<div style="display:flex;justify-content:space-between;align-items:flex-start;'
+      + 'padding:1.2rem 1.4rem 1rem;border-bottom:1px solid var(--border);'
+      + 'position:sticky;top:0;background:var(--bg2);z-index:1;">'
+      + '<div>'
+      + '<div style="display:flex;align-items:center;flex-wrap:wrap;gap:0.4rem;margin-bottom:0.3rem">'
+      + badgeTipo + '</div>'
+      + '<div style="font-size:0.95rem;font-weight:700;color:var(--text);line-height:1.4">'
+      + (norma.nombre || "Sin nombre") + '</div>'
+      + '</div>'
+      + '<button id="detalle-norma-cerrar" style="background:none;border:none;color:var(--text2);'
+      + 'font-size:1.1rem;cursor:pointer;padding:0.2rem;flex-shrink:0;margin-left:1rem;">✕</button>'
+      + '</div>'
+
+      // Cuerpo
+      + '<div style="padding:1.2rem 1.4rem;display:flex;flex-direction:column;gap:1rem;">'
+      + fechas
+      + (norma.resumen ? '<div class="detalle-seccion">'
+        + '<div class="detalle-seccion-titulo">📝 Resumen</div>'
+        + '<div class="detalle-seccion-texto">' + norma.resumen + '</div></div>' : '')
+      + (norma.anotaciones ? '<div class="detalle-seccion">'
+        + '<div class="detalle-seccion-titulo">🖊️ Notas de aplicación</div>'
+        + '<div class="detalle-seccion-texto">' + norma.anotaciones + '</div></div>' : '')
+      + '</div>'
+
+      // Footer
+      + '<div style="padding:1rem 1.4rem;border-top:1px solid var(--border);'
+      + 'display:flex;gap:0.75rem;justify-content:flex-end;'
+      + 'position:sticky;bottom:0;background:var(--bg2);">'
+      + '<button id="detalle-norma-editar" style="background:var(--accent);color:white;border:none;'
+      + 'border-radius:8px;padding:0.55rem 1.2rem;font-size:0.875rem;cursor:pointer;'
+      + 'font-family:inherit;font-weight:600;">✏️ Editar</button>'
+      + pdfBtn
+      + '</div>'
+      + '</div>';
+
+    document.getElementById("detalle-norma-cerrar").addEventListener("click", () => {
+      modal.style.display = "none";
+    });
+    modal.addEventListener("click", (e) => { if (e.target === modal) modal.style.display = "none"; });
+
+    document.getElementById("detalle-norma-editar").addEventListener("click", () => {
+      modal.style.display = "none";
+      activarEdicion(norma.id);
+    });
+
+    modal.style.display = "flex";
+  }
+
+});
 }

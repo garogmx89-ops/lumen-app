@@ -248,13 +248,7 @@ onAuthStateChanged(auth, (user) => {
       });
     });
   }
-});
 
-function formatearFecha(fechaStr) {
-  if (!fechaStr) return "";
-  const [year, month, day] = fechaStr.split("-");
-  return new Date(Number(year), Number(month) - 1, Number(day))
-    .toLocaleDateString("es-MX", { day: "2-digit", month: "short", year: "numeric" 
   // ─── MODAL DE DETALLE ────────────────────────────────────────────────────
   function mostrarDetalle(norma) {
     const color = colorTipo[norma.tipo] || "#555";
@@ -341,5 +335,12 @@ function formatearFecha(fechaStr) {
     modal.style.display = "flex";
   }
 
+
 });
+
+function formatearFecha(fechaStr) {
+  if (!fechaStr) return "";
+  const [year, month, day] = fechaStr.split("-");
+  return new Date(Number(year), Number(month) - 1, Number(day))
+    .toLocaleDateString("es-MX", { day: "2-digit", month: "short", year: "numeric" });
 }

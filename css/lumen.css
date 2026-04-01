@@ -515,11 +515,11 @@ body.light .theme-toggle-knob {
 
 .form-group input,
 .form-group textarea {
-  background: var(--fondo);
-  border: 1px solid var(--borde);
+  background: var(--bg3);
+  border: 1px solid var(--border);
   border-radius: 8px;
   padding: 0.6rem 0.8rem;
-  color: var(--texto);
+  color: var(--text);
   font-size: 0.95rem;
   font-family: inherit;
   resize: vertical;

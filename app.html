@@ -812,6 +812,24 @@
               <textarea id="contexto-notas" rows="3" placeholder="Ej. Recurso federal sujeto a comprobación trimestral. Cierre de ejercicio el 31 de diciembre."></textarea>
             </div>
 
+            <!-- Vinculación: Normatividad -->
+            <div class="form-group">
+              <label for="contexto-selector-norma">Normatividad aplicable</label>
+              <select id="contexto-selector-norma">
+                <option value="">— Selecciona una norma —</option>
+              </select>
+              <div id="contexto-tags-normas" class="participantes-tags" style="margin-top:0.4rem;"></div>
+            </div>
+
+            <!-- Vinculación: Entidades -->
+            <div class="form-group">
+              <label for="contexto-selector-entidad">Entidades involucradas</label>
+              <select id="contexto-selector-entidad">
+                <option value="">— Selecciona una entidad —</option>
+              </select>
+              <div id="contexto-tags-entidades" class="participantes-tags" style="margin-top:0.4rem;"></div>
+            </div>
+
             <button class="btn-primary" id="btn-guardar-contexto">Guardar contexto</button>
             <button class="btn-secondary" id="btn-cancelar-contexto" style="display:none;">Cancelar edición</button>
           </div>

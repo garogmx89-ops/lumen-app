@@ -255,7 +255,7 @@ Responde únicamente con el contenido de la capa IA, sin introducciones ni comen
            </div>`
         : "";
       return `
-        <div class="reunion-card analisis-card">
+        <div class="reunion-card analisis-card analisis-card--clickable" data-id="${a.id}" style="cursor:pointer">
           <div class="reunion-card-header">
             <div class="analisis-card-pregunta">
               <span class="norma-tipo-badge" style="background:${color}">${a.estado}</span>
@@ -278,6 +278,15 @@ Responde únicamente con el contenido de la capa IA, sin introducciones ni comen
       `;
     }).join("");
 
+    // Clic en tarjeta → modal de detalle
+    contenedor.querySelectorAll(".analisis-card--clickable").forEach((card) => {
+      card.addEventListener("click", (e) => {
+        if (e.target.closest("button")) return;
+        const a = todosLosAnalisis.find(a => a.id === card.dataset.id);
+        if (a) mostrarDetalle(a);
+      });
+    });
+
     contenedor.querySelectorAll(".btn-editar").forEach((btn) => {
       btn.addEventListener("click", () => activarEdicion(btn.dataset.id));
     });
@@ -295,4 +304,73 @@ Responde únicamente con el contenido de la capa IA, sin introducciones ni comen
       });
     });
   }
+  // ─── MODAL DE DETALLE ────────────────────────────────────────────────────
+  function mostrarDetalle(a) {
+    const color = colorEstado[a.estado] || "#555";
+    const tagsNormas = (a.normasVinculadas || [])
+      .map(n => '<span class="participante-tag" style="font-size:0.8rem">📄 ' + n.nombre + '</span>')
+      .join("") || "";
+
+    let modal = document.getElementById("detalle-analisis-modal");
+    if (!modal) {
+      modal = document.createElement("div");
+      modal.id = "detalle-analisis-modal";
+      modal.style.cssText = "position:fixed;inset:0;background:rgba(0,0,0,0.6);"
+        + "display:flex;align-items:center;justify-content:center;z-index:800;padding:1rem;";
+      document.body.appendChild(modal);
+    }
+
+    const capaHtml = (icono, titulo, texto) => texto
+      ? '<div class="detalle-seccion"><div class="detalle-seccion-titulo">' + icono + ' ' + titulo + '</div>'
+        + '<div class="detalle-seccion-texto">' + texto + '</div></div>'
+      : "";
+
+    modal.innerHTML = '<div style="background:var(--bg2);border:1px solid var(--border);border-radius:14px;'
+      + 'width:100%;max-width:580px;max-height:85vh;overflow-y:auto;box-shadow:var(--shadow);">'
+      // Header
+      + '<div style="display:flex;justify-content:space-between;align-items:flex-start;'
+      + 'padding:1.2rem 1.4rem 1rem;border-bottom:1px solid var(--border);'
+      + 'position:sticky;top:0;background:var(--bg2);z-index:1;">'
+      + '<div>'
+      + '<div style="margin-bottom:0.4rem">'
+      + '<span style="background:' + color + ';color:white;font-size:0.72rem;font-weight:700;'
+      + 'padding:0.2rem 0.6rem;border-radius:20px">' + (a.estado || "") + '</span></div>'
+      + '<div style="font-size:0.95rem;font-weight:700;color:var(--text);line-height:1.4">'
+      + (a.pregunta || "Sin pregunta") + '</div>'
+      + '</div>'
+      + '<button id="detalle-analisis-cerrar" style="background:none;border:none;color:var(--text2);'
+      + 'font-size:1.1rem;cursor:pointer;padding:0.2rem;flex-shrink:0;margin-left:1rem;">✕</button>'
+      + '</div>'
+      // Cuerpo
+      + '<div style="padding:1.2rem 1.4rem;display:flex;flex-direction:column;gap:1rem;">'
+      + (tagsNormas ? '<div class="detalle-seccion"><div class="detalle-seccion-titulo">📄 Normatividad vinculada</div>'
+        + '<div style="display:flex;flex-wrap:wrap;gap:0.4rem;margin-top:0.4rem">' + tagsNormas + '</div></div>' : '')
+      + capaHtml("⚖️", "Ley — qué dice la norma", a.ley)
+      + capaHtml("🏛️", "Práctica — cómo se aplica", a.practica)
+      + capaHtml("📂", "Precedente — casos anteriores", a.precedente)
+      + (a.ia ? '<div class="detalle-seccion"><div class="detalle-seccion-titulo">🤖 Interpretación IA</div>'
+        + '<div class="detalle-briefing-texto">'
+        + a.ia.replace(/\*\*(.+?)\*\*/g, "<strong>$1</strong>").split("\n").join("<br>")
+        + '</div></div>' : '')
+      + '</div>'
+      // Footer
+      + '<div style="padding:1rem 1.4rem;border-top:1px solid var(--border);'
+      + 'display:flex;justify-content:flex-end;position:sticky;bottom:0;background:var(--bg2);">'
+      + '<button id="detalle-analisis-editar" style="background:var(--accent);color:white;border:none;'
+      + 'border-radius:8px;padding:0.55rem 1.2rem;font-size:0.875rem;cursor:pointer;'
+      + 'font-family:inherit;font-weight:600;">✏️ Editar</button>'
+      + '</div>'
+      + '</div>';
+
+    document.getElementById("detalle-analisis-cerrar").addEventListener("click", () => {
+      modal.style.display = "none";
+    });
+    modal.addEventListener("click", (e) => { if (e.target === modal) modal.style.display = "none"; });
+    document.getElementById("detalle-analisis-editar").addEventListener("click", () => {
+      modal.style.display = "none";
+      activarEdicion(a.id);
+    });
+    modal.style.display = "flex";
+  }
+
 });

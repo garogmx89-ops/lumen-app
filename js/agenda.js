@@ -287,7 +287,7 @@ onAuthStateChanged(auth, (user) => {
         : "";
 
       return `
-        <div class="reunion-card alerta-card ${diasRestantes !== null && diasRestantes < 0 && a.estado === 'Pendiente' ? 'alerta-card--vencida' : ''}">
+        <div class="reunion-card alerta-card alerta-card--clickable ${diasRestantes !== null && diasRestantes < 0 && a.estado === 'Pendiente' ? 'alerta-card--vencida' : ''}" data-id="${a.id}" style="cursor:pointer">
           <div class="reunion-card-header">
             <div class="alerta-card-titulo">
               <span class="norma-tipo-badge" style="background:${colorP}">${a.prioridad}</span>
@@ -308,6 +308,15 @@ onAuthStateChanged(auth, (user) => {
       `;
     }).join("");
 
+    // Clic en tarjeta → modal de detalle
+    contenedor.querySelectorAll(".alerta-card--clickable").forEach((card) => {
+      card.addEventListener("click", (e) => {
+        if (e.target.closest("button")) return;
+        const a = todasLasAlertas.find(a => a.id === card.dataset.id);
+        if (a) mostrarDetalle(a);
+      });
+    });
+
     contenedor.querySelectorAll(".btn-editar").forEach((btn) => {
       btn.addEventListener("click", () => activarEdicion(btn.dataset.id));
     });
@@ -325,6 +334,82 @@ onAuthStateChanged(auth, (user) => {
       });
     });
   }
+  // ─── MODAL DE DETALLE ────────────────────────────────────────────────────
+  function mostrarDetalle(a) {
+    const colorP = colorPrioridad[a.prioridad] || "#555";
+    const colorE = colorEstado[a.estado]       || "#555";
+
+    // Calcular días restantes
+    const hoy = new Date(); hoy.setHours(0,0,0,0);
+    let vencimientoHtml = "";
+    if (a.fecha) {
+      const [y,m,d] = a.fecha.split("-");
+      const fechaVence = new Date(Number(y), Number(m)-1, Number(d));
+      const dias = Math.ceil((fechaVence - hoy) / (1000*60*60*24));
+      if (dias < 0 && a.estado === "Pendiente")
+        vencimientoHtml = '<div style="color:#f87171;font-weight:600;font-size:0.85rem">⚠️ Vencida hace ' + Math.abs(dias) + ' día(s)</div>';
+      else if (dias <= 3 && dias >= 0 && a.estado === "Pendiente")
+        vencimientoHtml = '<div style="color:#f59e0b;font-weight:600;font-size:0.85rem">🔔 Vence ' + (dias === 0 ? "hoy" : "en " + dias + " día(s)") + '</div>';
+    }
+
+    const tagsP = (a.procesosVinculados || [])
+      .map(p => '<span class="participante-tag" style="font-size:0.8rem">⚙️ ' + p.nombre + '</span>').join("");
+    const tagsN = (a.normasVinculadas || [])
+      .map(n => '<span class="participante-tag" style="font-size:0.8rem">📄 ' + n.nombre + '</span>').join("");
+
+    let modal = document.getElementById("detalle-agenda-modal");
+    if (!modal) {
+      modal = document.createElement("div");
+      modal.id = "detalle-agenda-modal";
+      modal.style.cssText = "position:fixed;inset:0;background:rgba(0,0,0,0.6);"
+        + "display:flex;align-items:center;justify-content:center;z-index:800;padding:1rem;";
+      document.body.appendChild(modal);
+    }
+
+    modal.innerHTML = '<div style="background:var(--bg2);border:1px solid var(--border);border-radius:14px;'
+      + 'width:100%;max-width:520px;max-height:85vh;overflow-y:auto;box-shadow:var(--shadow);">'
+      // Header
+      + '<div style="display:flex;justify-content:space-between;align-items:flex-start;'
+      + 'padding:1.2rem 1.4rem 1rem;border-bottom:1px solid var(--border);'
+      + 'position:sticky;top:0;background:var(--bg2);z-index:1;">'
+      + '<div>'
+      + '<div style="display:flex;gap:0.4rem;margin-bottom:0.4rem">'
+      + '<span style="background:' + colorP + ';color:white;font-size:0.72rem;font-weight:700;'
+      + 'padding:0.2rem 0.6rem;border-radius:20px">' + (a.prioridad || "") + '</span>'
+      + '<span style="background:' + colorE + ';color:white;font-size:0.72rem;font-weight:700;'
+      + 'padding:0.2rem 0.6rem;border-radius:20px">' + (a.estado || "") + '</span></div>'
+      + '<div style="font-size:1rem;font-weight:700;color:var(--text)">' + (a.titulo || "Sin título") + '</div>'
+      + (a.fecha ? '<div style="font-size:0.8rem;color:var(--text2);margin-top:0.2rem">📅 Vence: ' + formatearFecha(a.fecha) + '</div>' : '')
+      + '</div>'
+      + '<button id="detalle-agenda-cerrar" style="background:none;border:none;color:var(--text2);'
+      + 'font-size:1.1rem;cursor:pointer;padding:0.2rem;flex-shrink:0;margin-left:1rem;">✕</button>'
+      + '</div>'
+      // Cuerpo
+      + '<div style="padding:1.2rem 1.4rem;display:flex;flex-direction:column;gap:1rem;">'
+      + vencimientoHtml
+      + ((tagsP || tagsN) ? '<div class="detalle-seccion"><div class="detalle-seccion-titulo">🔗 Vínculos</div>'
+        + '<div style="display:flex;flex-wrap:wrap;gap:0.4rem;margin-top:0.4rem">' + tagsP + tagsN + '</div></div>' : '')
+      + '</div>'
+      // Footer
+      + '<div style="padding:1rem 1.4rem;border-top:1px solid var(--border);'
+      + 'display:flex;justify-content:flex-end;position:sticky;bottom:0;background:var(--bg2);">'
+      + '<button id="detalle-agenda-editar" style="background:var(--accent);color:white;border:none;'
+      + 'border-radius:8px;padding:0.55rem 1.2rem;font-size:0.875rem;cursor:pointer;'
+      + 'font-family:inherit;font-weight:600;">✏️ Editar</button>'
+      + '</div>'
+      + '</div>';
+
+    document.getElementById("detalle-agenda-cerrar").addEventListener("click", () => {
+      modal.style.display = "none";
+    });
+    modal.addEventListener("click", (e) => { if (e.target === modal) modal.style.display = "none"; });
+    document.getElementById("detalle-agenda-editar").addEventListener("click", () => {
+      modal.style.display = "none";
+      activarEdicion(a.id);
+    });
+    modal.style.display = "flex";
+  }
+
 });
 
 function formatearFecha(fechaStr) {

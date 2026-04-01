@@ -269,7 +269,7 @@ onAuthStateChanged(auth, (user) => {
         : "";
 
       return `
-        <div class="reunion-card proceso-card">
+        <div class="reunion-card proceso-card proceso-card--clickable" data-id="${p.id}" style="cursor:pointer">
           <div class="reunion-card-header">
             <div class="analisis-card-pregunta">
               <span class="norma-tipo-badge" style="background:${color}">${p.estado}</span>
@@ -288,6 +288,15 @@ onAuthStateChanged(auth, (user) => {
       `;
     }).join("");
 
+    // Clic en tarjeta → modal de detalle
+    contenedor.querySelectorAll(".proceso-card--clickable").forEach((card) => {
+      card.addEventListener("click", (e) => {
+        if (e.target.closest("button")) return;
+        const p = todosLosProcesos.find(p => p.id === card.dataset.id);
+        if (p) mostrarDetalle(p);
+      });
+    });
+
     contenedor.querySelectorAll(".btn-editar").forEach((btn) => {
       btn.addEventListener("click", () => activarEdicion(btn.dataset.id));
     });
@@ -305,4 +314,77 @@ onAuthStateChanged(auth, (user) => {
       });
     });
   }
+  // ─── MODAL DE DETALLE ────────────────────────────────────────────────────
+  function mostrarDetalle(p) {
+    const color = colorEstado[p.estado] || "#555";
+    const tagsNormas = (p.normasVinculadas || [])
+      .map(n => '<span class="participante-tag" style="font-size:0.8rem">📄 ' + n.nombre + '</span>')
+      .join("") || "";
+
+    const pasosHtml = (p.pasos && p.pasos.length > 0)
+      ? '<div class="detalle-seccion"><div class="detalle-seccion-titulo">📋 Pasos del proceso</div>'
+        + '<div style="display:flex;flex-direction:column;gap:0.5rem;margin-top:0.4rem">'
+        + p.pasos.map((paso, i) =>
+            '<div style="display:flex;gap:0.6rem;align-items:flex-start">'
+            + '<span style="background:var(--accent);color:white;font-size:0.72rem;font-weight:700;'
+            + 'padding:0.15rem 0.45rem;border-radius:20px;flex-shrink:0;margin-top:0.1rem">' + (i+1) + '</span>'
+            + '<div><div style="font-size:0.875rem;color:var(--text);font-weight:600">' + paso.nombre + '</div>'
+            + (paso.detalle ? '<div style="font-size:0.8rem;color:var(--text2)">' + paso.detalle + '</div>' : '')
+            + '</div></div>'
+          ).join("")
+        + '</div></div>'
+      : "";
+
+    let modal = document.getElementById("detalle-proceso-modal");
+    if (!modal) {
+      modal = document.createElement("div");
+      modal.id = "detalle-proceso-modal";
+      modal.style.cssText = "position:fixed;inset:0;background:rgba(0,0,0,0.6);"
+        + "display:flex;align-items:center;justify-content:center;z-index:800;padding:1rem;";
+      document.body.appendChild(modal);
+    }
+
+    modal.innerHTML = '<div style="background:var(--bg2);border:1px solid var(--border);border-radius:14px;'
+      + 'width:100%;max-width:560px;max-height:85vh;overflow-y:auto;box-shadow:var(--shadow);">'
+      // Header
+      + '<div style="display:flex;justify-content:space-between;align-items:flex-start;'
+      + 'padding:1.2rem 1.4rem 1rem;border-bottom:1px solid var(--border);'
+      + 'position:sticky;top:0;background:var(--bg2);z-index:1;">'
+      + '<div>'
+      + '<div style="margin-bottom:0.4rem">'
+      + '<span style="background:' + color + ';color:white;font-size:0.72rem;font-weight:700;'
+      + 'padding:0.2rem 0.6rem;border-radius:20px">' + (p.estado || "") + '</span></div>'
+      + '<div style="font-size:1rem;font-weight:700;color:var(--text)">' + (p.nombre || "Sin nombre") + '</div>'
+      + '</div>'
+      + '<button id="detalle-proceso-cerrar" style="background:none;border:none;color:var(--text2);'
+      + 'font-size:1.1rem;cursor:pointer;padding:0.2rem;flex-shrink:0;margin-left:1rem;">✕</button>'
+      + '</div>'
+      // Cuerpo
+      + '<div style="padding:1.2rem 1.4rem;display:flex;flex-direction:column;gap:1rem;">'
+      + (p.descripcion ? '<div class="detalle-seccion"><div class="detalle-seccion-titulo">📝 Descripción</div>'
+        + '<div class="detalle-seccion-texto">' + p.descripcion + '</div></div>' : '')
+      + (tagsNormas ? '<div class="detalle-seccion"><div class="detalle-seccion-titulo">📄 Normatividad vinculada</div>'
+        + '<div style="display:flex;flex-wrap:wrap;gap:0.4rem;margin-top:0.4rem">' + tagsNormas + '</div></div>' : '')
+      + pasosHtml
+      + '</div>'
+      // Footer
+      + '<div style="padding:1rem 1.4rem;border-top:1px solid var(--border);'
+      + 'display:flex;justify-content:flex-end;position:sticky;bottom:0;background:var(--bg2);">'
+      + '<button id="detalle-proceso-editar" style="background:var(--accent);color:white;border:none;'
+      + 'border-radius:8px;padding:0.55rem 1.2rem;font-size:0.875rem;cursor:pointer;'
+      + 'font-family:inherit;font-weight:600;">✏️ Editar</button>'
+      + '</div>'
+      + '</div>';
+
+    document.getElementById("detalle-proceso-cerrar").addEventListener("click", () => {
+      modal.style.display = "none";
+    });
+    modal.addEventListener("click", (e) => { if (e.target === modal) modal.style.display = "none"; });
+    document.getElementById("detalle-proceso-editar").addEventListener("click", () => {
+      modal.style.display = "none";
+      activarEdicion(p.id);
+    });
+    modal.style.display = "flex";
+  }
+
 });

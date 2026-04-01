@@ -147,10 +147,79 @@ onAuthStateChanged(auth, (user) => {
     });
   }
 
-  // --- BOTÓN CANCELAR ---
+// --- BOTÓN CANCELAR ---
   const btnCancelar = document.getElementById("btn-cancelar-analisis");
   if (btnCancelar) {
     btnCancelar.addEventListener("click", () => limpiarFormulario());
+  }
+
+  // --- BOTÓN GENERAR IA ---
+  const btnGenerarIA = document.getElementById("btn-generar-ia-analisis");
+  if (btnGenerarIA) {
+    btnGenerarIA.addEventListener("click", async () => {
+      const pregunta   = document.getElementById("analisis-pregunta").value.trim();
+      const ley        = document.getElementById("analisis-ley").value.trim();
+      const practica   = document.getElementById("analisis-practica").value.trim();
+      const precedente = document.getElementById("analisis-precedente").value.trim();
+
+      if (!pregunta) {
+        alert("Escribe primero la pregunta institucional.");
+        return;
+      }
+
+      // Indicador visual de carga en el campo IA
+      const campoIA = document.getElementById("analisis-ia");
+      campoIA.value = "⏳ Generando interpretación...";
+      btnGenerarIA.disabled = true;
+      btnGenerarIA.textContent = "⏳ Generando...";
+
+      // Construimos el prompt con contexto institucional
+      const normasTexto = normasSeleccionadas.map(n => n.nombre).join(", ") || "No especificadas";
+
+      const prompt = `Eres un asesor jurídico-administrativo especializado en políticas públicas de vivienda y desarrollo urbano en México, con experiencia en el marco normativo federal y estatal aplicable a SEDUVOT Zacatecas.
+
+Se te presenta un análisis institucional con tres capas ya desarrolladas. Tu tarea es generar la interpretación de la capa IA: una síntesis analítica que integre las tres capas y proporcione una conclusión operativa clara y fundamentada.
+
+PREGUNTA INSTITUCIONAL:
+${pregunta}
+
+NORMAS RELACIONADAS:
+${normasTexto}
+
+CAPA 1 — LEY (qué dice la norma):
+${ley || "No registrada"}
+
+CAPA 2 — PRÁCTICA (cómo se aplica):
+${practica || "No registrada"}
+
+CAPA 3 — PRECEDENTE (casos anteriores):
+${precedente || "No registrado"}
+
+Genera la CAPA IA con este formato:
+- Interpretación: (síntesis de las tres capas en 2-3 oraciones)
+- Conclusión operativa: (respuesta directa a la pregunta institucional)
+- Riesgo o consideración clave: (una alerta o recomendación para SEDUVOT)
+
+Responde únicamente con el contenido de la capa IA, sin introducciones ni comentarios adicionales. Tono institucional, lenguaje técnico-administrativo, en español.`;
+
+      try {
+        const response = await fetch("https://lumen-briefing.garogmx89.workers.dev", {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({ prompt })
+        });
+
+        const data = await response.json();
+        campoIA.value = data.briefing || "No se pudo generar la interpretación.";
+
+      } catch (error) {
+        console.error("Error al llamar a la IA:", error);
+        campoIA.value = "❌ Error al conectar con la IA. Intenta de nuevo.";
+      } finally {
+        btnGenerarIA.disabled = false;
+        btnGenerarIA.textContent = "✨ Generar con IA";
+      }
+    });
   }
 
   // --- FILTROS ---

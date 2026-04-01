@@ -527,9 +527,12 @@
               <div class="capa-label">📂 Precedente — casos anteriores</div>
               <textarea class="capa-input" id="analisis-precedente" rows="2" placeholder="Ej. En 2023, el caso X resolvió que..."></textarea>
 
-              <div class="capa-label">🤖 IA — interpretación</div>
-              <textarea class="capa-input" id="analisis-ia" rows="2" placeholder="Ej. La interpretación más razonable es..."></textarea>
-            </div>
+<div class="capa-label" style="display:flex; justify-content:space-between; align-items:center;">
+                <span>🤖 IA — interpretación</span>
+                <button type="button" id="btn-generar-ia-analisis" class="btn-briefing-ia" title="Generar interpretación con IA" style="font-size:0.82rem; opacity:0.8;">
+                  ✨ Generar con IA
+                </button>
+              </div>
 
             <button class="btn-primary" id="btn-guardar-analisis">Guardar análisis</button>
             <button class="btn-secondary" id="btn-cancelar-analisis" style="display:none;">Cancelar edición</button>

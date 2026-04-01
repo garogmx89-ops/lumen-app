@@ -726,7 +726,7 @@ body.light .theme-toggle-knob {
   border: 1px solid var(--border);
   border-radius: 8px;
   padding: 0.6rem 0.8rem;
-  color: var(--text1);
+  color: var(--text);
   font-size: 0.9rem;
   font-family: inherit;
   resize: vertical;
@@ -1254,7 +1254,7 @@ input[type="file"]::file-selector-button:hover {
   border-bottom: 1px solid var(--border);
   font-weight: 600;
   font-size: 1rem;
-  color: var(--text1);
+  color: var(--text);
 }
 
 #briefing-modal-cerrar {
@@ -1271,7 +1271,7 @@ input[type="file"]::file-selector-button:hover {
 #briefing-modal-cuerpo {
   padding: 1.25rem;
   overflow-y: auto;
-  color: var(--text1);
+  color: var(--text);
   font-size: 0.9rem;
   line-height: 1.7;
 }

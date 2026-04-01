@@ -167,21 +167,15 @@ El briefing debe incluir exactamente estas secciones:
 Responde únicamente con el briefing, sin introducciones ni comentarios adicionales.
 Usa un tono institucional profesional, en español.`;
 
-    try {
-      const response = await fetch("https://api.anthropic.com/v1/messages", {
+try {
+      const response = await fetch("https://lumen-briefing.garogmx89.workers.dev", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({
-          model: "claude-sonnet-4-20250514",
-          max_tokens: 1000,
-          messages: [{ role: "user", content: prompt }]
-        })
+        body: JSON.stringify({ prompt })
       });
 
       const data = await response.json();
-
-      // Extraemos el texto de la respuesta
-      const texto = data.content?.map(b => b.text || "").join("") || "No se pudo generar el briefing.";
+      const texto = data.briefing || "No se pudo generar el briefing.";
       mostrarModal(texto, false);
 
     } catch (error) {

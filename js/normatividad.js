@@ -5,10 +5,13 @@ import {
   collection, addDoc, updateDoc, deleteDoc, doc,
   onSnapshot, orderBy, query, serverTimestamp
 } from "https://www.gstatic.com/firebasejs/10.12.0/firebase-firestore.js";
+import {
+  getStorage, ref, uploadBytesResumable, getDownloadURL, deleteObject
+} from "https://www.gstatic.com/firebasejs/10.12.0/firebase-storage.js";
 
-// ── Configuración de Cloudinary ──────────────────────────────────────
-const CLOUDINARY_CLOUD_NAME = "dosqx8cx9";
-const CLOUDINARY_UPLOAD_PRESET = "lumen_normas";
+// ── Firebase Storage ─────────────────────────────────────────────────
+// Los PDFs se guardan en: normas/{userId}/{timestamp}_{nombreArchivo}
+// Los PDFs existentes en Cloudinary siguen funcionando por URL
 
 const colorTipo = {
   "Ley": "#7B2FBE", "Reglamento": "#3A0CA3",
@@ -20,25 +23,38 @@ let filtroActivo = "todos";
 let modoEdicion = null;
 let pdfUrlActual = null; // Guarda la URL del PDF del registro que se está editando
 
-// ── Función para subir PDF a Cloudinary ─────────────────────────────
-async function subirPdfACloudinary(archivo) {
-  const formData = new FormData();
-  formData.append("file", archivo);
-  formData.append("upload_preset", CLOUDINARY_UPLOAD_PRESET);
-  formData.append("resource_type", "raw");
+// ── Función para subir PDF a Firebase Storage ────────────────────────
+// Sube el archivo a normas/{userId}/{timestamp}_{nombre} y devuelve la URL de descarga.
+// Muestra progreso en el indicador existente (#norma-pdf-subiendo).
+async function subirPdfAFirebaseStorage(archivo, userId) {
+  const storage   = getStorage();
+  const timestamp = Date.now();
+  const nombreLimpio = archivo.name.replace(/[^a-zA-Z0-9._-]/g, "_");
+  const rutaArchivo  = `normas/${userId}/${timestamp}_${nombreLimpio}`;
+  const storageRef   = ref(storage, rutaArchivo);
 
-  const response = await fetch(
-    `https://api.cloudinary.com/v1_1/${CLOUDINARY_CLOUD_NAME}/raw/upload`,
-    { method: "POST", body: formData }
-  );
+  // uploadBytesResumable permite monitorear el progreso
+  return new Promise((resolve, reject) => {
+    const uploadTask = uploadBytesResumable(storageRef, archivo);
 
-  if (!response.ok) throw new Error("Error al subir el PDF a Cloudinary");
-
-  const data = await response.json();
-
-  // Convertimos la URL a formato de descarga directa que Cloudinary sí permite
-  // Cambia /raw/upload/ por /raw/upload/fl_attachment/
-  return data.secure_url.replace("/raw/upload/", "/raw/upload/fl_attachment/");
+    uploadTask.on("state_changed",
+      (snapshot) => {
+        // Mostrar porcentaje de subida
+        const pct = Math.round((snapshot.bytesTransferred / snapshot.totalBytes) * 100);
+        const el = document.getElementById("norma-pdf-subiendo");
+        if (el) el.textContent = `Subiendo PDF... ${pct}%`;
+      },
+      (error) => {
+        console.error("Error al subir PDF:", error);
+        reject(new Error("Error al subir el PDF. Verifica tu conexión."));
+      },
+      async () => {
+        // Subida completa — obtener URL pública de descarga
+        const url = await getDownloadURL(uploadTask.snapshot.ref);
+        resolve(url);
+      }
+    );
+  });
 }
 
 onAuthStateChanged(auth, (user) => {
@@ -58,7 +74,8 @@ onAuthStateChanged(auth, (user) => {
 
     // Ocultar indicadores de PDF
     document.getElementById("norma-pdf-actual").style.display  = "none";
-    document.getElementById("norma-pdf-subiendo").style.display = "none";
+    const elSubiendo = document.getElementById("norma-pdf-subiendo");
+          if (elSubiendo) { elSubiendo.textContent = "Subiendo PDF..."; elSubiendo.style.display = "none"; }
     pdfUrlActual = null;
 
     document.querySelector("#panel-normatividad .reunion-form-card h2").textContent = "Nueva Norma";
@@ -132,8 +149,9 @@ onAuthStateChanged(auth, (user) => {
         // Si el usuario seleccionó un archivo nuevo, lo subimos primero
         if (archivoPdf) {
           document.getElementById("norma-pdf-subiendo").style.display = "block";
-          pdfUrl = await subirPdfACloudinary(archivoPdf);
-          document.getElementById("norma-pdf-subiendo").style.display = "none";
+          pdfUrl = await subirPdfAFirebaseStorage(archivoPdf, user.uid);
+          const elSubiendo = document.getElementById("norma-pdf-subiendo");
+          if (elSubiendo) { elSubiendo.textContent = "Subiendo PDF..."; elSubiendo.style.display = "none"; }
         }
 
         const datos = { nombre, tipo, fecha, fechaReforma, resumen, anotaciones, pdfUrl: pdfUrl || null };
@@ -148,7 +166,8 @@ onAuthStateChanged(auth, (user) => {
       } catch (error) {
         console.error("Error al guardar norma:", error);
         alert("Hubo un error al guardar. Revisa la consola.");
-        document.getElementById("norma-pdf-subiendo").style.display = "none";
+        const elSubiendo = document.getElementById("norma-pdf-subiendo");
+          if (elSubiendo) { elSubiendo.textContent = "Subiendo PDF..."; elSubiendo.style.display = "none"; }
       } finally {
         btnNuevo.disabled = false;
         btnNuevo.textContent = "Guardar norma";

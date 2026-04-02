@@ -509,6 +509,42 @@
             </div>
           </div>
 
+          <!-- ── Visor PDF con anotaciones ─────────────────────────── -->
+          <div id="norma-visor-panel" style="display:none;">
+            <div class="visor-header">
+              <div class="visor-header-info">
+                <button id="visor-btn-cerrar" class="visor-btn-cerrar" title="Cerrar visor">← Volver</button>
+                <span id="visor-norma-titulo" class="visor-titulo-texto"></span>
+              </div>
+              <div class="visor-header-controles">
+                <button id="visor-btn-prev" class="visor-nav-btn">‹</button>
+                <span id="visor-pagina-info" class="visor-pagina-info">Pág 1 / 1</span>
+                <button id="visor-btn-next" class="visor-nav-btn">›</button>
+                <button id="visor-btn-relevante" class="visor-btn-relevante" title="Marcar página como relevante para SEDUVOT">⭐ Relevante</button>
+              </div>
+            </div>
+            <div class="visor-body">
+              <!-- Canvas del PDF -->
+              <div class="visor-canvas-wrap">
+                <canvas id="visor-canvas"></canvas>
+                <div id="visor-loading" class="visor-loading">Cargando PDF...</div>
+              </div>
+              <!-- Panel lateral de anotaciones -->
+              <div class="visor-sidebar">
+                <div class="visor-sidebar-header">
+                  <span>📝 Anotaciones</span>
+                  <span id="visor-pag-badge" class="visor-pag-badge">Pág 1</span>
+                </div>
+                <textarea id="visor-nota-texto" class="visor-nota-input"
+                  placeholder="Escribe una nota para esta página..."></textarea>
+                <button id="visor-btn-guardar-nota" class="btn-primary" style="margin-top:0.5rem;font-size:0.85rem">
+                  Guardar nota
+                </button>
+                <div id="visor-notas-lista" class="visor-notas-lista"></div>
+              </div>
+            </div>
+          </div>
+
         </div>
 
 <!-- ANÁLISIS -->

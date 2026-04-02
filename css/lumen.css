@@ -1267,7 +1267,6 @@ input[type="file"]::file-selector-button:hover {
 
 /* Botón ✨ en tarjetas de reunión */
 .btn-briefing-ia {
-  color: var(--text);
   background: none;
   border: none;
   cursor: pointer;
@@ -1514,4 +1513,242 @@ input[type="file"]::file-selector-button:hover {
   font-size: 0.9rem;
   padding: 0.2rem;
   flex-shrink: 0;
+}
+
+/* ── Visor PDF con anotaciones ───────────────────────── */
+#norma-visor-panel {
+  display: flex;
+  flex-direction: column;
+  height: calc(100vh - var(--topbar-h) - 2rem);
+  min-height: 500px;
+}
+
+.visor-header {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  flex-wrap: wrap;
+  gap: 0.5rem;
+  padding: 0.75rem 1rem;
+  background: var(--bg2);
+  border: 1px solid var(--border);
+  border-radius: 10px 10px 0 0;
+  flex-shrink: 0;
+}
+
+.visor-header-info {
+  display: flex;
+  align-items: center;
+  gap: 0.75rem;
+  min-width: 0;
+}
+
+.visor-btn-cerrar {
+  background: none;
+  border: 1px solid var(--border);
+  color: var(--text2);
+  border-radius: 6px;
+  padding: 0.3rem 0.7rem;
+  font-size: 0.85rem;
+  cursor: pointer;
+  font-family: inherit;
+  white-space: nowrap;
+  flex-shrink: 0;
+}
+.visor-btn-cerrar:hover { background: var(--bg3); }
+
+.visor-titulo-texto {
+  font-size: 0.9rem;
+  font-weight: 600;
+  color: var(--text);
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  max-width: 280px;
+}
+
+.visor-header-controles {
+  display: flex;
+  align-items: center;
+  gap: 0.5rem;
+  flex-shrink: 0;
+}
+
+.visor-nav-btn {
+  background: var(--bg3);
+  border: 1px solid var(--border);
+  color: var(--text);
+  border-radius: 6px;
+  width: 32px; height: 32px;
+  font-size: 1.1rem;
+  cursor: pointer;
+  display: flex; align-items: center; justify-content: center;
+}
+.visor-nav-btn:disabled { opacity: 0.3; cursor: not-allowed; }
+.visor-nav-btn:hover:not(:disabled) { background: var(--surface); }
+
+.visor-pagina-info {
+  font-size: 0.82rem;
+  color: var(--text2);
+  min-width: 70px;
+  text-align: center;
+}
+
+.visor-btn-relevante {
+  background: none;
+  border: 1px solid var(--border);
+  color: var(--text2);
+  border-radius: 6px;
+  padding: 0.3rem 0.7rem;
+  font-size: 0.8rem;
+  cursor: pointer;
+  font-family: inherit;
+  transition: all var(--trans);
+}
+.visor-btn-relevante:hover { border-color: var(--accent); color: var(--accent); }
+
+.visor-body {
+  display: flex;
+  flex: 1;
+  overflow: hidden;
+  border: 1px solid var(--border);
+  border-top: none;
+  border-radius: 0 0 10px 10px;
+}
+
+.visor-canvas-wrap {
+  flex: 1;
+  overflow: auto;
+  background: var(--bg);
+  display: flex;
+  align-items: flex-start;
+  justify-content: center;
+  padding: 1rem;
+  position: relative;
+}
+
+#visor-canvas {
+  max-width: 100%;
+  box-shadow: 0 2px 16px rgba(0,0,0,0.4);
+  border-radius: 4px;
+}
+
+.visor-loading {
+  position: absolute;
+  top: 50%;
+  left: 50%;
+  transform: translate(-50%, -50%);
+  color: var(--text2);
+  font-size: 0.9rem;
+}
+
+.visor-sidebar {
+  width: 260px;
+  flex-shrink: 0;
+  border-left: 1px solid var(--border);
+  background: var(--bg2);
+  display: flex;
+  flex-direction: column;
+  overflow: hidden;
+}
+
+.visor-sidebar-header {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  padding: 0.75rem 1rem;
+  border-bottom: 1px solid var(--border);
+  font-size: 0.85rem;
+  font-weight: 600;
+  color: var(--text);
+  flex-shrink: 0;
+}
+
+.visor-pag-badge {
+  font-size: 0.72rem;
+  color: var(--text2);
+  background: var(--bg3);
+  padding: 0.1rem 0.5rem;
+  border-radius: 20px;
+}
+
+.visor-nota-input {
+  margin: 0.75rem;
+  border-radius: 8px;
+  border: 1px solid var(--border);
+  background: var(--bg3);
+  color: var(--text);
+  font-family: inherit;
+  font-size: 0.85rem;
+  resize: vertical;
+  min-height: 80px;
+  padding: 0.5rem;
+  flex-shrink: 0;
+}
+
+.visor-nota-input:focus { outline: none; border-color: var(--accent); }
+
+#visor-btn-guardar-nota {
+  margin: 0 0.75rem 0.75rem;
+  flex-shrink: 0;
+}
+
+.visor-notas-lista {
+  flex: 1;
+  overflow-y: auto;
+  padding: 0.5rem 0.75rem;
+  display: flex;
+  flex-direction: column;
+  gap: 0.5rem;
+}
+
+.visor-nota-item {
+  background: var(--bg3);
+  border: 1px solid var(--border);
+  border-radius: 8px;
+  padding: 0.6rem 0.75rem;
+  position: relative;
+}
+
+.visor-nota-fecha {
+  font-size: 0.72rem;
+  color: var(--text2);
+  margin-bottom: 0.3rem;
+}
+
+.visor-nota-texto-display {
+  font-size: 0.82rem;
+  color: var(--text);
+  line-height: 1.5;
+  padding-right: 1.2rem;
+}
+
+.visor-nota-eliminar {
+  position: absolute;
+  top: 0.4rem; right: 0.4rem;
+  background: none; border: none;
+  color: var(--text2); font-size: 0.75rem;
+  cursor: pointer; opacity: 0.5;
+  transition: opacity var(--trans);
+}
+.visor-nota-eliminar:hover { opacity: 1; }
+
+/* Boton Ver y anotar PDF en tarjeta */
+.btn-abrir-visor {
+  background: none;
+  border: 1px solid var(--border);
+  color: var(--accent);
+  border-radius: 6px;
+  padding: 0.3rem 0.8rem;
+  font-size: 0.82rem;
+  cursor: pointer;
+  font-family: inherit;
+  transition: all var(--trans);
+}
+.btn-abrir-visor:hover { background: var(--accent-soft); }
+
+/* Responsive: sidebar collapsa en movil */
+@media (max-width: 640px) {
+  .visor-sidebar { width: 200px; }
+  .visor-titulo-texto { max-width: 140px; }
 }

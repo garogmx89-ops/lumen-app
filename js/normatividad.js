@@ -3,7 +3,7 @@ import { auth, db } from "./firebase-config.js";
 import { onAuthStateChanged } from "https://www.gstatic.com/firebasejs/10.12.0/firebase-auth.js";
 import {
   collection, addDoc, updateDoc, deleteDoc, doc,
-  onSnapshot, orderBy, query, serverTimestamp
+  onSnapshot, orderBy, query, serverTimestamp, setDoc, getDocs
 } from "https://www.gstatic.com/firebasejs/10.12.0/firebase-firestore.js";
 import {
   getStorage, ref, uploadBytesResumable, getDownloadURL, deleteObject
@@ -245,7 +245,9 @@ onAuthStateChanged(auth, (user) => {
           ${n.anotaciones ? `<div class="reunion-card-acuerdos"><strong>Notas de aplicación:</strong> ${n.anotaciones}</div>` : ""}
           ${n.pdfUrl ? `
             <div class="norma-pdf-link">
-              <a href="${n.pdfUrl}" target="_blank" class="btn-ver-pdf">📄 Ver PDF</a>
+              <button class="btn-ver-pdf btn-abrir-visor" data-id="${n.id}" data-url="${n.pdfUrl}" data-nombre="${n.nombre}">
+                📄 Ver y anotar PDF
+              </button>
             </div>` : ""}
         </div>
       `;
@@ -263,6 +265,14 @@ onAuthStateChanged(auth, (user) => {
     // Botones EDITAR
     contenedor.querySelectorAll(".btn-editar").forEach((btn) => {
       btn.addEventListener("click", () => activarEdicion(btn.dataset.id));
+    });
+
+    // Botones ABRIR VISOR
+    contenedor.querySelectorAll(".btn-abrir-visor").forEach((btn) => {
+      btn.addEventListener("click", (e) => {
+        e.stopPropagation();
+        abrirVisor(btn.dataset.id, btn.dataset.url, btn.dataset.nombre);
+      });
     });
 
     // Botones ELIMINAR
@@ -363,6 +373,15 @@ onAuthStateChanged(auth, (user) => {
       activarEdicion(norma.id);
     });
 
+    // Botón Ver PDF desde detalle
+    const btnPdfDetalle = document.getElementById("detalle-norma-pdf");
+    if (btnPdfDetalle) {
+      btnPdfDetalle.addEventListener("click", () => {
+        modal.style.display = "none";
+        abrirVisor(norma.id, norma.pdfUrl, norma.nombre);
+      });
+    }
+
     modal.style.display = "flex";
   }
 
@@ -456,6 +475,271 @@ onAuthStateChanged(auth, (user) => {
       s.src = "https://cdnjs.cloudflare.com/ajax/libs/jspdf/2.5.1/jspdf.umd.min.js";
       s.onload = gen; document.head.appendChild(s);
     }
+  }
+
+  // ─── VISOR DE PDF CON ANOTACIONES ────────────────────────────────────────
+  // Carga PDF.js dinámicamente, renderiza el PDF página por página,
+  // y gestiona notas y marcado de páginas relevantes en Firestore.
+
+  let _visorPdfDoc   = null;  // Instancia del PDF cargado
+  let _visorPagActual = 1;    // Página visible en este momento
+  let _visorNormaId  = null;  // ID de la norma activa en el visor
+  let _visorRenderTask = null; // Para cancelar renders previos
+
+  async function abrirVisor(normaId, pdfUrl, nombre) {
+    if (!pdfUrl) { alert("Esta norma no tiene PDF adjunto."); return; }
+
+    _visorNormaId   = normaId;
+    _visorPagActual = 1;
+    _visorPdfDoc    = null;
+
+    // Mostrar visor, ocultar lista
+    document.querySelector("#panel-normatividad .reunion-form-card").style.display = "none";
+    document.querySelector("#panel-normatividad .norma-filtros").style.display     = "none";
+    document.querySelector("#panel-normatividad .reuniones-lista").style.display   = "none";
+    document.getElementById("norma-visor-panel").style.display = "block";
+
+    document.getElementById("visor-norma-titulo").textContent = nombre || "Documento";
+    document.getElementById("visor-loading").style.display    = "block";
+    document.getElementById("visor-canvas").style.display     = "none";
+    document.getElementById("visor-notas-lista").innerHTML    = "";
+    document.getElementById("visor-nota-texto").value         = "";
+
+    // Configurar botón Cerrar
+    const btnCerrar = document.getElementById("visor-btn-cerrar");
+    const btnCerrarNuevo = btnCerrar.cloneNode(true);
+    btnCerrar.parentNode.replaceChild(btnCerrarNuevo, btnCerrar);
+    btnCerrarNuevo.addEventListener("click", cerrarVisor);
+
+    // Cargar PDF.js dinámicamente
+    if (!window.pdfjsLib) {
+      await cargarScript("https://cdnjs.cloudflare.com/ajax/libs/pdf.js/3.11.174/pdf.min.js");
+      window.pdfjsLib.GlobalWorkerOptions.workerSrc =
+        "https://cdnjs.cloudflare.com/ajax/libs/pdf.js/3.11.174/pdf.worker.min.js";
+    }
+
+    try {
+      // Usar proxy CORS de PDF.js para URLs externas (Firebase Storage las sirve con CORS correcto)
+      const loadingTask = window.pdfjsLib.getDocument({ url: pdfUrl, withCredentials: false });
+      _visorPdfDoc = await loadingTask.promise;
+      document.getElementById("visor-loading").style.display = "none";
+      document.getElementById("visor-canvas").style.display  = "block";
+      await renderPagina(_visorPagActual);
+      actualizarNavegacion();
+      cargarNotasPagina(_visorPagActual);
+      cargarEstadoRelevante(_visorPagActual);
+    } catch (err) {
+      console.error("Error cargando PDF:", err);
+      document.getElementById("visor-loading").textContent = "Error al cargar el PDF. Verifica la URL.";
+    }
+
+    // ── Navegación ──────────────────────────────────────────────────────────
+    const btnPrev = document.getElementById("visor-btn-prev");
+    const btnNext = document.getElementById("visor-btn-next");
+    const btnPrevN = btnPrev.cloneNode(true); btnPrev.parentNode.replaceChild(btnPrevN, btnPrev);
+    const btnNextN = btnNext.cloneNode(true); btnNext.parentNode.replaceChild(btnNextN, btnNext);
+
+    btnPrevN.addEventListener("click", async () => {
+      if (_visorPagActual <= 1) return;
+      _visorPagActual--;
+      await renderPagina(_visorPagActual);
+      actualizarNavegacion();
+      cargarNotasPagina(_visorPagActual);
+      cargarEstadoRelevante(_visorPagActual);
+    });
+
+    btnNextN.addEventListener("click", async () => {
+      if (!_visorPdfDoc || _visorPagActual >= _visorPdfDoc.numPages) return;
+      _visorPagActual++;
+      await renderPagina(_visorPagActual);
+      actualizarNavegacion();
+      cargarNotasPagina(_visorPagActual);
+      cargarEstadoRelevante(_visorPagActual);
+    });
+
+    // ── Guardar nota ─────────────────────────────────────────────────────────
+    const btnNota = document.getElementById("visor-btn-guardar-nota");
+    const btnNotaN = btnNota.cloneNode(true); btnNota.parentNode.replaceChild(btnNotaN, btnNota);
+    btnNotaN.addEventListener("click", () => guardarNota());
+
+    // ── Marcar relevante ─────────────────────────────────────────────────────
+    const btnRel = document.getElementById("visor-btn-relevante");
+    const btnRelN = btnRel.cloneNode(true); btnRel.parentNode.replaceChild(btnRelN, btnRel);
+    btnRelN.addEventListener("click", () => toggleRelevante());
+  }
+
+  // ── Renderizar página ──────────────────────────────────────────────────────
+  async function renderPagina(numPag) {
+    if (!_visorPdfDoc) return;
+    if (_visorRenderTask) { _visorRenderTask.cancel(); }
+
+    const pagina  = await _visorPdfDoc.getPage(numPag);
+    const canvas  = document.getElementById("visor-canvas");
+    const ctx     = canvas.getContext("2d");
+
+    // Escala responsiva — ancho disponible del contenedor
+    const contenedorAncho = canvas.parentElement.clientWidth || 600;
+    const viewport0 = pagina.getViewport({ scale: 1 });
+    const escala    = Math.min((contenedorAncho - 20) / viewport0.width, 1.8);
+    const viewport  = pagina.getViewport({ scale: escala });
+
+    canvas.width  = viewport.width;
+    canvas.height = viewport.height;
+
+    const renderCtx = { canvasContext: ctx, viewport };
+    _visorRenderTask = pagina.render(renderCtx);
+    await _visorRenderTask.promise;
+    _visorRenderTask = null;
+  }
+
+  // ── Actualizar info de navegación ─────────────────────────────────────────
+  function actualizarNavegacion() {
+    const total = _visorPdfDoc ? _visorPdfDoc.numPages : 1;
+    document.getElementById("visor-pagina-info").textContent = "Pag " + _visorPagActual + " / " + total;
+    document.getElementById("visor-pag-badge").textContent   = "Pag " + _visorPagActual;
+    document.getElementById("visor-btn-prev").disabled = _visorPagActual <= 1;
+    document.getElementById("visor-btn-next").disabled = _visorPagActual >= total;
+  }
+
+  // ── Notas por página ──────────────────────────────────────────────────────
+  // Ruta en Firestore: usuarios/{uid}/anotaciones/{normaId}_pag{num}
+  async function guardarNota() {
+    const texto = document.getElementById("visor-nota-texto").value.trim();
+    if (!texto) { alert("Escribe una nota antes de guardar."); return; }
+
+    const docId  = _visorNormaId + "_pag" + _visorPagActual;
+    const notaRef = doc(db, "usuarios", user.uid, "anotaciones", docId);
+
+    // Obtener notas existentes y agregar la nueva
+    let notasExistentes = [];
+    try {
+      const snap = await getDocs(query(
+        collection(db, "usuarios", user.uid, "anotaciones")
+      ));
+      const docSnap = snap.docs.find(d => d.id === docId);
+      if (docSnap) notasExistentes = docSnap.data().notas || [];
+    } catch(e) {}
+
+    const nuevaNota = {
+      texto,
+      fecha: new Date().toISOString(),
+      pagina: _visorPagActual
+    };
+    notasExistentes.push(nuevaNota);
+
+    await setDoc(notaRef, {
+      normaId: _visorNormaId,
+      pagina:  _visorPagActual,
+      notas:   notasExistentes,
+      actualizadoEn: serverTimestamp()
+    });
+
+    document.getElementById("visor-nota-texto").value = "";
+    cargarNotasPagina(_visorPagActual);
+  }
+
+  async function cargarNotasPagina(numPag) {
+    const lista = document.getElementById("visor-notas-lista");
+    if (!lista) return;
+
+    const docId = _visorNormaId + "_pag" + numPag;
+    try {
+      const snap = await getDocs(query(collection(db, "usuarios", user.uid, "anotaciones")));
+      const docSnap = snap.docs.find(d => d.id === docId);
+      const notas = docSnap ? (docSnap.data().notas || []) : [];
+
+      if (notas.length === 0) {
+        lista.innerHTML = '<p style="color:var(--text2);font-size:0.8rem;margin-top:0.5rem">Sin notas en esta pagina</p>';
+        return;
+      }
+
+      lista.innerHTML = notas.slice().reverse().map((n, i) => `
+        <div class="visor-nota-item">
+          <div class="visor-nota-fecha">${new Date(n.fecha).toLocaleDateString("es-MX",{day:"2-digit",month:"short",year:"numeric"})}</div>
+          <div class="visor-nota-texto-display">${n.texto}</div>
+          <button class="visor-nota-eliminar" data-index="${notas.length - 1 - i}" title="Eliminar nota">✕</button>
+        </div>
+      `).join("");
+
+      lista.querySelectorAll(".visor-nota-eliminar").forEach(btn => {
+        btn.addEventListener("click", async () => {
+          const idx = Number(btn.dataset.index);
+          notas.splice(idx, 1);
+          const notaRef = doc(db, "usuarios", user.uid, "anotaciones", docId);
+          await setDoc(notaRef, { normaId: _visorNormaId, pagina: numPag, notas, actualizadoEn: serverTimestamp() });
+          cargarNotasPagina(numPag);
+        });
+      });
+    } catch(e) {
+      console.error("Error cargando notas:", e);
+    }
+  }
+
+  // ── Marcar página como relevante ──────────────────────────────────────────
+  async function toggleRelevante() {
+    const docId   = _visorNormaId + "_rel_pag" + _visorPagActual;
+    const relRef  = doc(db, "usuarios", user.uid, "anotaciones", docId);
+    const btnRel  = document.getElementById("visor-btn-relevante");
+
+    try {
+      const snap = await getDocs(query(collection(db, "usuarios", user.uid, "anotaciones")));
+      const docSnap = snap.docs.find(d => d.id === docId);
+      const esRelevante = docSnap ? (docSnap.data().relevante === true) : false;
+
+      if (esRelevante) {
+        await setDoc(relRef, { normaId: _visorNormaId, pagina: _visorPagActual, relevante: false });
+        btnRel.textContent = "⭐ Relevante";
+        btnRel.style.background = "";
+        btnRel.style.color = "";
+      } else {
+        await setDoc(relRef, { normaId: _visorNormaId, pagina: _visorPagActual, relevante: true, actualizadoEn: serverTimestamp() });
+        btnRel.textContent = "⭐ Marcada";
+        btnRel.style.background = "var(--accent)";
+        btnRel.style.color = "white";
+      }
+    } catch(e) {
+      console.error("Error marcando relevante:", e);
+    }
+  }
+
+  async function cargarEstadoRelevante(numPag) {
+    const docId  = _visorNormaId + "_rel_pag" + numPag;
+    const btnRel = document.getElementById("visor-btn-relevante");
+    if (!btnRel) return;
+    try {
+      const snap = await getDocs(query(collection(db, "usuarios", user.uid, "anotaciones")));
+      const docSnap = snap.docs.find(d => d.id === docId);
+      const esRelevante = docSnap ? (docSnap.data().relevante === true) : false;
+      if (esRelevante) {
+        btnRel.textContent = "⭐ Marcada";
+        btnRel.style.background = "var(--accent)";
+        btnRel.style.color = "white";
+      } else {
+        btnRel.textContent = "⭐ Relevante";
+        btnRel.style.background = "";
+        btnRel.style.color = "";
+      }
+    } catch(e) {}
+  }
+
+  // ── Cerrar visor ──────────────────────────────────────────────────────────
+  function cerrarVisor() {
+    document.getElementById("norma-visor-panel").style.display = "none";
+    document.querySelector("#panel-normatividad .reunion-form-card").style.display = "";
+    document.querySelector("#panel-normatividad .norma-filtros").style.display     = "";
+    document.querySelector("#panel-normatividad .reuniones-lista").style.display   = "";
+    if (_visorRenderTask) { _visorRenderTask.cancel(); _visorRenderTask = null; }
+    _visorPdfDoc = null;
+  }
+
+  // ── Helper: cargar script dinámicamente ──────────────────────────────────
+  function cargarScript(src) {
+    return new Promise((resolve, reject) => {
+      if (document.querySelector(`script[src="${src}"]`)) { resolve(); return; }
+      const s = document.createElement("script");
+      s.src = src; s.onload = resolve; s.onerror = reject;
+      document.head.appendChild(s);
+    });
   }
 
 });

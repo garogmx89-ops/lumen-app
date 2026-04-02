@@ -18,9 +18,11 @@ const colorTipo = {
   "Lineamiento": "#0077B6", "Circular": "#2D6A4F", "Acuerdo": "#9B2226"
 };
 
-let todasLasNormas = []; // ya existe — se usa para exportar
-let filtroActivo = "todos";
-let modoEdicion = null;
+let todasLasNormas = []; // se usa para exportar y filtrar
+let filtroActivo  = "todos";
+let filtroAmbito  = "todos"; // Federal / Estatal / Municipal
+let busquedaTexto = "";       // busqueda local dentro del modulo
+let modoEdicion   = null;
 let pdfUrlActual = null; // Guarda la URL del PDF del registro que se está editando
 
 // ── Función para subir PDF a Firebase Storage ────────────────────────
@@ -66,6 +68,7 @@ onAuthStateChanged(auth, (user) => {
   function limpiarFormulario() {
     document.getElementById("norma-nombre").value        = "";
     document.getElementById("norma-tipo").value          = "";
+    document.getElementById("norma-ambito").value        = "";
     document.getElementById("norma-fecha").value         = "";
     document.getElementById("norma-fecha-reforma").value = "";
     document.getElementById("norma-resumen").value       = "";
@@ -91,6 +94,7 @@ onAuthStateChanged(auth, (user) => {
     modoEdicion = id;
     document.getElementById("norma-nombre").value        = norma.nombre        || "";
     document.getElementById("norma-tipo").value          = norma.tipo          || "";
+    document.getElementById("norma-ambito").value        = norma.ambito        || "";
     document.getElementById("norma-fecha").value         = norma.fecha         || "";
     document.getElementById("norma-fecha-reforma").value = norma.fechaReforma  || "";
     document.getElementById("norma-resumen").value       = norma.resumen       || "";
@@ -131,6 +135,7 @@ onAuthStateChanged(auth, (user) => {
     btnNuevo.addEventListener("click", async () => {
       const nombre       = document.getElementById("norma-nombre").value.trim();
       const tipo         = document.getElementById("norma-tipo").value;
+      const ambito       = document.getElementById("norma-ambito").value;
       const fecha        = document.getElementById("norma-fecha").value;
       const fechaReforma = document.getElementById("norma-fecha-reforma").value;
       const resumen      = document.getElementById("norma-resumen").value.trim();
@@ -154,7 +159,7 @@ onAuthStateChanged(auth, (user) => {
           if (elSubiendo) { elSubiendo.textContent = "Subiendo PDF..."; elSubiendo.style.display = "none"; }
         }
 
-        const datos = { nombre, tipo, fecha, fechaReforma, resumen, anotaciones, pdfUrl: pdfUrl || null };
+        const datos = { nombre, tipo, ambito, fecha, fechaReforma, resumen, anotaciones, pdfUrl: pdfUrl || null };
 
         if (modoEdicion) {
           const docRef = doc(db, "usuarios", user.uid, "normatividad", modoEdicion);
@@ -195,7 +200,43 @@ onAuthStateChanged(auth, (user) => {
   const q = query(normasRef, orderBy("creadoEn", "desc"));
   onSnapshot(q, (snapshot) => {
     todasLasNormas = snapshot.docs.map(d => ({ id: d.id, ...d.data() }));
-    renderNormas();
+    // Cargar conteo de paginas relevantes para cada norma
+    cargarConteoRelevantes().then(() => renderNormas());
+  });
+
+  // Carga cuantas paginas estan marcadas como relevantes por norma
+  async function cargarConteoRelevantes() {
+    try {
+      const snap = await getDocs(query(collection(db, "usuarios", user.uid, "anotaciones")));
+      const conteos = {};
+      snap.docs.forEach(d => {
+        const data = d.data();
+        if (data.relevante === true && data.normaId) {
+          conteos[data.normaId] = (conteos[data.normaId] || 0) + 1;
+        }
+      });
+      todasLasNormas = todasLasNormas.map(n => ({
+        ...n, _paginasRelevantes: conteos[n.id] || 0
+      }));
+    } catch(e) { /* silencioso */ }
+  }
+
+  // Inicializar busqueda local y filtro de ambito
+  const inputBusqueda = document.getElementById("norma-busqueda");
+  if (inputBusqueda) {
+    inputBusqueda.addEventListener("input", () => {
+      busquedaTexto = inputBusqueda.value.trim();
+      renderNormas();
+    });
+  }
+
+  document.querySelectorAll(".norma-filtro-ambito").forEach(btn => {
+    btn.addEventListener("click", () => {
+      document.querySelectorAll(".norma-filtro-ambito").forEach(b => b.classList.remove("filtro-activo"));
+      btn.classList.add("filtro-activo");
+      filtroAmbito = btn.dataset.ambito;
+      renderNormas();
+    });
   });
 
   function renderNormas() {
@@ -214,9 +255,18 @@ onAuthStateChanged(auth, (user) => {
       document.getElementById("btn-exportar-pdf-normatividad").addEventListener("click", () => exportarPDF_normatividad());
     }
 
-    const filtradas = filtroActivo === "todos"
-      ? todasLasNormas
-      : todasLasNormas.filter(n => n.tipo === filtroActivo);
+    // Filtrar por tipo, ambito y busqueda de texto
+    const hoyFiltro = new Date(); hoyFiltro.setHours(0,0,0,0);
+    const filtradas = todasLasNormas.filter(n => {
+      if (filtroActivo !== "todos" && n.tipo !== filtroActivo) return false;
+      if (filtroAmbito !== "todos" && n.ambito !== filtroAmbito) return false;
+      if (busquedaTexto) {
+        const q = busquedaTexto.toLowerCase();
+        const campos = [n.nombre, n.tipo, n.ambito, n.resumen, n.anotaciones].filter(Boolean);
+        if (!campos.some(v => v.toLowerCase().includes(q))) return false;
+      }
+      return true;
+    });
 
     if (filtradas.length === 0) {
       contenedor.innerHTML = '<p class="lista-vacia">No hay normas registradas para este filtro.</p>';
@@ -225,11 +275,42 @@ onAuthStateChanged(auth, (user) => {
 
     contenedor.innerHTML = filtradas.map((n) => {
       const color = colorTipo[n.tipo] || "#555";
+
+      // ── Semaforo de vigencia ──────────────────────────────────────────────
+      // Basado en la fecha de ultima reforma (o publicacion si no hay reforma)
+      const fechaRef = n.fechaReforma || n.fecha;
+      let semaforoHtml = "";
+      if (fechaRef) {
+        const [fy,fm,fd] = fechaRef.split("-");
+        const fechaNorma  = new Date(Number(fy), Number(fm)-1, Number(fd));
+        const hoy2 = new Date(); hoy2.setHours(0,0,0,0);
+        const diasDesde = Math.floor((hoy2 - fechaNorma) / (1000*60*60*24));
+        const anosDesde = diasDesde / 365;
+        let sColor, sLabel, sTitle;
+        if (anosDesde < 1)       { sColor="#2D6A4F"; sLabel="Vigente";   sTitle="Actualizada hace menos de 1 ano"; }
+        else if (anosDesde < 3)  { sColor="#E9C46A"; sLabel="Revisar";   sTitle="Sin reforma entre 1 y 3 anos"; }
+        else                     { sColor="#9B2226"; sLabel="Desactual."; sTitle="Sin reforma hace mas de 3 anos"; }
+        semaforoHtml = `<span class="norma-semaforo" style="background:${sColor}" title="${sTitle}">${sLabel}</span>`;
+      }
+
+      // ── Badge de ambito ───────────────────────────────────────────────────
+      const ambitoBadge = n.ambito
+        ? `<span class="norma-ambito-badge">${n.ambito}</span>`
+        : "";
+
+      // ── Badge de paginas relevantes ───────────────────────────────────────
+      const relevantes = (n._paginasRelevantes || 0);
+      const relevanteBadge = relevantes > 0
+        ? `<span class="norma-relevante-badge" title="Paginas marcadas como relevantes">⭐ ${relevantes} pag.</span>`
+        : "";
+
       return `
         <div class="reunion-card norma-card norma-card--clickable" data-id="${n.id}" style="cursor:pointer">
           <div class="reunion-card-header">
             <div class="norma-card-nombre">
               ${n.tipo ? `<span class="norma-tipo-badge" style="background:${color}">${n.tipo}</span>` : ""}
+              ${semaforoHtml}
+              ${ambitoBadge}
               <span class="reunion-card-titulo">${n.nombre}</span>
             </div>
             <div class="reunion-card-acciones">
@@ -241,6 +322,7 @@ onAuthStateChanged(auth, (user) => {
             ${n.fecha ? `<span class="norma-fecha-item">📅 Publicación original: <strong>${formatearFecha(n.fecha)}</strong></span>` : ""}
             ${n.fechaReforma ? `<span class="norma-fecha-item norma-fecha-reforma">🔄 Última reforma: <strong>${formatearFecha(n.fechaReforma)}</strong></span>` : ""}
           </div>
+          ${relevanteBadge ? `<div style="margin-top:0.3rem">${relevanteBadge}</div>` : ""}
           ${n.resumen ? `<div class="reunion-card-acuerdos"><strong>Resumen:</strong> ${n.resumen}</div>` : ""}
           ${n.anotaciones ? `<div class="reunion-card-acuerdos"><strong>Notas de aplicación:</strong> ${n.anotaciones}</div>` : ""}
           ${n.pdfUrl ? `

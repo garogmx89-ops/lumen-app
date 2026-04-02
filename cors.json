@@ -1,0 +1,7 @@
+[
+  {
+    "origin": ["https://lumen-app-ff839.web.app", "http://localhost"],
+    "method": ["GET"],
+    "maxAgeSeconds": 3600
+  }
+]

@@ -452,6 +452,15 @@
                   <option value="Acuerdo">Acuerdo</option>
                 </select>
               </div>
+              <div class="form-group">
+                <label for="norma-ambito">Ambito</label>
+                <select id="norma-ambito">
+                  <option value="">— Seleccionar ambito —</option>
+                  <option value="Federal">Federal</option>
+                  <option value="Estatal">Estatal</option>
+                  <option value="Municipal">Municipal</option>
+                </select>
+              </div>
             <div class="form-group">
               <label for="norma-fecha">Fecha de publicación original</label>
               <input type="date" id="norma-fecha">
@@ -488,6 +497,15 @@
 <button class="btn-secondary" id="btn-cancelar-norma" style="display:none;">Cancelar edición</button>
           </div>
 
+          <!-- Buscador local -->
+          <div class="norma-busqueda-wrap">
+            <svg viewBox="0 0 20 20" fill="none" class="search-icon" style="width:15px;height:15px;color:var(--text2);flex-shrink:0">
+              <circle cx="8.5" cy="8.5" r="5" stroke="currentColor" stroke-width="1.5"/>
+              <line x1="12.5" y1="12.5" x2="17" y2="17" stroke="currentColor" stroke-width="1.5" stroke-linecap="round"/>
+            </svg>
+            <input type="text" id="norma-busqueda" placeholder="Buscar en normatividad..." autocomplete="off">
+          </div>
+
           <!-- Filtro por tipo -->
           <div class="norma-filtros">
             <button class="filtro-btn filtro-activo" data-filtro="todos">Todos</button>
@@ -496,6 +514,14 @@
             <button class="filtro-btn" data-filtro="Lineamiento">Lineamiento</button>
             <button class="filtro-btn" data-filtro="Circular">Circular</button>
             <button class="filtro-btn" data-filtro="Acuerdo">Acuerdo</button>
+          </div>
+
+          <!-- Filtro por ambito -->
+          <div class="norma-filtros" style="margin-top:-0.5rem">
+            <button class="filtro-btn norma-filtro-ambito filtro-activo" data-ambito="todos">Todo ambito</button>
+            <button class="filtro-btn norma-filtro-ambito" data-ambito="Federal">Federal</button>
+            <button class="filtro-btn norma-filtro-ambito" data-ambito="Estatal">Estatal</button>
+            <button class="filtro-btn norma-filtro-ambito" data-ambito="Municipal">Municipal</button>
           </div>
 
           <!-- Lista de normas -->

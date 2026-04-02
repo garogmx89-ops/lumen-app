@@ -92,6 +92,31 @@ window.toggleSidebar = function() {
   sidebar.classList.toggle('collapsed');
 };
 
+// ─── BLOQUES COLAPSABLES DEL SIDEBAR ─────────────────────────────────────────
+// Cada bloque (SEDUVOT, GODEZAC) puede colapsarse/expandirse individualmente.
+// El estado se guarda en localStorage para que persista entre sesiones.
+
+window.toggleBloque = function(nombre) {
+  const bloque  = document.getElementById('bloque-' + nombre);
+  const chevron = document.getElementById('chv-' + nombre);
+  if (!bloque) return;
+  const colapsado = bloque.style.display === 'none';
+  bloque.style.display    = colapsado ? '' : 'none';
+  if (chevron) chevron.textContent = colapsado ? '▾' : '▸';
+  localStorage.setItem('lumen-bloque-' + nombre, colapsado ? 'abierto' : 'cerrado');
+};
+
+// Restaurar estado de bloques al cargar
+['seduvot','godezac'].forEach(nombre => {
+  const estado  = localStorage.getItem('lumen-bloque-' + nombre);
+  const bloque  = document.getElementById('bloque-' + nombre);
+  const chevron = document.getElementById('chv-' + nombre);
+  if (estado === 'cerrado' && bloque) {
+    bloque.style.display = 'none';
+    if (chevron) chevron.textContent = '▸';
+  }
+});
+
 // ─── MODO CLARO / OSCURO ──────────────────────────────────────────────────────
 
 window.toggleTheme = function() {

@@ -592,7 +592,7 @@ Usa un tono institucional profesional, en español.`;
         if (r.fecha) {
           doc.setTextColor(100, 100, 100);
           doc.setFontSize(8); doc.setFont("helvetica", "normal");
-          doc.text("📅 " + formatearFechaExport(r.fecha), marginL, y);
+          doc.text("Fecha: " + formatearFechaExport(r.fecha), marginL, y);
           y += 5;
         }
 
@@ -738,7 +738,7 @@ Usa un tono institucional profesional, en español.`;
         doc.rect(marginL, y - 3, contentW, 6, "F");
         doc.setTextColor(74, 74, 138);
         doc.setFontSize(9); doc.setFont("helvetica", "bold");
-        doc.text("✨ Briefing IA", marginL + 2, y + 1);
+        doc.text("Briefing IA (generado por Claude)", marginL + 2, y + 1);
         y += 8;
         // Limpiar markdown
         const briefingLimpio = datos.briefing

@@ -51,7 +51,7 @@ const titulos = {
   analisis:     { title: 'Análisis',          sub: 'Razonamiento institucional' },
   procesos:     { title: 'Procesos',          sub: 'Flujos y trámites' },
   agenda:       { title: 'Agenda / Alertas',  sub: 'Vencimientos y pendientes' },
-  territorio:   { title: 'Territorio',        sub: 'Análisis territorial' },
+  territorio:   { title: 'Indicadores',       sub: 'Datos territoriales y estadisticos' },
   contexto:     { title: 'Contexto',          sub: 'Datos de referencia' },
 };
 
@@ -107,7 +107,7 @@ window.toggleBloque = function(nombre) {
 };
 
 // Restaurar estado de bloques al cargar
-['seduvot','godezac'].forEach(nombre => {
+['seduvot','godezac','territorio'].forEach(nombre => {
   const estado  = localStorage.getItem('lumen-bloque-' + nombre);
   const bloque  = document.getElementById('bloque-' + nombre);
   const chevron = document.getElementById('chv-' + nombre);

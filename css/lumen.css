@@ -1752,3 +1752,79 @@ input[type="file"]::file-selector-button:hover {
   .visor-sidebar { width: 200px; }
   .visor-titulo-texto { max-width: 140px; }
 }
+/* ── Bloques colapsables del sidebar ────────────────── */
+.nav-section-bloque {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  cursor: pointer;
+  user-select: none;
+  transition: color var(--trans);
+}
+.nav-section-bloque:hover { color: var(--accent); }
+
+.bloque-chevron {
+  font-size: 0.7rem;
+  color: var(--text2);
+  transition: transform var(--trans);
+}
+
+/* ── Semaforo de vigencia en tarjeta de norma ──────── */
+.norma-semaforo {
+  color: white;
+  font-size: 0.68rem;
+  font-weight: 700;
+  padding: 0.15rem 0.45rem;
+  border-radius: 20px;
+  letter-spacing: 0.02em;
+  flex-shrink: 0;
+}
+
+/* ── Badge de ambito ─────────────────────────────────── */
+.norma-ambito-badge {
+  background: var(--bg3);
+  color: var(--text2);
+  font-size: 0.68rem;
+  font-weight: 600;
+  padding: 0.15rem 0.45rem;
+  border-radius: 20px;
+  border: 1px solid var(--border);
+  flex-shrink: 0;
+}
+
+/* ── Badge de paginas relevantes ────────────────────── */
+.norma-relevante-badge {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.2rem;
+  background: var(--accent-soft);
+  color: var(--accent);
+  font-size: 0.72rem;
+  font-weight: 600;
+  padding: 0.15rem 0.5rem;
+  border-radius: 20px;
+}
+
+/* ── Buscador local de normatividad ─────────────────── */
+.norma-busqueda-wrap {
+  display: flex;
+  align-items: center;
+  gap: 0.5rem;
+  background: var(--bg3);
+  border: 1px solid var(--border);
+  border-radius: 20px;
+  padding: 0.35rem 0.75rem;
+  margin-bottom: 0.75rem;
+}
+
+.norma-busqueda-wrap input {
+  background: none;
+  border: none;
+  outline: none;
+  color: var(--text);
+  font-size: 0.875rem;
+  font-family: inherit;
+  width: 100%;
+}
+
+.norma-busqueda-wrap input::placeholder { color: var(--text3); }

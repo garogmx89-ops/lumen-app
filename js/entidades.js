@@ -28,6 +28,7 @@ onAuthStateChanged(auth, (user) => {
   const entidadesRef = collection(db, "usuarios", user.uid, "entidades");
 
   let modoEdicion = null;
+let todasLasEntidades = [];
 
   // --- LIMPIAR FORMULARIO ---
   function limpiarFormulario() {
@@ -103,8 +104,21 @@ onAuthStateChanged(auth, (user) => {
   const q = query(entidadesRef, orderBy("creadoEn", "desc"));
 
   onSnapshot(q, (snapshot) => {
+    todasLasEntidades = snapshot.docs.map(d => ({ id: d.id, ...d.data() }));
     const contenedor = document.getElementById("entidades-contenido");
     if (!contenedor) return;
+
+    // Botones exportar
+    const exportBar_entidades = document.getElementById("entidades-export-bar");
+    if (exportBar_entidades && !exportBar_entidades.dataset.init) {
+      exportBar_entidades.dataset.init = "1";
+      exportBar_entidades.innerHTML = `
+        <button id="btn-exportar-excel-entidades" style="background:none;border:1px solid var(--border);color:var(--text2);border-radius:8px;padding:0.4rem 0.9rem;font-size:0.8rem;cursor:pointer;font-family:inherit;display:inline-flex;align-items:center;gap:0.4rem;">📊 Exportar Excel</button>
+        <button id="btn-exportar-pdf-entidades" style="background:none;border:1px solid var(--border);color:var(--text2);border-radius:8px;padding:0.4rem 0.9rem;font-size:0.8rem;cursor:pointer;font-family:inherit;display:inline-flex;align-items:center;gap:0.4rem;">📄 Exportar PDF</button>
+      `;
+      document.getElementById("btn-exportar-excel-entidades").addEventListener("click", () => exportarExcel_entidades());
+      document.getElementById("btn-exportar-pdf-entidades").addEventListener("click", () => exportarPDF_entidades());
+    }
 
     if (snapshot.empty) {
       contenedor.innerHTML = '<p class="lista-vacia">No hay entidades registradas aún.</p>';
@@ -242,6 +256,93 @@ onAuthStateChanged(auth, (user) => {
     });
 
     modal.style.display = "flex";
+  }
+
+  function fechaHoy_() {
+    const h = new Date();
+    return h.getFullYear()+"-"+String(h.getMonth()+1).padStart(2,"0")+"-"+String(h.getDate()).padStart(2,"0");
+  }
+  function fmtFecha_(f) {
+    if (!f) return "";
+    const d = new Date(f);
+    if (!isNaN(d)) return d.toLocaleDateString("es-MX",{day:"2-digit",month:"short",year:"numeric"});
+    return f;
+  }
+  function pdfHeader_(doc, titulo, subtitulo) {
+    doc.setFillColor(74,74,138); doc.rect(0,0,210,22,"F");
+    doc.setTextColor(255,255,255);
+    doc.setFontSize(13); doc.setFont("helvetica","bold");
+    doc.text("LUMEN — SEDUVOT Zacatecas", 20, 10);
+    doc.setFontSize(8); doc.setFont("helvetica","normal");
+    doc.text(titulo + " · " + fechaHoy_(), 20, 17);
+    return 30;
+  }
+  function pdfSeccion_(doc, titulo, texto, y, marginL, contentW) {
+    if (!texto) return y;
+    if (y + 15 > 280) { doc.addPage(); y = 20; }
+    doc.setFillColor(245,245,250); doc.rect(marginL, y-3, contentW, 6, "F");
+    doc.setTextColor(74,74,138); doc.setFontSize(9); doc.setFont("helvetica","bold");
+    doc.text(titulo, marginL+2, y+1); y += 7;
+    doc.setTextColor(50,50,50); doc.setFontSize(9); doc.setFont("helvetica","normal");
+    const lines = doc.splitTextToSize(texto, contentW);
+    if (y + lines.length*5 > 280) { doc.addPage(); y = 20; }
+    doc.text(lines, marginL, y);
+    return y + lines.length*5 + 4;
+  }
+  function pdfFooter_(doc) {
+    const n = doc.getNumberOfPages();
+    for (let i=1;i<=n;i++) {
+      doc.setPage(i); doc.setFontSize(7); doc.setTextColor(150,150,150);
+      doc.text("Lumen · SEDUVOT Zacatecas · Pagina "+i+" de "+n, 20, 290);
+    }
+  }
+
+  function exportarExcel_entidades() {
+    if (!todasLasEntidades.length) { alert("No hay entidades para exportar."); return; }
+    function gen() {
+      const filas = todasLasEntidades.map(e => ({
+        "Nombre": e.nombre||"", "Siglas": e.siglas||"", "Tipo": e.tipo||"",
+        "Titular": e.titular||"", "Atribuciones": e.atribuciones||""
+      }));
+      const ws = window.XLSX.utils.json_to_sheet(filas);
+      ws["!cols"] = [{wch:35},{wch:12},{wch:15},{wch:25},{wch:60}];
+      const wb = window.XLSX.utils.book_new();
+      window.XLSX.utils.book_append_sheet(wb, ws, "Entidades");
+      window.XLSX.writeFile(wb, "Lumen_Entidades_"+fechaHoy_()+".xlsx");
+    }
+
+    if (window.XLSX) { gen(); } else {
+      const s = document.createElement("script");
+      s.src = "https://cdnjs.cloudflare.com/ajax/libs/xlsx/0.18.5/xlsx.full.min.js";
+      s.onload = gen; document.head.appendChild(s);
+    }
+  }
+  function exportarPDF_entidades() {
+    if (!todasLasEntidades.length) { alert("No hay entidades para exportar."); return; }
+    function gen() {
+      const { jsPDF } = window.jspdf;
+      const doc = new jsPDF({unit:"mm",format:"a4"});
+      const mL=20, cW=170; let y = pdfHeader_(doc,"Catalogo de Entidades","",mL,cW);
+      todasLasEntidades.forEach((e,i) => {
+        if (y+20>280){doc.addPage();y=20;}
+        doc.setDrawColor(200,200,200); doc.line(mL,y,190,y); y+=5;
+        doc.setTextColor(74,74,138); doc.setFontSize(11); doc.setFont("helvetica","bold");
+        const tl = doc.splitTextToSize((i+1)+". "+(e.nombre||"Sin nombre")+(e.siglas?" ("+e.siglas+")":""), cW);
+        doc.text(tl,mL,y); y+=tl.length*6;
+        if (e.tipo){doc.setTextColor(100,100,100);doc.setFontSize(8);doc.setFont("helvetica","normal");doc.text("Tipo: "+e.tipo,mL,y);y+=5;}
+        if (e.titular){doc.setTextColor(60,60,60);doc.setFontSize(8);doc.text("Titular: "+e.titular,mL,y);y+=5;}
+        if (e.atribuciones){y=pdfSeccion_(doc,"Atribuciones",e.atribuciones,y,mL,cW);}
+        y+=3;
+      });
+      pdfFooter_(doc);
+      doc.save("Lumen_Entidades_"+fechaHoy_()+".pdf");
+    }
+
+    if (window.jspdf) { gen(); } else {
+      const s = document.createElement("script");
+      s.src = "https://cdnjs.cloudflare.com/ajax/libs/jspdf/2.5.1/jspdf.umd.min.js";
+      s.onload = gen; document.head.appendChild(s);
+    }
   }
 
 });

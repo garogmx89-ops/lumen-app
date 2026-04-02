@@ -251,6 +251,14 @@ onAuthStateChanged(auth, (user) => {
     const contenedor = document.getElementById("contexto-contenido");
     if (!contenedor) return;
 
+    const eb_contexto = document.getElementById("contexto-export-bar");
+    if (eb_contexto && !eb_contexto.dataset.init) {
+      eb_contexto.dataset.init = "1";
+      eb_contexto.innerHTML = `<button id="btn-xls-contexto" style="background:none;border:1px solid var(--border);color:var(--text2);border-radius:8px;padding:0.4rem 0.9rem;font-size:0.8rem;cursor:pointer;font-family:inherit;display:inline-flex;align-items:center;gap:0.4rem;">📊 Exportar Excel</button><button id="btn-pdf-contexto" style="background:none;border:1px solid var(--border);color:var(--text2);border-radius:8px;padding:0.4rem 0.9rem;font-size:0.8rem;cursor:pointer;font-family:inherit;display:inline-flex;align-items:center;gap:0.4rem;">📄 Exportar PDF</button>`;
+      document.getElementById("btn-xls-contexto").addEventListener("click", () => exportarExcel_contexto());
+      document.getElementById("btn-pdf-contexto").addEventListener("click", () => exportarPDF_contexto());
+    }
+
     const filtrados = filtroActivo === "todos"
       ? todosLosContextos
       : todosLosContextos.filter(c => c.periodo === filtroActivo);
@@ -608,6 +616,61 @@ Tono institucional, lenguaje técnico-administrativo. Máximo 300 palabras. Resp
     });
 
     modal.style.display = "flex";
+  }
+
+  function fechaHoy_(){const h=new Date();return h.getFullYear()+"-"+String(h.getMonth()+1).padStart(2,"0")+"-"+String(h.getDate()).padStart(2,"0");}
+  function fmtF_(f){if(!f)return"";const[y,m,d]=f.split("-");return new Date(Number(y),Number(m)-1,Number(d)).toLocaleDateString("es-MX",{day:"2-digit",month:"short",year:"numeric"});}
+  function pdfHdr_(doc,titulo){doc.setFillColor(74,74,138);doc.rect(0,0,210,22,"F");doc.setTextColor(255,255,255);doc.setFontSize(13);doc.setFont("helvetica","bold");doc.text("LUMEN - SEDUVOT Zacatecas",20,10);doc.setFontSize(8);doc.setFont("helvetica","normal");doc.text(titulo+" · "+fechaHoy_(),20,17);return 30;}
+  function pdfSec_(doc,titulo,texto,y){if(!texto)return y;if(y+15>280){doc.addPage();y=20;}doc.setFillColor(245,245,250);doc.rect(20,y-3,170,6,"F");doc.setTextColor(74,74,138);doc.setFontSize(9);doc.setFont("helvetica","bold");doc.text(titulo,22,y+1);y+=7;doc.setTextColor(50,50,50);doc.setFontSize(9);doc.setFont("helvetica","normal");const ln=doc.splitTextToSize(texto,170);if(y+ln.length*5>280){doc.addPage();y=20;}doc.text(ln,20,y);return y+ln.length*5+4;}
+  function pdfFtr_(doc){const n=doc.getNumberOfPages();for(let i=1;i<=n;i++){doc.setPage(i);doc.setFontSize(7);doc.setTextColor(150,150,150);doc.text("Lumen · SEDUVOT Zacatecas · Pag "+i+"/"+n,20,290);}}
+
+  function exportarExcel_contexto() {
+    if (!todosLosContextos.length){alert("No hay contextos para exportar.");return;}
+    function gen(){
+      const filas=todosLosContextos.map(ctx=>({
+        "Fondo/Programa":ctx.nombre||"","Periodo":ctx.periodo||"",
+        "Monto asignado":ctx.asignado||"","Monto ejercido":ctx.ejercido||"",
+        "Indicadores":ctx.indicadores||"","Notas":ctx.notas||"",
+        "Normas vinculadas":(ctx.normasVinculadas||[]).map(n=>n.nombre).join(", "),
+        "Entidades vinculadas":(ctx.entidadesVinculadas||[]).map(e=>e.nombre).join(", "),
+        "Analisis IA":ctx.analisisIA?"Si":"No"
+      }));
+      const ws=window.XLSX.utils.json_to_sheet(filas);
+      ws["!cols"]=[{wch:35},{wch:10},{wch:16},{wch:16},{wch:40},{wch:40},{wch:35},{wch:30},{wch:10}];
+      const wb=window.XLSX.utils.book_new();window.XLSX.utils.book_append_sheet(wb,ws,"Contexto");
+      window.XLSX.writeFile(wb,"Lumen_Contexto_"+fechaHoy_()+".xlsx");
+    }
+
+    if(window.XLSX){gen();}else{const s=document.createElement("script");s.src="https://cdnjs.cloudflare.com/ajax/libs/xlsx/0.18.5/xlsx.full.min.js";s.onload=gen;document.head.appendChild(s);}
+
+  }
+  function exportarPDF_contexto() {
+    if (!todosLosContextos.length){alert("No hay contextos para exportar.");return;}
+    function gen(){
+      const {jsPDF}=window.jspdf;const doc=new jsPDF({unit:"mm",format:"a4"});
+      let y=pdfHdr_(doc,"Contexto Presupuestal");
+      todosLosContextos.forEach((ctx,i)=>{
+        if(y+20>280){doc.addPage();y=20;}
+        doc.setDrawColor(200,200,200);doc.line(20,y,190,y);y+=5;
+        doc.setTextColor(74,74,138);doc.setFontSize(11);doc.setFont("helvetica","bold");
+        const tl=doc.splitTextToSize((i+1)+". "+(ctx.nombre||"Sin nombre")+(ctx.periodo?" ("+ctx.periodo+")":""),170);
+        doc.text(tl,20,y);y+=tl.length*6;
+        doc.setTextColor(100,100,100);doc.setFontSize(8);doc.setFont("helvetica","normal");
+        const pres=[(ctx.asignado?"Asignado: "+ctx.asignado:""),(ctx.ejercido?"Ejercido: "+ctx.ejercido:"")].filter(Boolean).join(" | ");
+        if(pres){doc.text(pres,20,y);y+=5;}
+        y=pdfSec_(doc,"Indicadores clave",ctx.indicadores,y);
+        y=pdfSec_(doc,"Notas",ctx.notas,y);
+        const norms=(ctx.normasVinculadas||[]).map(n=>n.nombre).join(", ");
+        const ents=(ctx.entidadesVinculadas||[]).map(e=>e.nombre).join(", ");
+        if(norms){const nl=doc.splitTextToSize("Normas: "+norms,170);if(y+nl.length*4.5>280){doc.addPage();y=20;}doc.setTextColor(50,50,50);doc.setFontSize(8);doc.text(nl,20,y);y+=nl.length*4.5+2;}
+        if(ents){const el=doc.splitTextToSize("Entidades: "+ents,170);if(y+el.length*4.5>280){doc.addPage();y=20;}doc.text(el,20,y);y+=el.length*4.5+2;}
+        y+=3;
+      });
+      pdfFtr_(doc);doc.save("Lumen_Contexto_"+fechaHoy_()+".pdf");
+    }
+
+    if(window.jspdf){gen();}else{const s=document.createElement("script");s.src="https://cdnjs.cloudflare.com/ajax/libs/jspdf/2.5.1/jspdf.umd.min.js";s.onload=gen;document.head.appendChild(s);}
+
   }
 
 });

@@ -15,7 +15,7 @@ const colorTipo = {
   "Lineamiento": "#0077B6", "Circular": "#2D6A4F", "Acuerdo": "#9B2226"
 };
 
-let todasLasNormas = [];
+let todasLasNormas = []; // ya existe — se usa para exportar
 let filtroActivo = "todos";
 let modoEdicion = null;
 let pdfUrlActual = null; // Guarda la URL del PDF del registro que se está editando
@@ -183,6 +183,18 @@ onAuthStateChanged(auth, (user) => {
     const contenedor = document.getElementById("normatividad-contenido");
     if (!contenedor) return;
 
+    // Botones exportar
+    const exportBar_normatividad = document.getElementById("normatividad-export-bar");
+    if (exportBar_normatividad && !exportBar_normatividad.dataset.init) {
+      exportBar_normatividad.dataset.init = "1";
+      exportBar_normatividad.innerHTML = `
+        <button id="btn-exportar-excel-normatividad" style="background:none;border:1px solid var(--border);color:var(--text2);border-radius:8px;padding:0.4rem 0.9rem;font-size:0.8rem;cursor:pointer;font-family:inherit;display:inline-flex;align-items:center;gap:0.4rem;">📊 Exportar Excel</button>
+        <button id="btn-exportar-pdf-normatividad" style="background:none;border:1px solid var(--border);color:var(--text2);border-radius:8px;padding:0.4rem 0.9rem;font-size:0.8rem;cursor:pointer;font-family:inherit;display:inline-flex;align-items:center;gap:0.4rem;">📄 Exportar PDF</button>
+      `;
+      document.getElementById("btn-exportar-excel-normatividad").addEventListener("click", () => exportarExcel_normatividad());
+      document.getElementById("btn-exportar-pdf-normatividad").addEventListener("click", () => exportarPDF_normatividad());
+    }
+
     const filtradas = filtroActivo === "todos"
       ? todasLasNormas
       : todasLasNormas.filter(n => n.tipo === filtroActivo);
@@ -335,6 +347,97 @@ onAuthStateChanged(auth, (user) => {
     modal.style.display = "flex";
   }
 
+
+  function fechaHoy_() {
+    const h = new Date();
+    return h.getFullYear()+"-"+String(h.getMonth()+1).padStart(2,"0")+"-"+String(h.getDate()).padStart(2,"0");
+  }
+  function fmtFecha_(f) {
+    if (!f) return "";
+    const d = new Date(f);
+    if (!isNaN(d)) return d.toLocaleDateString("es-MX",{day:"2-digit",month:"short",year:"numeric"});
+    return f;
+  }
+  function pdfHeader_(doc, titulo, subtitulo) {
+    doc.setFillColor(74,74,138); doc.rect(0,0,210,22,"F");
+    doc.setTextColor(255,255,255);
+    doc.setFontSize(13); doc.setFont("helvetica","bold");
+    doc.text("LUMEN — SEDUVOT Zacatecas", 20, 10);
+    doc.setFontSize(8); doc.setFont("helvetica","normal");
+    doc.text(titulo + " · " + fechaHoy_(), 20, 17);
+    return 30;
+  }
+  function pdfSeccion_(doc, titulo, texto, y, marginL, contentW) {
+    if (!texto) return y;
+    if (y + 15 > 280) { doc.addPage(); y = 20; }
+    doc.setFillColor(245,245,250); doc.rect(marginL, y-3, contentW, 6, "F");
+    doc.setTextColor(74,74,138); doc.setFontSize(9); doc.setFont("helvetica","bold");
+    doc.text(titulo, marginL+2, y+1); y += 7;
+    doc.setTextColor(50,50,50); doc.setFontSize(9); doc.setFont("helvetica","normal");
+    const lines = doc.splitTextToSize(texto, contentW);
+    if (y + lines.length*5 > 280) { doc.addPage(); y = 20; }
+    doc.text(lines, marginL, y);
+    return y + lines.length*5 + 4;
+  }
+  function pdfFooter_(doc) {
+    const n = doc.getNumberOfPages();
+    for (let i=1;i<=n;i++) {
+      doc.setPage(i); doc.setFontSize(7); doc.setTextColor(150,150,150);
+      doc.text("Lumen · SEDUVOT Zacatecas · Pagina "+i+" de "+n, 20, 290);
+    }
+  }
+
+  function exportarExcel_normatividad() {
+    if (!todasLasNormas.length) { alert("No hay normas para exportar."); return; }
+    function gen() {
+      const filas = todasLasNormas.map(n => ({
+        "Nombre": n.nombre||"", "Tipo": n.tipo||"",
+        "Publicacion original": n.fecha ? fmtFecha_(n.fecha) : "",
+        "Ultima reforma": n.fechaReforma ? fmtFecha_(n.fechaReforma) : "",
+        "Resumen": n.resumen||"", "Anotaciones": n.anotaciones||"",
+        "PDF": n.pdfUrl||""
+      }));
+      const ws = window.XLSX.utils.json_to_sheet(filas);
+      ws["!cols"] = [{wch:45},{wch:14},{wch:20},{wch:20},{wch:50},{wch:40},{wch:50}];
+      const wb = window.XLSX.utils.book_new();
+      window.XLSX.utils.book_append_sheet(wb, ws, "Normatividad");
+      window.XLSX.writeFile(wb, "Lumen_Normatividad_"+fechaHoy_()+".xlsx");
+    }
+
+    if (window.XLSX) { gen(); } else {
+      const s = document.createElement("script");
+      s.src = "https://cdnjs.cloudflare.com/ajax/libs/xlsx/0.18.5/xlsx.full.min.js";
+      s.onload = gen; document.head.appendChild(s);
+    }
+  }
+  function exportarPDF_normatividad() {
+    if (!todasLasNormas.length) { alert("No hay normas para exportar."); return; }
+    function gen() {
+      const { jsPDF } = window.jspdf;
+      const doc = new jsPDF({unit:"mm",format:"a4"});
+      const mL=20, cW=170; let y = pdfHeader_(doc,"Catalogo de Normatividad","",mL,cW);
+      todasLasNormas.forEach((n,i) => {
+        if (y+20>280){doc.addPage();y=20;}
+        doc.setDrawColor(200,200,200); doc.line(mL,y,190,y); y+=5;
+        doc.setTextColor(74,74,138); doc.setFontSize(11); doc.setFont("helvetica","bold");
+        const tl = doc.splitTextToSize((i+1)+". "+(n.nombre||"Sin nombre"), cW);
+        doc.text(tl,mL,y); y+=tl.length*6;
+        if (n.tipo){doc.setTextColor(100,100,100);doc.setFontSize(8);doc.setFont("helvetica","normal");doc.text("Tipo: "+n.tipo,mL,y);y+=5;}
+        if (n.fecha){doc.text("Publicacion: "+fmtFecha_(n.fecha)+(n.fechaReforma?" | Ultima reforma: "+fmtFecha_(n.fechaReforma):""),mL,y);y+=5;}
+        if (n.resumen){y=pdfSeccion_(doc,"Resumen",n.resumen,y,mL,cW);}
+        if (n.anotaciones){y=pdfSeccion_(doc,"Notas de aplicacion",n.anotaciones,y,mL,cW);}
+        y+=3;
+      });
+      pdfFooter_(doc);
+      doc.save("Lumen_Normatividad_"+fechaHoy_()+".pdf");
+    }
+
+    if (window.jspdf) { gen(); } else {
+      const s = document.createElement("script");
+      s.src = "https://cdnjs.cloudflare.com/ajax/libs/jspdf/2.5.1/jspdf.umd.min.js";
+      s.onload = gen; document.head.appendChild(s);
+    }
+  }
 
 });
 

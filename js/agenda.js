@@ -241,6 +241,14 @@ onAuthStateChanged(auth, (user) => {
     const contenedor = document.getElementById("agenda-contenido");
     if (!contenedor) return;
 
+    const eb_agenda = document.getElementById("agenda-export-bar");
+    if (eb_agenda && !eb_agenda.dataset.init) {
+      eb_agenda.dataset.init = "1";
+      eb_agenda.innerHTML = `<button id="btn-xls-agenda" style="background:none;border:1px solid var(--border);color:var(--text2);border-radius:8px;padding:0.4rem 0.9rem;font-size:0.8rem;cursor:pointer;font-family:inherit;display:inline-flex;align-items:center;gap:0.4rem;">📊 Exportar Excel</button><button id="btn-pdf-agenda" style="background:none;border:1px solid var(--border);color:var(--text2);border-radius:8px;padding:0.4rem 0.9rem;font-size:0.8rem;cursor:pointer;font-family:inherit;display:inline-flex;align-items:center;gap:0.4rem;">📄 Exportar PDF</button>`;
+      document.getElementById("btn-xls-agenda").addEventListener("click", () => exportarExcel_agenda());
+      document.getElementById("btn-pdf-agenda").addEventListener("click", () => exportarPDF_agenda());
+    }
+
     const filtradas = filtroActivo === "todos"
       ? todasLasAlertas
       : todasLasAlertas.filter(a =>
@@ -408,6 +416,58 @@ onAuthStateChanged(auth, (user) => {
       activarEdicion(a.id);
     });
     modal.style.display = "flex";
+  }
+
+  function fechaHoy_(){const h=new Date();return h.getFullYear()+"-"+String(h.getMonth()+1).padStart(2,"0")+"-"+String(h.getDate()).padStart(2,"0");}
+  function fmtF_(f){if(!f)return"";const[y,m,d]=f.split("-");return new Date(Number(y),Number(m)-1,Number(d)).toLocaleDateString("es-MX",{day:"2-digit",month:"short",year:"numeric"});}
+  function pdfHdr_(doc,titulo){doc.setFillColor(74,74,138);doc.rect(0,0,210,22,"F");doc.setTextColor(255,255,255);doc.setFontSize(13);doc.setFont("helvetica","bold");doc.text("LUMEN - SEDUVOT Zacatecas",20,10);doc.setFontSize(8);doc.setFont("helvetica","normal");doc.text(titulo+" · "+fechaHoy_(),20,17);return 30;}
+  function pdfSec_(doc,titulo,texto,y){if(!texto)return y;if(y+15>280){doc.addPage();y=20;}doc.setFillColor(245,245,250);doc.rect(20,y-3,170,6,"F");doc.setTextColor(74,74,138);doc.setFontSize(9);doc.setFont("helvetica","bold");doc.text(titulo,22,y+1);y+=7;doc.setTextColor(50,50,50);doc.setFontSize(9);doc.setFont("helvetica","normal");const ln=doc.splitTextToSize(texto,170);if(y+ln.length*5>280){doc.addPage();y=20;}doc.text(ln,20,y);return y+ln.length*5+4;}
+  function pdfFtr_(doc){const n=doc.getNumberOfPages();for(let i=1;i<=n;i++){doc.setPage(i);doc.setFontSize(7);doc.setTextColor(150,150,150);doc.text("Lumen · SEDUVOT Zacatecas · Pag "+i+"/"+n,20,290);}}
+
+  function exportarExcel_agenda() {
+    if (!todasLasAlertas.length){alert("No hay alertas para exportar.");return;}
+    function gen(){
+      const filas=todasLasAlertas.map(a=>({
+        "Titulo":a.titulo||"","Prioridad":a.prioridad||"","Estado":a.estado||"",
+        "Fecha vencimiento":a.fecha?fmtF_(a.fecha):"",
+        "Procesos vinculados":(a.procesosVinculados||[]).map(p=>p.nombre).join(", "),
+        "Normas vinculadas":(a.normasVinculadas||[]).map(n=>n.nombre).join(", ")
+      }));
+      const ws=window.XLSX.utils.json_to_sheet(filas);
+      ws["!cols"]=[{wch:40},{wch:10},{wch:12},{wch:18},{wch:35},{wch:40}];
+      const wb=window.XLSX.utils.book_new();window.XLSX.utils.book_append_sheet(wb,ws,"Agenda");
+      window.XLSX.writeFile(wb,"Lumen_Agenda_"+fechaHoy_()+".xlsx");
+    }
+
+    if(window.XLSX){gen();}else{const s=document.createElement("script");s.src="https://cdnjs.cloudflare.com/ajax/libs/xlsx/0.18.5/xlsx.full.min.js";s.onload=gen;document.head.appendChild(s);}
+
+  }
+  function exportarPDF_agenda() {
+    if (!todasLasAlertas.length){alert("No hay alertas para exportar.");return;}
+    function gen(){
+      const {jsPDF}=window.jspdf;const doc=new jsPDF({unit:"mm",format:"a4"});
+      let y=pdfHdr_(doc,"Agenda y Alertas");
+      const hoy=new Date();hoy.setHours(0,0,0,0);
+      todasLasAlertas.forEach((a,i)=>{
+        if(y+20>280){doc.addPage();y=20;}
+        doc.setDrawColor(200,200,200);doc.line(20,y,190,y);y+=5;
+        doc.setTextColor(74,74,138);doc.setFontSize(11);doc.setFont("helvetica","bold");
+        const tl=doc.splitTextToSize((i+1)+". "+(a.titulo||"Sin titulo"),170);
+        doc.text(tl,20,y);y+=tl.length*6;
+        doc.setTextColor(100,100,100);doc.setFontSize(8);doc.setFont("helvetica","normal");
+        const meta=["Prioridad: "+(a.prioridad||""),"Estado: "+(a.estado||""),a.fecha?"Vence: "+fmtF_(a.fecha):""].filter(Boolean).join(" | ");
+        doc.text(meta,20,y);y+=5;
+        const procs=(a.procesosVinculados||[]).map(p=>p.nombre).join(", ");
+        const norms=(a.normasVinculadas||[]).map(n=>n.nombre).join(", ");
+        if(procs){doc.text("Procesos: "+procs,20,y);y+=5;}
+        if(norms){const nl=doc.splitTextToSize("Normas: "+norms,170);doc.text(nl,20,y);y+=nl.length*4.5+2;}
+        y+=3;
+      });
+      pdfFtr_(doc);doc.save("Lumen_Agenda_"+fechaHoy_()+".pdf");
+    }
+
+    if(window.jspdf){gen();}else{const s=document.createElement("script");s.src="https://cdnjs.cloudflare.com/ajax/libs/jspdf/2.5.1/jspdf.umd.min.js";s.onload=gen;document.head.appendChild(s);}
+
   }
 
 });

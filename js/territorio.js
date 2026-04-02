@@ -127,6 +127,14 @@ onAuthStateChanged(auth, (user) => {
     const contenedor = document.getElementById("territorio-contenido");
     if (!contenedor) return;
 
+    const eb_territorio = document.getElementById("territorio-export-bar");
+    if (eb_territorio && !eb_territorio.dataset.init) {
+      eb_territorio.dataset.init = "1";
+      eb_territorio.innerHTML = `<button id="btn-xls-territorio" style="background:none;border:1px solid var(--border);color:var(--text2);border-radius:8px;padding:0.4rem 0.9rem;font-size:0.8rem;cursor:pointer;font-family:inherit;display:inline-flex;align-items:center;gap:0.4rem;">📊 Exportar Excel</button><button id="btn-pdf-territorio" style="background:none;border:1px solid var(--border);color:var(--text2);border-radius:8px;padding:0.4rem 0.9rem;font-size:0.8rem;cursor:pointer;font-family:inherit;display:inline-flex;align-items:center;gap:0.4rem;">📄 Exportar PDF</button>`;
+      document.getElementById("btn-xls-territorio").addEventListener("click", () => exportarExcel_territorio());
+      document.getElementById("btn-pdf-territorio").addEventListener("click", () => exportarPDF_territorio());
+    }
+
     const filtrados = filtroActivo === "todos"
       ? todosLosTerritorios
       : todosLosTerritorios.filter(t => t.estado === filtroActivo);
@@ -255,6 +263,54 @@ onAuthStateChanged(auth, (user) => {
       activarEdicion(t.id);
     });
     modal.style.display = "flex";
+  }
+
+  function fechaHoy_(){const h=new Date();return h.getFullYear()+"-"+String(h.getMonth()+1).padStart(2,"0")+"-"+String(h.getDate()).padStart(2,"0");}
+  function fmtF_(f){if(!f)return"";const[y,m,d]=f.split("-");return new Date(Number(y),Number(m)-1,Number(d)).toLocaleDateString("es-MX",{day:"2-digit",month:"short",year:"numeric"});}
+  function pdfHdr_(doc,titulo){doc.setFillColor(74,74,138);doc.rect(0,0,210,22,"F");doc.setTextColor(255,255,255);doc.setFontSize(13);doc.setFont("helvetica","bold");doc.text("LUMEN - SEDUVOT Zacatecas",20,10);doc.setFontSize(8);doc.setFont("helvetica","normal");doc.text(titulo+" · "+fechaHoy_(),20,17);return 30;}
+  function pdfSec_(doc,titulo,texto,y){if(!texto)return y;if(y+15>280){doc.addPage();y=20;}doc.setFillColor(245,245,250);doc.rect(20,y-3,170,6,"F");doc.setTextColor(74,74,138);doc.setFontSize(9);doc.setFont("helvetica","bold");doc.text(titulo,22,y+1);y+=7;doc.setTextColor(50,50,50);doc.setFontSize(9);doc.setFont("helvetica","normal");const ln=doc.splitTextToSize(texto,170);if(y+ln.length*5>280){doc.addPage();y=20;}doc.text(ln,20,y);return y+ln.length*5+4;}
+  function pdfFtr_(doc){const n=doc.getNumberOfPages();for(let i=1;i<=n;i++){doc.setPage(i);doc.setFontSize(7);doc.setTextColor(150,150,150);doc.text("Lumen · SEDUVOT Zacatecas · Pag "+i+"/"+n,20,290);}}
+
+  function exportarExcel_territorio() {
+    if (!todosLosTerritorios.length){alert("No hay territorios para exportar.");return;}
+    function gen(){
+      const filas=todosLosTerritorios.map(t=>({
+        "Nombre":t.nombre||"","Tipo":t.tipo||"","Estado":t.estado||"",
+        "Programa":t.programa||"","Descripcion":t.descripcion||"","Indicadores":t.indicadores||""
+      }));
+      const ws=window.XLSX.utils.json_to_sheet(filas);
+      ws["!cols"]=[{wch:30},{wch:20},{wch:14},{wch:30},{wch:50},{wch:50}];
+      const wb=window.XLSX.utils.book_new();window.XLSX.utils.book_append_sheet(wb,ws,"Territorio");
+      window.XLSX.writeFile(wb,"Lumen_Territorio_"+fechaHoy_()+".xlsx");
+    }
+
+    if(window.XLSX){gen();}else{const s=document.createElement("script");s.src="https://cdnjs.cloudflare.com/ajax/libs/xlsx/0.18.5/xlsx.full.min.js";s.onload=gen;document.head.appendChild(s);}
+
+  }
+  function exportarPDF_territorio() {
+    if (!todosLosTerritorios.length){alert("No hay territorios para exportar.");return;}
+    function gen(){
+      const {jsPDF}=window.jspdf;const doc=new jsPDF({unit:"mm",format:"a4"});
+      let y=pdfHdr_(doc,"Catalogo de Territorio");
+      todosLosTerritorios.forEach((t,i)=>{
+        if(y+20>280){doc.addPage();y=20;}
+        doc.setDrawColor(200,200,200);doc.line(20,y,190,y);y+=5;
+        doc.setTextColor(74,74,138);doc.setFontSize(11);doc.setFont("helvetica","bold");
+        const tl=doc.splitTextToSize((i+1)+". "+(t.nombre||"Sin nombre"),170);
+        doc.text(tl,20,y);y+=tl.length*6;
+        doc.setTextColor(100,100,100);doc.setFontSize(8);doc.setFont("helvetica","normal");
+        const meta=[(t.tipo||""),(t.estado||"")].filter(Boolean).join(" | ");
+        if(meta){doc.text(meta,20,y);y+=5;}
+        if(t.programa){doc.text("Programa: "+t.programa,20,y);y+=5;}
+        y=pdfSec_(doc,"Descripcion",t.descripcion,y);
+        y=pdfSec_(doc,"Indicadores",t.indicadores,y);
+        y+=3;
+      });
+      pdfFtr_(doc);doc.save("Lumen_Territorio_"+fechaHoy_()+".pdf");
+    }
+
+    if(window.jspdf){gen();}else{const s=document.createElement("script");s.src="https://cdnjs.cloudflare.com/ajax/libs/jspdf/2.5.1/jspdf.umd.min.js";s.onload=gen;document.head.appendChild(s);}
+
   }
 
 });

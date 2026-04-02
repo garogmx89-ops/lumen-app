@@ -2,7 +2,7 @@
 import { auth, db } from "./firebase-config.js";
 import { onAuthStateChanged, signOut } from "https://www.gstatic.com/firebasejs/10.12.0/firebase-auth.js";
 import {
-  collection, getDocs, query, orderBy
+  collection, getDocs, onSnapshot, query, orderBy, where
 } from "https://www.gstatic.com/firebasejs/10.12.0/firebase-firestore.js";
 
 // ─── USUARIO ─────────────────────────────────────────────────────────────────
@@ -12,6 +12,9 @@ onAuthStateChanged(auth, (user) => {
     // Mostrar la app (estaba oculta con display:none)
     document.getElementById('shell').style.display = '';
     document.getElementById('bottom-nav').style.display = '';
+
+    // Iniciar sistema de notificaciones
+    iniciarNotificaciones(user.uid);
 
     // Nombre del usuario
     const nameEl = document.getElementById('user-name');
@@ -136,6 +139,156 @@ function actualizarConexion() {
 window.addEventListener('online',  actualizarConexion);
 window.addEventListener('offline', actualizarConexion);
 actualizarConexion();
+
+// ─── SISTEMA DE NOTIFICACIONES ───────────────────────────────────────────────
+// Escucha en tiempo real la colección Agenda y Reuniones.
+// Detecta: alertas vencidas, próximas a vencer (≤3 días) y reuniones de hoy/mañana.
+// Muestra: banner interno en la app + notificación nativa del navegador.
+
+function iniciarNotificaciones(uid) {
+  // Pedir permiso para notificaciones del navegador (solo si no se ha pedido antes)
+  if ("Notification" in window && Notification.permission === "default") {
+    // Esperamos 3 segundos para no interrumpir la carga inicial
+    setTimeout(() => {
+      Notification.requestPermission();
+    }, 3000);
+  }
+
+  const hoy = new Date();
+  hoy.setHours(0, 0, 0, 0);
+
+  // ── Escuchar Agenda en tiempo real ────────────────────────────────────────
+  const alertasRef = collection(db, "usuarios", uid, "agenda");
+  onSnapshot(query(alertasRef, orderBy("fecha", "asc")), (snap) => {
+    const alertas = snap.docs.map(d => ({ id: d.id, ...d.data() }));
+
+    const vencidas  = [];
+    const proximas  = [];
+
+    alertas.forEach(a => {
+      if (a.estado === "Atendida" || !a.fecha) return;
+      const [y, m, d] = a.fecha.split("-");
+      const fechaVence = new Date(Number(y), Number(m) - 1, Number(d));
+      const dias = Math.ceil((fechaVence - hoy) / (1000 * 60 * 60 * 24));
+
+      if (dias < 0)          vencidas.push({ ...a, dias });
+      else if (dias <= 3)    proximas.push({ ...a, dias });
+    });
+
+    actualizarBannerAlertas(vencidas, proximas);
+  });
+
+  // ── Escuchar Reuniones en tiempo real ─────────────────────────────────────
+  const reunionesRef = collection(db, "usuarios", uid, "reuniones");
+  onSnapshot(query(reunionesRef, orderBy("creadoEn", "desc")), (snap) => {
+    const reuniones = snap.docs.map(d => ({ id: d.id, ...d.data() }));
+    const manana = new Date(hoy); manana.setDate(manana.getDate() + 1);
+
+    const hoyStr    = hoy.toISOString().slice(0, 10);
+    const mananaStr = manana.toISOString().slice(0, 10);
+
+    // Reuniones registradas con fecha de hoy o mañana
+    const reunionesProximas = reuniones.filter(r => {
+      if (!r.fecha) return false;
+      const fechaReu = r.fecha.slice(0, 10); // Tomar solo YYYY-MM-DD
+      return fechaReu === hoyStr || fechaReu === mananaStr;
+    });
+
+    actualizarBannerReuniones(reunionesProximas);
+  });
+}
+
+// Estado global del banner para combinar alertas + reuniones
+let _estadoBanner = { vencidas: [], proximas: [], reuniones: [] };
+
+function actualizarBannerAlertas(vencidas, proximas) {
+  _estadoBanner.vencidas = vencidas;
+  _estadoBanner.proximas = proximas;
+  renderBanner();
+}
+
+function actualizarBannerReuniones(reuniones) {
+  _estadoBanner.reuniones = reuniones;
+  renderBanner();
+}
+
+function renderBanner() {
+  const banner  = document.getElementById("notif-banner");
+  const texto   = document.getElementById("notif-banner-texto");
+  const sub     = document.getElementById("notif-banner-sub");
+  const icono   = document.getElementById("notif-banner-icono");
+  const cerrar  = document.getElementById("notif-banner-cerrar");
+  const verBtn  = document.getElementById("notif-banner-ver");
+  if (!banner) return;
+
+  const { vencidas, proximas, reuniones } = _estadoBanner;
+  const total = vencidas.length + proximas.length + reuniones.length;
+
+  if (total === 0) {
+    banner.classList.add("hidden");
+    return;
+  }
+
+  // Construir mensaje principal
+  const partes = [];
+  if (vencidas.length)  partes.push(vencidas.length === 1  ? "1 alerta vencida"   : vencidas.length  + " alertas vencidas");
+  if (proximas.length)  partes.push(proximas.length === 1  ? "1 alerta proxima"   : proximas.length  + " alertas proximas");
+  if (reuniones.length) partes.push(reuniones.length === 1 ? "1 reunion proxima"  : reuniones.length + " reuniones proximas");
+
+  texto.textContent = partes.join(" · ");
+
+  // Subtexto: primer item más urgente
+  const subPartes = [];
+  if (vencidas.length)  subPartes.push(vencidas[0].titulo  + " (vencida hace " + Math.abs(vencidas[0].dias)  + " dia(s))");
+  if (proximas.length && !vencidas.length) subPartes.push(proximas[0].titulo + " (vence en " + proximas[0].dias + " dia(s))");
+  if (reuniones.length) subPartes.push(reuniones[0].titulo + (reuniones[0].fecha && reuniones[0].fecha.slice(0,10) === new Date().toISOString().slice(0,10) ? " (hoy)" : " (manana)"));
+  sub.textContent = subPartes.slice(0, 2).join(" / ");
+
+  // Color según urgencia
+  if (vencidas.length > 0) {
+    banner.style.borderLeftColor = "#f87171"; // rojo
+    icono.textContent = "⚠️";
+  } else {
+    banner.style.borderLeftColor = "#f59e0b"; // ambar
+    icono.textContent = "🔔";
+  }
+
+  banner.classList.remove("hidden");
+
+  // Cerrar banner
+  cerrar.onclick = () => banner.classList.add("hidden");
+
+  // Notificacion nativa del navegador (solo si Notification API disponible y con permiso)
+  if ("Notification" in window && Notification.permission === "granted" && total > 0) {
+    // Solo disparar una vez por sesion — evitar spam
+    if (!window._notifEnviada) {
+      window._notifEnviada = true;
+      const msg = partes.join(", ");
+      const notif = new Notification("Lumen · SEDUVOT", {
+        body: msg,
+        icon: "/icons/icon-192.png",
+        badge: "/icons/icon-192.png",
+        tag: "lumen-alertas", // Reemplaza notificacion anterior si existe
+      });
+      notif.onclick = () => {
+        window.focus();
+        goTo("agenda");
+        notif.close();
+      };
+    }
+  }
+
+  // Actualizar badges en sidebar (número junto al módulo Agenda)
+  const badgeAgenda = document.querySelector('#nav-agenda .nav-badge');
+  if (badgeAgenda) {
+    const urgentes = vencidas.length + proximas.length;
+    badgeAgenda.textContent = urgentes > 0 ? urgentes : "";
+    badgeAgenda.style.display = urgentes > 0 ? "inline-flex" : "none";
+  }
+}
+
+// Exponer para poder resetear la notificacion enviada (util al reabrir la app)
+window._notifEnviada = false;
 
 // ─── BÚSQUEDA GLOBAL ──────────────────────────────────────────────────────────
 // Configuración de módulos a buscar: qué colección, qué campos mostrar, ícono

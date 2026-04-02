@@ -214,6 +214,17 @@
         </div>
       </div>
 
+      <!-- Banner de alertas urgentes (oculto por defecto) -->
+      <div class="notif-banner hidden" id="notif-banner">
+        <div id="notif-banner-icono" style="font-size:1.2rem;flex-shrink:0">🔔</div>
+        <div style="flex:1;min-width:0">
+          <div class="notif-banner-texto" id="notif-banner-texto">Tienes alertas pendientes</div>
+          <div class="notif-banner-sub" id="notif-banner-sub"></div>
+        </div>
+        <button class="notif-banner-btn" id="notif-banner-ver" onclick="goTo('agenda')">Ver Agenda</button>
+        <button class="notif-banner-cerrar" id="notif-banner-cerrar">✕</button>
+      </div>
+
       <!-- ══ CONTENIDO DE MÓDULOS ══ -->
       <div class="content">
 

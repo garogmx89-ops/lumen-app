@@ -73,7 +73,8 @@ onAuthStateChanged(auth, (user) => {
   // ─── LIMPIAR FORMULARIO ───────────────────────────────────────────────────
   function limpiarFormulario() {
     document.getElementById("reunion-titulo").value        = "";
-    document.getElementById("reunion-fecha").value         = "";
+    document.getElementById("reunion-fecha").value = "";
+    document.getElementById("reunion-hora").value  = "";
     document.getElementById("reunion-participantes").value = "";
     document.getElementById("reunion-acuerdos").value      = "";
     participantesSeleccionados = [];
@@ -87,7 +88,18 @@ onAuthStateChanged(auth, (user) => {
   function activarEdicion(id, datos) {
     modoEdicion = id;
     document.getElementById("reunion-titulo").value        = datos.titulo        || "";
-    document.getElementById("reunion-fecha").value         = datos.fecha         || "";
+    // Separar fecha y hora del valor guardado
+    const fechaGuardada = datos.fecha || "";
+    if (fechaGuardada.includes("T")) {
+      // Formato antiguo datetime-local: "2025-03-04T10:33"
+      const [fd, fh] = fechaGuardada.split("T");
+      document.getElementById("reunion-fecha").value = fd;
+      document.getElementById("reunion-hora").value  = fh ? fh.slice(0,5) : "";
+    } else {
+      // Formato nuevo: fecha y hora separados en Firestore
+      document.getElementById("reunion-fecha").value = datos.fecha || "";
+      document.getElementById("reunion-hora").value  = datos.hora  || "";
+    }
     document.getElementById("reunion-participantes").value = datos.participantes || "";
     document.getElementById("reunion-acuerdos").value      = datos.acuerdos      || "";
     participantesSeleccionados = Array.isArray(datos.participantesVinculados)
@@ -107,7 +119,8 @@ onAuthStateChanged(auth, (user) => {
 
     btnLimpio.addEventListener("click", async () => {
       const titulo        = document.getElementById("reunion-titulo").value.trim();
-      const fecha         = document.getElementById("reunion-fecha").value;
+      const fecha = document.getElementById("reunion-fecha").value;
+      const hora  = document.getElementById("reunion-hora").value;
       const participantes = document.getElementById("reunion-participantes").value.trim();
       const acuerdos      = document.getElementById("reunion-acuerdos").value.trim();
 
@@ -115,7 +128,7 @@ onAuthStateChanged(auth, (user) => {
 
       try {
         const datos = {
-          titulo, fecha, participantes, acuerdos,
+          titulo, fecha, hora, participantes, acuerdos,
           participantesVinculados: participantesSeleccionados
         };
         if (modoEdicion) {
@@ -160,7 +173,7 @@ Genera un briefing ejecutivo estructurado para la siguiente reunión de trabajo 
 
 DATOS DE LA REUNIÓN:
 - Título: ${datos.titulo}
-- Fecha: ${datos.fecha ? new Date(datos.fecha).toLocaleString("es-MX") : "No especificada"}
+- Fecha: ${datos.fecha ? formatearFecha(datos.fecha, datos.hora) : "No especificada"}
 - Participantes: ${participantesTexto}
 - Acuerdos y compromisos: ${datos.acuerdos || "No registrados"}
 
@@ -318,7 +331,7 @@ Usa un tono institucional profesional, en español.`;
             </div>
           </div>
           <div class="reunion-card-meta">
-            ${d.fecha ? `📅 ${formatearFecha(d.fecha)}` : ""}
+            ${d.fecha ? `📅 ${formatearFecha(d.fecha, d.hora)}` : ""}
           </div>
           ${tagsVinculados}
           ${d.participantes ? `<div class="reunion-card-meta">👥 ${d.participantes}</div>` : ""}
@@ -421,7 +434,7 @@ Usa un tono institucional profesional, en español.`;
               📅 ${datos.titulo || "Sin título"}
             </div>
             ${datos.fecha ? `<div style="font-size:0.8rem;color:var(--text2);margin-top:0.2rem">
-              ${formatearFecha(datos.fecha)}</div>` : ""}
+              ${formatearFecha(datos.fecha, datos.hora)}</div>` : ""}
           </div>
           <button id="detalle-cerrar"
             style="background:none;border:none;color:var(--text2);font-size:1.1rem;
@@ -520,7 +533,7 @@ Usa un tono institucional profesional, en español.`;
 
       const filas = todasLasReuniones.map(r => ({
         "Título":                r.titulo || "",
-        "Fecha":                 r.fecha ? formatearFechaExport(r.fecha) : "",
+        "Fecha":                 r.fecha ? formatearFechaExport(r.fecha) : "","Hora": r.hora || "",
         "Participantes":         r.participantes || "",
         "Entidades vinculadas":  (r.participantesVinculados || []).map(p => p.nombre).join(", "),
         "Acuerdos":              r.acuerdos || "",
@@ -787,10 +800,18 @@ Usa un tono institucional profesional, en español.`;
 
 });
 
-function formatearFecha(fechaStr) {
+function formatearFecha(fechaStr, horaStr) {
   if (!fechaStr) return "";
-  return new Date(fechaStr).toLocaleString("es-MX", {
-    day: "2-digit", month: "short", year: "numeric",
-    hour: "2-digit", minute: "2-digit"
-  });
+  // Compatibilidad con formato antiguo datetime-local
+  if (fechaStr.includes("T")) {
+    return new Date(fechaStr).toLocaleString("es-MX", {
+      day: "2-digit", month: "short", year: "numeric",
+      hour: "2-digit", minute: "2-digit"
+    });
+  }
+  // Formato nuevo: fecha separada + hora opcional
+  const [y,m,d] = fechaStr.split("-");
+  const fechaFmt = new Date(Number(y), Number(m)-1, Number(d))
+    .toLocaleDateString("es-MX", { day: "2-digit", month: "short", year: "numeric" });
+  return horaStr ? fechaFmt + " " + horaStr : fechaFmt;
 }

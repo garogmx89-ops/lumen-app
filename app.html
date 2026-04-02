@@ -51,80 +51,84 @@
           <span class="nav-badge amber" id="badge-inicio">3</span>
         </div>
 
-        <div class="nav-section-label">Módulos</div>
-
-        <div class="nav-item" onclick="goTo('reuniones')" id="nav-reuniones">
-          <svg class="nav-icon" viewBox="0 0 16 16" fill="none">
-            <rect x="2" y="3" width="12" height="11" rx="1.5" stroke="currentColor" stroke-width="1.3"/>
-            <line x1="2" y1="7" x2="14" y2="7" stroke="currentColor" stroke-width="1.3"/>
-            <line x1="5" y1="1.5" x2="5" y2="4.5" stroke="currentColor" stroke-width="1.3"/>
-            <line x1="11" y1="1.5" x2="11" y2="4.5" stroke="currentColor" stroke-width="1.3"/>
-          </svg>
-          <span class="nav-label">Reuniones</span>
-          <span class="nav-badge blue" id="badge-reuniones">2</span>
+        <!-- ── SEDUVOT ── -->
+        <div class="nav-section-label nav-section-bloque" onclick="toggleBloque('seduvot')" id="lbl-seduvot">
+          <span>SEDUVOT</span><span class="bloque-chevron" id="chv-seduvot">▾</span>
+        </div>
+        <div id="bloque-seduvot">
+          <div class="nav-item" onclick="goTo('reuniones')" id="nav-reuniones">
+            <svg class="nav-icon" viewBox="0 0 16 16" fill="none">
+              <rect x="2" y="3" width="12" height="11" rx="1.5" stroke="currentColor" stroke-width="1.3"/>
+              <line x1="2" y1="7" x2="14" y2="7" stroke="currentColor" stroke-width="1.3"/>
+              <line x1="5" y1="1.5" x2="5" y2="4.5" stroke="currentColor" stroke-width="1.3"/>
+              <line x1="11" y1="1.5" x2="11" y2="4.5" stroke="currentColor" stroke-width="1.3"/>
+            </svg>
+            <span class="nav-label">Reuniones</span>
+            <span class="nav-badge blue" id="badge-reuniones">2</span>
+          </div>
+          <div class="nav-item" onclick="goTo('analisis')" id="nav-analisis">
+            <svg class="nav-icon" viewBox="0 0 16 16" fill="none">
+              <circle cx="8" cy="8" r="5.5" stroke="currentColor" stroke-width="1.3"/>
+              <line x1="8" y1="5" x2="8" y2="8.5" stroke="currentColor" stroke-width="1.8"/>
+              <circle cx="8" cy="11" r="0.8" fill="currentColor"/>
+            </svg>
+            <span class="nav-label">Análisis</span>
+            <span class="nav-badge amber" id="badge-analisis">2</span>
+          </div>
+          <div class="nav-item" onclick="goTo('procesos')" id="nav-procesos">
+            <svg class="nav-icon" viewBox="0 0 16 16" fill="none">
+              <circle cx="3" cy="4" r="1.5" stroke="currentColor" stroke-width="1.3"/>
+              <circle cx="3" cy="12" r="1.5" stroke="currentColor" stroke-width="1.3"/>
+              <circle cx="13" cy="8" r="1.5" stroke="currentColor" stroke-width="1.3"/>
+              <path d="M4.5 4.5L11.5 7.5M4.5 11.5L11.5 8.5" stroke="currentColor" stroke-width="1.3"/>
+            </svg>
+            <span class="nav-label">Procesos</span>
+          </div>
+          <div class="nav-item" onclick="goTo('agenda')" id="nav-agenda">
+            <svg class="nav-icon" viewBox="0 0 16 16" fill="none">
+              <path d="M8 2v2M8 12v2M2 8h2M12 8h2" stroke="currentColor" stroke-width="1.3"/>
+              <circle cx="8" cy="8" r="4" stroke="currentColor" stroke-width="1.3"/>
+              <circle cx="8" cy="8" r="1" fill="currentColor"/>
+            </svg>
+            <span class="nav-label">Agenda / Alertas</span>
+            <span class="nav-badge amber" id="badge-agenda">3</span>
+          </div>
+          <div class="nav-item" onclick="goTo('contexto')" id="nav-contexto">
+            <svg class="nav-icon" viewBox="0 0 16 16" fill="none">
+              <circle cx="8" cy="8" r="5.5" stroke="currentColor" stroke-width="1.3"/>
+              <line x1="2.5" y1="8" x2="13.5" y2="8" stroke="currentColor" stroke-width="1.3"/>
+              <path d="M8 2.5c-2 2-2 9 0 11M8 2.5c2 2 2 9 0 11" stroke="currentColor" stroke-width="1.3"/>
+            </svg>
+            <span class="nav-label">Contexto</span>
+          </div>
         </div>
 
-        <div class="nav-item" onclick="goTo('entidades')" id="nav-entidades">
-          <svg class="nav-icon" viewBox="0 0 16 16" fill="none">
-            <circle cx="8" cy="5" r="2.5" stroke="currentColor" stroke-width="1.3"/>
-            <path d="M2 14c0-3.3 2.7-6 6-6s6 2.7 6 6" stroke="currentColor" stroke-width="1.3"/>
-          </svg>
-          <span class="nav-label">Entidades</span>
+        <!-- ── GODEZAC ── -->
+        <div class="nav-section-label nav-section-bloque" onclick="toggleBloque('godezac')" id="lbl-godezac">
+          <span>GODEZAC</span><span class="bloque-chevron" id="chv-godezac">▾</span>
         </div>
-
-        <div class="nav-item" onclick="goTo('normatividad')" id="nav-normatividad">
-          <svg class="nav-icon" viewBox="0 0 16 16" fill="none">
-            <path d="M4 2h8l2 2v10H4V2z" stroke="currentColor" stroke-width="1.3"/>
-            <line x1="6" y1="7" x2="10" y2="7" stroke="currentColor" stroke-width="1.3"/>
-            <line x1="6" y1="9.5" x2="10" y2="9.5" stroke="currentColor" stroke-width="1.3"/>
-          </svg>
-          <span class="nav-label">Normatividad</span>
-        </div>
-
-        <div class="nav-item" onclick="goTo('analisis')" id="nav-analisis">
-          <svg class="nav-icon" viewBox="0 0 16 16" fill="none">
-            <circle cx="8" cy="8" r="5.5" stroke="currentColor" stroke-width="1.3"/>
-            <line x1="8" y1="5" x2="8" y2="8.5" stroke="currentColor" stroke-width="1.8"/>
-            <circle cx="8" cy="11" r="0.8" fill="currentColor"/>
-          </svg>
-          <span class="nav-label">Análisis</span>
-          <span class="nav-badge amber" id="badge-analisis">2</span>
-        </div>
-
-        <div class="nav-item" onclick="goTo('procesos')" id="nav-procesos">
-          <svg class="nav-icon" viewBox="0 0 16 16" fill="none">
-            <circle cx="3" cy="4" r="1.5" stroke="currentColor" stroke-width="1.3"/>
-            <circle cx="3" cy="12" r="1.5" stroke="currentColor" stroke-width="1.3"/>
-            <circle cx="13" cy="8" r="1.5" stroke="currentColor" stroke-width="1.3"/>
-            <path d="M4.5 4.5L11.5 7.5M4.5 11.5L11.5 8.5" stroke="currentColor" stroke-width="1.3"/>
-          </svg>
-          <span class="nav-label">Procesos</span>
-        </div>
-
-        <div class="nav-item" onclick="goTo('agenda')" id="nav-agenda">
-          <svg class="nav-icon" viewBox="0 0 16 16" fill="none">
-            <path d="M8 2v2M8 12v2M2 8h2M12 8h2" stroke="currentColor" stroke-width="1.3"/>
-            <circle cx="8" cy="8" r="4" stroke="currentColor" stroke-width="1.3"/>
-            <circle cx="8" cy="8" r="1" fill="currentColor"/>
-          </svg>
-          <span class="nav-label">Agenda / Alertas</span>
-          <span class="nav-badge amber" id="badge-agenda">3</span>
-        </div>
-
-        <div class="nav-item" onclick="goTo('territorio')" id="nav-territorio">
-          <svg class="nav-icon" viewBox="0 0 16 16" fill="none">
-            <path d="M2 3l4 2 4-2 4 2v8l-4-2-4 2-4-2V3z" stroke="currentColor" stroke-width="1.3"/>
-          </svg>
-          <span class="nav-label">Territorio</span>
-        </div>
-
-        <div class="nav-item" onclick="goTo('contexto')" id="nav-contexto">
-          <svg class="nav-icon" viewBox="0 0 16 16" fill="none">
-            <circle cx="8" cy="8" r="5.5" stroke="currentColor" stroke-width="1.3"/>
-            <line x1="2.5" y1="8" x2="13.5" y2="8" stroke="currentColor" stroke-width="1.3"/>
-            <path d="M8 2.5c-2 2-2 9 0 11M8 2.5c2 2 2 9 0 11" stroke="currentColor" stroke-width="1.3"/>
-          </svg>
-          <span class="nav-label">Contexto</span>
+        <div id="bloque-godezac">
+          <div class="nav-item" onclick="goTo('entidades')" id="nav-entidades">
+            <svg class="nav-icon" viewBox="0 0 16 16" fill="none">
+              <circle cx="8" cy="5" r="2.5" stroke="currentColor" stroke-width="1.3"/>
+              <path d="M2 14c0-3.3 2.7-6 6-6s6 2.7 6 6" stroke="currentColor" stroke-width="1.3"/>
+            </svg>
+            <span class="nav-label">Entidades</span>
+          </div>
+          <div class="nav-item" onclick="goTo('normatividad')" id="nav-normatividad">
+            <svg class="nav-icon" viewBox="0 0 16 16" fill="none">
+              <path d="M4 2h8l2 2v10H4V2z" stroke="currentColor" stroke-width="1.3"/>
+              <line x1="6" y1="7" x2="10" y2="7" stroke="currentColor" stroke-width="1.3"/>
+              <line x1="6" y1="9.5" x2="10" y2="9.5" stroke="currentColor" stroke-width="1.3"/>
+            </svg>
+            <span class="nav-label">Normatividad</span>
+          </div>
+          <div class="nav-item" onclick="goTo('territorio')" id="nav-territorio">
+            <svg class="nav-icon" viewBox="0 0 16 16" fill="none">
+              <path d="M2 3l4 2 4-2 4 2v8l-4-2-4 2-4-2V3z" stroke="currentColor" stroke-width="1.3"/>
+            </svg>
+            <span class="nav-label">Territorio</span>
+          </div>
         </div>
 
       </nav>

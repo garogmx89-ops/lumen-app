@@ -1005,6 +1005,13 @@
         </svg>
         <span class="bnav-label">Normas</span>
       </div>
+      <div class="bnav-item" id="bn-territorio" onclick="goTo('territorio')">
+        <svg viewBox="0 0 20 20" fill="none">
+          <path d="M2 4l5 2.5 6-2.5 5 2.5v9l-5-2.5-6 2.5-5-2.5V4z" stroke="currentColor" stroke-width="1.4"/>
+          <circle cx="10" cy="10" r="1.5" fill="currentColor" stroke="none"/>
+        </svg>
+        <span class="bnav-label">Indicadores</span>
+      </div>
       <div class="bnav-item" id="bn-agenda" onclick="goTo('agenda')">
         <svg viewBox="0 0 20 20" fill="none">
           <path d="M10 3v2M10 15v2M3 10h2M15 10h2" stroke="currentColor" stroke-width="1.4"/>
@@ -1013,24 +1020,6 @@
         </svg>
         <span class="bnav-label">Alertas</span>
         <span class="bnav-dot"></span>
-      </div>
-      <div class="bnav-item" id="bn-analisis" onclick="goTo('analisis')">
-        <svg viewBox="0 0 20 20" fill="none">
-          <circle cx="10" cy="10" r="7" stroke="currentColor" stroke-width="1.4"/>
-          <line x1="10" y1="6" x2="10" y2="10.5" stroke="currentColor" stroke-width="1.8"/>
-          <circle cx="10" cy="14" r="1" fill="currentColor" stroke="none"/>
-        </svg>
-        <span class="bnav-label">Análisis</span>
-        <span class="bnav-dot"></span>
-      </div>
-      <div class="bnav-item" id="bn-procesos" onclick="goTo('procesos')">
-        <svg viewBox="0 0 20 20" fill="none">
-          <circle cx="4" cy="5" r="2" stroke="currentColor" stroke-width="1.4"/>
-          <circle cx="4" cy="15" r="2" stroke="currentColor" stroke-width="1.4"/>
-          <circle cx="16" cy="10" r="2" stroke="currentColor" stroke-width="1.4"/>
-          <path d="M6 5.5L14 9.5M6 14.5L14 10.5" stroke="currentColor" stroke-width="1.4"/>
-        </svg>
-        <span class="bnav-label">Procesos</span>
       </div>
       <div class="bnav-item" id="bn-more" onclick="openMore()">
         <svg viewBox="0 0 20 20" fill="none">
@@ -1043,21 +1032,25 @@
     </div>
   </nav>
 
-  <!-- Menú "Más" en móvil — muestra módulos no fijos en barra inferior -->
+  <!-- Menú "Más" en móvil -->
   <div class="more-overlay hidden" id="more-overlay" onclick="closeMore()">
     <div class="more-sheet" onclick="event.stopPropagation()">
       <div class="more-sheet-title">Más módulos</div>
-      <div class="more-item" onclick="goTo('entidades');closeMore()">
-        <svg viewBox="0 0 20 20" fill="none"><circle cx="10" cy="6" r="3" stroke="currentColor" stroke-width="1.4"/><path d="M3 18c0-3.9 3.1-7 7-7s7 3.1 7 7" stroke="currentColor" stroke-width="1.4"/></svg>
-        <span class="more-label">Entidades</span>
+      <div class="more-item" onclick="goTo('analisis');closeMore()">
+        <svg viewBox="0 0 20 20" fill="none"><circle cx="10" cy="10" r="7" stroke="currentColor" stroke-width="1.4"/><line x1="10" y1="6" x2="10" y2="10.5" stroke="currentColor" stroke-width="1.8"/><circle cx="10" cy="14" r="1" fill="currentColor" stroke="none"/></svg>
+        <span class="more-label">Análisis</span>
       </div>
-      <div class="more-item" onclick="goTo('territorio');closeMore()">
-        <svg viewBox="0 0 20 20" fill="none"><path d="M2 4l5 2.5 6-2.5 5 2.5v9l-5-2.5-6 2.5-5-2.5V4z" stroke="currentColor" stroke-width="1.4"/></svg>
-        <span class="more-label">Territorio</span>
+      <div class="more-item" onclick="goTo('procesos');closeMore()">
+        <svg viewBox="0 0 20 20" fill="none"><circle cx="4" cy="5" r="2" stroke="currentColor" stroke-width="1.4"/><circle cx="4" cy="15" r="2" stroke="currentColor" stroke-width="1.4"/><circle cx="16" cy="10" r="2" stroke="currentColor" stroke-width="1.4"/><path d="M6 5.5L14 9.5M6 14.5L14 10.5" stroke="currentColor" stroke-width="1.4"/></svg>
+        <span class="more-label">Procesos</span>
       </div>
       <div class="more-item" onclick="goTo('contexto');closeMore()">
         <svg viewBox="0 0 20 20" fill="none"><circle cx="10" cy="10" r="7" stroke="currentColor" stroke-width="1.4"/><line x1="3" y1="10" x2="17" y2="10" stroke="currentColor" stroke-width="1.4"/><path d="M10 3c-2.5 2.5-2.5 11.5 0 14M10 3c2.5 2.5 2.5 11.5 0 14" stroke="currentColor" stroke-width="1.4"/></svg>
         <span class="more-label">Contexto</span>
+      </div>
+      <div class="more-item" onclick="goTo('entidades');closeMore()">
+        <svg viewBox="0 0 20 20" fill="none"><circle cx="10" cy="6" r="3" stroke="currentColor" stroke-width="1.4"/><path d="M3 18c0-3.9 3.1-7 7-7s7 3.1 7 7" stroke="currentColor" stroke-width="1.4"/></svg>
+        <span class="more-label">Entidades</span>
       </div>
       <div class="more-item" onclick="toggleTheme();closeMore()">
         <svg viewBox="0 0 20 20" fill="none"><circle cx="10" cy="10" r="3.5" stroke="currentColor" stroke-width="1.4"/><path d="M10 2v2M10 16v2M2 10h2M16 10h2M4.9 4.9l1.4 1.4M13.7 13.7l1.4 1.4M4.9 15.1l1.4-1.4M13.7 6.3l1.4-1.4" stroke="currentColor" stroke-width="1.4"/></svg>

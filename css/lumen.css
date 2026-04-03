@@ -484,7 +484,15 @@ body.light .theme-toggle-knob {
 @media (max-width: 768px) {
   .sidebar { display: none; }
   .shell   { flex-direction: column; }
-  .content { padding: 14px; padding-bottom: calc(var(--bnav-h) + 14px); }
+  .main    { overflow: visible; }
+  .content {
+    padding: 14px;
+    padding-bottom: calc(var(--bnav-h) + 24px);
+    overflow-y: auto;
+    flex: 1;
+    /* En móvil, limitar la altura para que el scroll funcione dentro */
+    max-height: calc(100vh - var(--topbar-h));
+  }
   .stat-grid { grid-template-columns: 1fr 1fr; }
   .two-col   { grid-template-columns: 1fr; }
 }

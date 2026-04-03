@@ -12,8 +12,11 @@ import {
   onSnapshot,
   orderBy,
   query,
+  getDocs,
   serverTimestamp
 } from "https://www.gstatic.com/firebasejs/10.12.0/firebase-firestore.js";
+
+const WORKER_URL = "https://lumen-briefing.garogmx89.workers.dev";
 
 const iconoTipo = {
   "Dependencia": "🏛️",
@@ -33,8 +36,15 @@ onAuthStateChanged(auth, (user) => {
 
   let modoEdicion = null;
   let todasLasEntidades = [];
+  let todasLasNormas    = []; // para enriquecer el prompt de IA
   let filtroAmbitoActivo = "todos";
   let directorio = []; // [{unidad, responsable, extension}]
+
+  // Cargar normas en paralelo para usarlas en el prompt IA
+  const normasRef = collection(db, "usuarios", user.uid, "normatividad");
+  onSnapshot(query(normasRef), (snap) => {
+    todasLasNormas = snap.docs.map(d => ({ id: d.id, ...d.data() }));
+  });
 
   // --- LIMPIAR FORMULARIO ---
   function limpiarFormulario() {
@@ -139,7 +149,6 @@ onAuthStateChanged(auth, (user) => {
       </div>
     `).join("");
 
-    // Guardar cambios en tiempo real al escribir
     lista.querySelectorAll(".directorio-input").forEach(input => {
       input.addEventListener("input", () => {
         const idx = Number(input.dataset.index);
@@ -158,7 +167,6 @@ onAuthStateChanged(auth, (user) => {
   document.getElementById("btn-agregar-contacto")?.addEventListener("click", () => {
     directorio.push({ unidad: "", responsable: "", extension: "" });
     renderDirectorio();
-    // Enfocar el primer input del nuevo contacto
     const lista = document.getElementById("directorio-lista");
     const inputs = lista?.querySelectorAll(".directorio-input");
     if (inputs && inputs.length > 0) inputs[inputs.length - 3]?.focus();
@@ -213,6 +221,11 @@ onAuthStateChanged(auth, (user) => {
       const icono = iconoTipo[d.tipo] || "🏢";
       const iconoAmb = iconoAmbito[d.ambito] || "";
 
+      // Badge IA si ya tiene resumen guardado
+      const iaBadge = d.resumenIA
+        ? `<span style="font-size:0.7rem;color:var(--accent);margin-left:0.3rem" title="Tiene resumen IA">✨</span>`
+        : "";
+
       return `
         <div class="reunion-card entidad-card entidad-card--clickable" data-id="${id}" style="cursor:pointer">
           <div class="reunion-card-header">
@@ -220,6 +233,7 @@ onAuthStateChanged(auth, (user) => {
               <span class="entidad-tipo-icono">${icono}</span>
               <span class="reunion-card-titulo">${d.nombre}</span>
               ${d.siglas ? `<span class="entidad-siglas-badge">${d.siglas}</span>` : ""}
+              ${iaBadge}
             </div>
             <div class="reunion-card-acciones">
               <button class="btn-editar" data-id="${id}" title="Editar entidad">✏️</button>
@@ -241,7 +255,6 @@ onAuthStateChanged(auth, (user) => {
       `;
     }).join("");
 
-    // Clic en tarjeta → modal de detalle
     contenedor.querySelectorAll(".entidad-card--clickable").forEach((card) => {
       card.addEventListener("click", (e) => {
         if (e.target.closest("button")) return;
@@ -251,7 +264,6 @@ onAuthStateChanged(auth, (user) => {
       });
     });
 
-    // Botones EDITAR
     contenedor.querySelectorAll(".btn-editar").forEach((btn) => {
       btn.addEventListener("click", () => {
         const id = btn.dataset.id;
@@ -260,7 +272,6 @@ onAuthStateChanged(auth, (user) => {
       });
     });
 
-    // Botones ELIMINAR
     contenedor.querySelectorAll(".btn-eliminar").forEach((btn) => {
       btn.addEventListener("click", async () => {
         const id = btn.dataset.id;
@@ -275,7 +286,7 @@ onAuthStateChanged(auth, (user) => {
         }
       });
     });
-  } // fin renderEntidades
+  }
 
   // ─── MODAL DE DETALLE ────────────────────────────────────────────────────
   function mostrarDetalle(id, datos) {
@@ -290,8 +301,41 @@ onAuthStateChanged(auth, (user) => {
       document.body.appendChild(modal);
     }
 
+    // Normas vinculadas a esta entidad (aparecen en Análisis con entidadesVinculadas)
+    // Las buscamos en el catálogo de normatividad para enriquecer el detalle
+    const normasVinculadas = todasLasNormas.filter(n =>
+      (n.relacionadas || []).some(r => r.id === id) || n.padreId === id
+    );
+
+    // Sección resumen IA
+    let iaSeccion = "";
+    if (datos.resumenIA) {
+      const fecha = datos.resumenIA_fecha
+        ? new Date(datos.resumenIA_fecha).toLocaleDateString("es-MX", { day:"2-digit", month:"short", year:"numeric" })
+        : "";
+      iaSeccion = `<div class="detalle-seccion" id="ia-seccion-contenido">
+        <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:0.5rem">
+          <div class="detalle-seccion-titulo">✨ Resumen IA</div>
+          <span style="font-size:0.72rem;color:var(--text3)">${fecha}</span>
+        </div>
+        <div class="detalle-seccion-texto" id="ia-texto-render" style="line-height:1.6">
+          ${renderMarkdown(datos.resumenIA)}
+        </div>
+        <button id="btn-regenerar-ia" style="margin-top:0.6rem;background:none;border:1px solid var(--border);
+          color:var(--text2);border-radius:8px;padding:0.3rem 0.8rem;font-size:0.78rem;
+          cursor:pointer;font-family:inherit;">🔄 Regenerar</button>
+      </div>`;
+    } else {
+      iaSeccion = `<div class="detalle-seccion" id="ia-seccion-contenido">
+        <div class="detalle-seccion-titulo">✨ Resumen IA</div>
+        <div id="ia-texto-render" style="color:var(--text3);font-size:0.82rem;margin-top:0.3rem">
+          Sin resumen generado aún.
+        </div>
+      </div>`;
+    }
+
     modal.innerHTML = '<div style="background:var(--bg2);border:1px solid var(--border);border-radius:14px;'
-      + 'width:100%;max-width:520px;max-height:85vh;overflow-y:auto;box-shadow:var(--shadow);">'
+      + 'width:100%;max-width:560px;max-height:85vh;overflow-y:auto;box-shadow:var(--shadow);">'
 
       // Header
       + '<div style="display:flex;justify-content:space-between;align-items:flex-start;'
@@ -322,7 +366,7 @@ onAuthStateChanged(auth, (user) => {
         + (datos.extension ? ' &nbsp;·&nbsp; Ext. ' + datos.extension : '')
         + '</div></div>' : '')
       + (datos.atribuciones ? '<div class="detalle-seccion">'
-        + '<div class="detalle-seccion-titulo">📋 Atribuciones</div>'
+        + '<div class="detalle-seccion-titulo">📋 Atribuciones registradas</div>'
         + '<div class="detalle-seccion-texto">' + datos.atribuciones + '</div></div>' : '')
       + ((datos.directorio||[]).length > 0 ? '<div class="detalle-seccion">'
         + '<div class="detalle-seccion-titulo">📇 Directorio de contactos</div>'
@@ -338,11 +382,16 @@ onAuthStateChanged(auth, (user) => {
             + '<td style="padding:4px 6px;color:var(--text2)">' + (d.extension||'—') + '</td></tr>'
           ).join("")
         + '</tbody></table></div>' : '')
+      + iaSeccion
       + '</div>'
 
       // Footer
       + '<div style="padding:1rem 1.4rem;border-top:1px solid var(--border);'
-      + 'display:flex;justify-content:flex-end;position:sticky;bottom:0;background:var(--bg2);">'
+      + 'display:flex;gap:0.75rem;justify-content:flex-end;'
+      + 'position:sticky;bottom:0;background:var(--bg2);">'
+      + '<button id="btn-generar-ia-entidad" style="background:none;border:1px solid var(--accent);'
+      + 'color:var(--accent);border-radius:8px;padding:0.55rem 1.1rem;font-size:0.875rem;'
+      + 'cursor:pointer;font-family:inherit;font-weight:600;">✨ ' + (datos.resumenIA ? 'Ver resumen' : 'Generar resumen IA') + '</button>'
       + '<button id="detalle-entidad-editar" style="background:var(--accent);color:white;border:none;'
       + 'border-radius:8px;padding:0.55rem 1.2rem;font-size:0.875rem;cursor:pointer;'
       + 'font-family:inherit;font-weight:600;">✏️ Editar</button>'
@@ -359,8 +408,151 @@ onAuthStateChanged(auth, (user) => {
       activarEdicion(id, datos);
     });
 
+    // Botón generar/ver resumen IA
+    document.getElementById("btn-generar-ia-entidad").addEventListener("click", () => {
+      generarResumenIA(id, datos);
+    });
+
+    // Botón regenerar (si ya tenía resumen)
+    document.getElementById("btn-regenerar-ia")?.addEventListener("click", () => {
+      generarResumenIA(id, datos, true);
+    });
+
     modal.style.display = "flex";
   }
+
+  // ─── GENERAR RESUMEN IA ──────────────────────────────────────────────────
+  // Llama al Cloudflare Worker con un prompt específico para la entidad.
+  // Guarda el resultado en Firestore (resumenIA + resumenIA_fecha).
+  async function generarResumenIA(id, datos, forzar = false) {
+    const contenedor = document.getElementById("ia-texto-render");
+    const btnGenerar = document.getElementById("btn-generar-ia-entidad");
+    const btnRegen   = document.getElementById("btn-regenerar-ia");
+
+    if (!contenedor) return;
+
+    // Si ya tiene resumen y no se fuerza regenerar, solo hacer scroll a la sección
+    if (datos.resumenIA && !forzar) {
+      document.getElementById("ia-seccion-contenido")?.scrollIntoView({ behavior: "smooth" });
+      return;
+    }
+
+    // Estado de carga
+    if (btnGenerar) { btnGenerar.disabled = true; btnGenerar.textContent = "⏳ Generando..."; }
+    if (btnRegen)   { btnRegen.disabled = true; }
+    contenedor.innerHTML = '<span style="color:var(--text3);font-size:0.82rem">Consultando a la IA...</span>';
+
+    // Normas del catálogo que podrían vincularse (buscamos por ámbito o tipo relacionado)
+    const normasContexto = todasLasNormas.slice(0, 8).map(n =>
+      `- ${n.tipo ? "[" + n.tipo + "] " : ""}${n.nombre}${n.ambito ? " (" + n.ambito + ")" : ""}`
+    ).join("\n");
+
+    const prompt = `Eres un asistente especializado en administración pública mexicana, específicamente para la SEDUVOT (Secretaría de Desarrollo Urbano, Vivienda y Ordenamiento Territorial) del estado de Zacatecas.
+
+Genera un resumen institucional breve y útil sobre la siguiente entidad:
+
+**Nombre:** ${datos.nombre || ""}
+**Siglas:** ${datos.siglas || "N/A"}
+**Tipo:** ${datos.tipo || "N/A"}
+**Ámbito:** ${datos.ambito || "N/A"}
+**Titular:** ${datos.titular || "N/A"}
+**Atribuciones registradas:** ${datos.atribuciones || "No especificadas"}
+
+**Normatividad relevante en el catálogo de SEDUVOT:**
+${normasContexto || "No hay normas registradas aún"}
+
+Redacta el resumen en 3 secciones cortas con estos encabezados exactos (usa **negrita** para los títulos):
+
+**Rol institucional**
+Una o dos oraciones sobre qué es esta entidad y su función principal en el contexto de vivienda, desarrollo urbano u ordenamiento territorial en México/Zacatecas.
+
+**Puntos de coordinación con SEDUVOT**
+Lista de 2 a 4 puntos concretos sobre cómo esta entidad interactúa o puede interactuar con SEDUVOT Zacatecas (validaciones, recursos, dictámenes, programas, etc.).
+
+**Marco normativo clave**
+Menciona 2 o 3 instrumentos normativos relevantes para esta entidad (pueden ser del catálogo o de conocimiento general).
+
+Sé conciso y práctico. No repitas el nombre de la entidad en cada oración.`;
+
+    try {
+      const response = await fetch(WORKER_URL, {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          model: "claude-sonnet-4-20250514",
+          max_tokens: 1000,
+          messages: [{ role: "user", content: prompt }]
+        })
+      });
+
+      if (!response.ok) throw new Error("Error del servidor: " + response.status);
+
+      const data = await response.json();
+      const texto = data.content?.[0]?.text || "No se pudo generar el resumen.";
+
+      // Guardar en Firestore
+      const docRef = doc(db, "usuarios", user.uid, "entidades", id);
+      await updateDoc(docRef, {
+        resumenIA: texto,
+        resumenIA_fecha: new Date().toISOString()
+      });
+
+      // Actualizar en memoria para que la tarjeta muestre el badge ✨
+      const idx = todasLasEntidades.findIndex(e => e.id === id);
+      if (idx !== -1) {
+        todasLasEntidades[idx].resumenIA = texto;
+        todasLasEntidades[idx].resumenIA_fecha = new Date().toISOString();
+      }
+
+      // Mostrar resultado en el modal
+      contenedor.innerHTML = renderMarkdown(texto);
+
+      // Actualizar fecha en el encabezado de la sección
+      const seccion = document.getElementById("ia-seccion-contenido");
+      if (seccion) {
+        const titulo = seccion.querySelector(".detalle-seccion-titulo");
+        if (titulo) titulo.textContent = "✨ Resumen IA";
+        // Agregar/actualizar botón regenerar
+        if (!document.getElementById("btn-regenerar-ia")) {
+          const btnR = document.createElement("button");
+          btnR.id = "btn-regenerar-ia";
+          btnR.style.cssText = "margin-top:0.6rem;background:none;border:1px solid var(--border);"
+            + "color:var(--text2);border-radius:8px;padding:0.3rem 0.8rem;"
+            + "font-size:0.78rem;cursor:pointer;font-family:inherit;";
+          btnR.textContent = "🔄 Regenerar";
+          btnR.addEventListener("click", () => generarResumenIA(id, datos, true));
+          seccion.appendChild(btnR);
+        }
+      }
+
+      if (btnGenerar) { btnGenerar.textContent = "✨ Ver resumen"; }
+
+    } catch (error) {
+      console.error("Error generando resumen IA:", error);
+      contenedor.innerHTML = '<span style="color:var(--coral,#e63946);font-size:0.82rem">'
+        + 'Error al generar el resumen. Verifica tu conexión e intenta de nuevo.</span>';
+    } finally {
+      if (btnGenerar) btnGenerar.disabled = false;
+      if (btnRegen)   { btnRegen.disabled = false; }
+    }
+  }
+
+  // ─── RENDER MARKDOWN BÁSICO ──────────────────────────────────────────────
+  // Convierte **negrita** y saltos de línea a HTML.
+  // No dependemos de librerías externas.
+  function renderMarkdown(texto) {
+    if (!texto) return "";
+    return texto
+      .replace(/&/g, "&amp;")
+      .replace(/</g, "&lt;")
+      .replace(/>/g, "&gt;")
+      .replace(/\*\*(.+?)\*\*/g, "<strong>$1</strong>")
+      .replace(/\n{2,}/g, "</p><p style='margin:0.5rem 0'>")
+      .replace(/\n/g, "<br>")
+      .replace(/^/, "<p style='margin:0'>")
+      .replace(/$/, "</p>");
+  }
+
 
   function fechaHoy_() {
     const h = new Date();
@@ -415,13 +607,13 @@ onAuthStateChanged(auth, (user) => {
       window.XLSX.utils.book_append_sheet(wb, ws, "Entidades");
       window.XLSX.writeFile(wb, "Lumen_Entidades_"+fechaHoy_()+".xlsx");
     }
-
     if (window.XLSX) { gen(); } else {
       const s = document.createElement("script");
       s.src = "https://cdnjs.cloudflare.com/ajax/libs/xlsx/0.18.5/xlsx.full.min.js";
       s.onload = gen; document.head.appendChild(s);
     }
   }
+
   function exportarPDF_entidades() {
     if (!todasLasEntidades.length) { alert("No hay entidades para exportar."); return; }
     function gen() {
@@ -442,7 +634,6 @@ onAuthStateChanged(auth, (user) => {
       pdfFooter_(doc);
       doc.save("Lumen_Entidades_"+fechaHoy_()+".pdf");
     }
-
     if (window.jspdf) { gen(); } else {
       const s = document.createElement("script");
       s.src = "https://cdnjs.cloudflare.com/ajax/libs/jspdf/2.5.1/jspdf.umd.min.js";

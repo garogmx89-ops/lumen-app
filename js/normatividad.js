@@ -133,7 +133,9 @@ function detectarEstructura(texto) {
   for (let i = 0; i < hits.length; i++) {
     if (hits[i].nombre !== null) continue;
     const limPos = hits[i + 1]?.pos ?? hits[i].pos + 400;
-    const despues = texto.slice(hits[i].pos + m[0]?.length ?? 10, limPos);
+    // Usar la longitud del encabezado detectado (no la variable 'm' del while exterior)
+    const encabezadoLen = hits[i].numero.length + 20; // número + prefijo estimado
+    const despues = texto.slice(hits[i].pos + encabezadoLen, limPos);
     // Buscar siguiente línea no vacía
     const lineas = despues.split("\n").map(l => l.trim()).filter(l => l.length > 2);
     if (lineas.length > 0) {

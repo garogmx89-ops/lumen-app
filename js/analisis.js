@@ -345,7 +345,7 @@ Responde únicamente con el análisis en el formato indicado. Tono institucional
           <div class="analisis-capas-display">
             ${(a.contexto || a.ley) ? `<div class="capa-display"><span class="capa-titulo">📋 Contexto</span><span class="capa-texto">${a.contexto || a.ley}</span></div>` : ""}
             ${a.precedente ? `<div class="capa-display"><span class="capa-titulo">📂 Precedente</span><span class="capa-texto">${a.precedente}</span></div>` : ""}
-            ${a.ia         ? `<div class="capa-display"><span class="capa-titulo">🤖 IA</span><span class="capa-texto">${a.ia}</span></div>` : ""}
+            ${a.ia         ? `<div class="capa-display"><span class="capa-titulo">🤖 IA</span><span class="capa-texto">${(a.ia).replace(/\*\*(.+?)\*\*/g,"<strong>$1</strong>").replace(/\n/g,"<br>")}</span></div>` : ""}
           </div>
         </div>
       `;

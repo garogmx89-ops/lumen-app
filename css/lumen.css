@@ -1908,10 +1908,21 @@ body.light input[type="time"]::-webkit-calendar-picker-indicator {
 }
 
 /* ── Fix menú inferior tapa contenido en móvil ─────────────────── */
-/* Se aplica al panel completo para cubrir formularios Y listas     */
 @media (max-width: 768px) {
-  .panel.active {
-    padding-bottom: calc(var(--bnav-h) + 24px);
+  /* Espacio extra al final de cada formulario */
+  .reunion-form-card {
+    padding-bottom: calc(var(--bnav-h) + 16px);
+  }
+  /* Espacio extra al final de cada lista de tarjetas */
+  .reuniones-lista,
+  #entidades-contenido,
+  #analisis-contenido,
+  #procesos-contenido,
+  #agenda-contenido,
+  #territorio-contenido,
+  #contexto-contenido,
+  #normatividad-contenido {
+    padding-bottom: calc(var(--bnav-h) + 16px);
   }
 }
 

@@ -60,9 +60,12 @@ async function subirPdfAFirebaseStorage(archivo, userId) {
 // ══════════════════════════════════════════════════════════════════════
 
 const ORDINALES = [
-  "primero","segundo","tercero","cuarto","quinto","sexto","s\u00e9ptimo","octavo",
-  "noveno","d\u00e9cimo","und\u00e9cimo","duod\u00e9cimo","decimotercero","decimocuarto",
-  "decimoquinto","\u00fanico"
+  "primero","segundo","tercero","cuarto","quinto","sexto","séptimo","sétimo","octavo",
+  "noveno","décimo","undécimo","duodécimo","decimotercero","decimocuarto",
+  "decimoquinto","único",
+  "PRIMERO","SEGUNDO","TERCERO","CUARTO","QUINTO","SEXTO","SÉPTIMO","SÉTIMO","OCTAVO",
+  "NOVENO","DÉCIMO","UNDÉCIMO","DUODÉCIMO","DECIMOTERCERO","DECIMOCUARTO",
+  "DECIMOQUINTO","Único"
 ];
 const ORDINALES_PAT = ORDINALES.join("|");
 
@@ -70,8 +73,11 @@ const ORDINALES_PAT = ORDINALES.join("|");
 const RE_SEP_TRANSITORIO = /T\s*R\s*A\s*N\s*S\s*I\s*T\s*O\s*R\s*I\s*O\s*S|^TRANSITORIOS\s*$/mi;
 const RE_SEP_REFORMA      = /ART[ÍI]CULOS\s+TRANSITORIOS\s+DE\s+LOS\s+DECRETOS/i;
 
-// Notas editoriales de reforma incrustadas
-const RE_NOTA_REFORMA = /\*\s*(?:P[áa]rrafo\s+)?(?:[Rr]eformado|[Aa]dicionado|[Dd]erogado|[Ff]racci[oó]n\s+\S+|[Ii]nciso\s+\S+)(?:\s+POG|\s+por|\s+mediante)[^\n*]*\*/gi;
+// Notas editoriales de reforma incrustadas — con o sin asteriscos
+// Variantes encontradas en leyes del Congreso de Zacatecas:
+//   *Reformado POG 20-06-2018*   (con asteriscos)
+//   Artículo reformado POG 20-06-2018  (línea suelta sin asteriscos)
+const RE_NOTA_REFORMA = /\*?\s*(?:Art[ií]culo\s+)?(?:P[áa]rrafo\s+)?(?:[Rr]eformado|[Aa]dicionado|[Dd]erogado|[Ff]racci[oó]n\s+\S+|[Ii]nciso\s+\S+)(?:\s+POG|\s+por|\s+mediante)[^\n*]*\*?/gi;
 
 // Falsos positivos — referencias internas
 const RE_FALSO = [
@@ -80,49 +86,64 @@ const RE_FALSO = [
 ];
 
 // ── Detectar jerarquía estructural (Título / Capítulo / Sección) ─────
-// Cada hit tiene: { pos, tipo, numero, nombre }
+// Trabaja sobre texto plano (salida de mammoth) — sin negritas markdown.
+// Patrones en texto plano del Congreso de Zacatecas:
+//   CAPÍTULO I\n\nNOMBRE DEL CAPÍTULO      (nombre en línea siguiente)
+//   TÍTULO PRIMERO\n\nNOMBRE DEL TÍTULO
+//   TÍTULO PRIMERO NOMBRE EN MISMA LÍNEA   (Obra Pública)
+//   Sección Primera\n\nNombre sección        (Adquisiciones)
+//   Capítulo l  → normalizar "l" → "I"     (error tipográfico Fraccionamientos)
 function detectarEstructura(texto) {
   const hits = [];
 
-  // Regex para encabezados estructurales — limpia prefijos de blockquote ("> ")
-  const reEstructura = /^(?:>\s*)?(\*\*(?:T[ÍI]TULO|TITULO)\s+([^\n*]+?)\*\*|^\*\*(Cap[ií]tulo|CAPÍTULO|CAPITULO)\s+([IVXLivxl0-9l]+(?:\s+[A-ZÁÉÍÓÚ][^\n*]*)?|[ÚU]nico)\s*\*\*|^\*\*(Secci[oó]n)\s+([^\n*]+?)\*\*)/gm;
+  // Regex para texto plano — sin \*\*, al inicio de línea
+  const reEstructura = /^((?:T[ÍI]TULO|TITULO)\s+\S+(?:\s+[A-ZÁÉÍÓÚ][^\n]*)?|(?:Cap[ií]tulo|CAP[ÍI]TULO|CAPITULO)\s+(?:[IVXLivxl0-9]+(?:\s+[A-ZÁÉÍÓÚ][^\n]*)?|[ÚU]nico)|(?:Secci[oó]n)\s+[^\n]+)\s*$/gm;
 
   let m;
   while ((m = reEstructura.exec(texto)) !== null) {
-    const linea = m[0].replace(/^>\s*/, "").replace(/\*\*/g, "").trim();
+    const linea = m[0].trim();
 
     if (/^T[ÍI]TULO|^TITULO/i.test(linea)) {
-      // Título — puede tener nombre en la misma línea o en la siguiente
-      const partes = linea.replace(/^T[ÍI]TULO\s*/i, "").trim();
-      // Si después de quitar "TÍTULO" queda texto largo, es nombre en misma línea
-      const esNombreEnLinea = partes.length > 8 && /[A-ZÁÉÍÓÚ]{4,}/.test(partes);
+      const sinPrefijo = linea.replace(/^T[ÍI]TULO\s*/i, "").trim();
+      // Primer token = número ordinal; resto = nombre en misma línea (si existe)
+      const partes   = sinPrefijo.split(/\s+/);
+      const numero   = partes[0];
+      // Si hay más palabras en mayúsculas = nombre en misma línea
+      const restante = partes.slice(1).join(" ").trim();
+      const esNombreInline = restante.length > 4 && /[A-ZÁÉÍÓÚ]{3}/.test(restante);
       hits.push({
         pos:    m.index,
         tipo:   "titulo",
-        numero: esNombreEnLinea ? partes.split(/\s{2,}/)[0].trim() : partes.trim(),
-        nombre: esNombreEnLinea ? partes.replace(/^\S+\s+/, "").trim() : null // se resuelve después con línea siguiente
+        numero: numero,
+        nombre: esNombreInline ? restante : null
       });
     } else if (/^Cap[ií]tulo|^CAP[ÍI]TULO/i.test(linea)) {
-      const partes = linea.replace(/^Cap[ií]tulo\s*/i, "").trim();
-      // Normalizar "l" minúscula como "I" romano (error tipográfico del Congreso)
-      const numero = partes.replace(/^l(\s|$)/, "I$1").trim();
+      const sinPrefijo = linea.replace(/^Cap[ií]tulo\s*/i, "").trim();
+      // Normalizar "l" minúscula → "I" romano (error tipográfico del Congreso)
+      const numero = sinPrefijo.replace(/^l(\s|$)/, "I$1").trim();
       hits.push({ pos: m.index, tipo: "capitulo", numero, nombre: null });
     } else if (/^Secci[oó]n/i.test(linea)) {
-      const partes = linea.replace(/^Secci[oó]n\s*/i, "").trim();
-      hits.push({ pos: m.index, tipo: "seccion", numero: partes, nombre: null });
+      const sinPrefijo = linea.replace(/^Secci[oó]n\s*/i, "").trim();
+      hits.push({ pos: m.index, tipo: "seccion", numero: sinPrefijo, nombre: null });
     }
   }
 
-  // Resolver nombres de línea siguiente (línea en negritas después del encabezado)
+  // Resolver nombres en línea siguiente — en texto plano es la siguiente línea
+  // no vacía que no sea otro encabezado ni un artículo
   for (let i = 0; i < hits.length; i++) {
     if (hits[i].nombre !== null) continue;
-    // Buscar la siguiente línea en negritas no vacía después de este hit
-    const despues = texto.slice(hits[i].pos + 2, hits[i + 1]?.pos ?? hits[i].pos + 300);
-    const mNombre = /\*\*([^*\n]{3,80})\*\*/.exec(despues);
-    if (mNombre) {
-      const candidato = mNombre[1].trim();
-      // Solo es nombre si no es otro encabezado estructural ni un artículo
-      if (!/^(?:T[ÍI]TULO|TITULO|Cap[ií]tulo|CAPÍTULO|Secci[oó]n|Art[ií]culo|ARTÍCULO)/i.test(candidato)) {
+    const limPos = hits[i + 1]?.pos ?? hits[i].pos + 400;
+    const despues = texto.slice(hits[i].pos + m[0]?.length ?? 10, limPos);
+    // Buscar siguiente línea no vacía
+    const lineas = despues.split("\n").map(l => l.trim()).filter(l => l.length > 2);
+    if (lineas.length > 0) {
+      const candidato = lineas[0].replace(/\xa0/g, "").trim();
+      // Es nombre si: no empieza como artículo, capítulo, título, o transitorio
+      if (
+        candidato.length >= 4 &&
+        candidato.length <= 120 &&
+        !/^(?:T[ÍI]TULO|Cap[ií]tulo|CAP[ÍI]TULO|Secci[oó]n|Art[ií]culo|ARTÍCULO|TRANSITORI)/i.test(candidato)
+      ) {
         hits[i].nombre = candidato;
       }
     }
@@ -149,11 +170,14 @@ function parsearArticulos(textoCompleto) {
   const reArt = new RegExp(
     "(?:Art[ií]culo|ART[ÍI]CULO|ARTICULO)\\s+" +
       "(" +
-        "\\d+(?:\\s*(?:Bis|Ter|[A-Z]))?|" +
+        // Número arábigo — Bis/Ter/letra solo si va seguido de fin de línea o guión
+        // Esto evita capturar la primera letra del texto del artículo
+        "\\d+(?:\\s*(?:Bis|Ter|[A-Z])(?=[\\s]*(?:\\n|$|-)))?|" +
         "[ÚU]nico|" +
+        // Ordinales — con flag i ya cubre PRIMERO, SEGUNDO... y primero, segundo...
         "(?:" + ORDINALES_PAT + ")" +
       ")" +
-      "\\s*[-.]?[-.]?\\s*" +
+      "\\s*[-.]?[-.]?\\s*(?=[\\n]|$)" +  // el número termina antes del salto de línea
     "|" +
     "^\\s*(" + ORDINALES_PAT + ")\\s*[-.]\\s*",
     "gim"

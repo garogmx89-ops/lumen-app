@@ -1905,3 +1905,26 @@ body.light input[type="time"]::-webkit-calendar-picker-indicator {
 .monto-input-wrap input {
   padding-left: 22px !important;
 }
+
+/* ── Fix menú inferior tapa tarjetas en móvil ──────────────────── */
+@media (max-width: 768px) {
+  .reuniones-lista,
+  .norma-lista,
+  #entidades-contenido,
+  #analisis-contenido,
+  #procesos-contenido,
+  #agenda-contenido,
+  #territorio-contenido,
+  #contexto-contenido {
+    padding-bottom: calc(var(--bnav-h) + 24px);
+  }
+}
+
+/* ── Fix topbar: toggle tema entre Briefing IA y + Nuevo ────────── */
+/* Mover el toggle al extremo izquierdo de topbar-actions            */
+.topbar-actions {
+  gap: 8px;
+}
+.theme-toggle {
+  order: -1; /* aparece primero, antes de Briefing IA */
+}

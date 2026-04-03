@@ -456,3 +456,39 @@ async function ejecutarBusqueda(termino, uid) {
 
 // Exponer cerrar para los onclick inline del HTML
 window.cerrarBusquedaGlobal = cerrarBusqueda;
+// ─── BOTÓN "BRIEFING IA ↗" DEL TOPBAR ────────────────────────────────────────
+// Lleva al módulo Reuniones y hace scroll al formulario de nueva reunión.
+// Es un acceso directo rápido para registrar una reunión desde cualquier módulo.
+
+document.addEventListener('DOMContentLoaded', () => {
+  const iaBtn  = document.getElementById('ia-btn');
+  const newBtn = document.getElementById('new-btn');
+
+  if (iaBtn) {
+    iaBtn.addEventListener('click', () => {
+      goTo('reuniones');
+      setTimeout(() => {
+        const form = document.querySelector('#panel-reuniones .reunion-form-card');
+        if (form) form.scrollIntoView({ behavior: 'smooth', block: 'start' });
+      }, 80);
+    });
+  }
+
+  // ─── BOTÓN "+ NUEVO" DEL TOPBAR ─────────────────────────────────────────────
+  // Hace scroll al formulario de creación del módulo que esté activo en ese momento.
+  // Si el panel activo no tiene formulario, no hace nada.
+
+  if (newBtn) {
+    newBtn.addEventListener('click', () => {
+      const panelActivo = document.querySelector('.panel.active');
+      if (!panelActivo) return;
+      const form = panelActivo.querySelector('.reunion-form-card');
+      if (form) {
+        form.scrollIntoView({ behavior: 'smooth', block: 'start' });
+        // Enfocar el primer input visible del formulario
+        const primerInput = form.querySelector('input:not([type="hidden"]), textarea, select');
+        if (primerInput) setTimeout(() => primerInput.focus(), 300);
+      }
+    });
+  }
+});

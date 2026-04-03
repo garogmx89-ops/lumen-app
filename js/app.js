@@ -461,18 +461,7 @@ window.cerrarBusquedaGlobal = cerrarBusqueda;
 // Es un acceso directo rápido para registrar una reunión desde cualquier módulo.
 
 document.addEventListener('DOMContentLoaded', () => {
-  const iaBtn  = document.getElementById('ia-btn');
   const newBtn = document.getElementById('new-btn');
-
-  if (iaBtn) {
-    iaBtn.addEventListener('click', () => {
-      goTo('reuniones');
-      setTimeout(() => {
-        const form = document.querySelector('#panel-reuniones .reunion-form-card');
-        if (form) form.scrollIntoView({ behavior: 'smooth', block: 'start' });
-      }, 80);
-    });
-  }
 
   // ─── BOTÓN "+ NUEVO" DEL TOPBAR ─────────────────────────────────────────────
   // Hace scroll al formulario de creación del módulo que esté activo en ese momento.

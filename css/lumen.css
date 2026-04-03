@@ -265,20 +265,21 @@ svg { display: block; }
 
 /* Toggle tema */
 .theme-toggle {
-  width: 36px; height: 20px;
-  background: var(--surface); border-radius: 10px;
+  width: 44px; height: 24px;
+  background: var(--surface); border-radius: 12px;
   cursor: pointer; position: relative;
   border: 1px solid var(--border);
   transition: background var(--trans);
+  flex-shrink: 0;
 }
 .theme-toggle-knob {
-  position: absolute; top: 2px; left: 2px;
-  width: 14px; height: 14px; border-radius: 50%;
+  position: absolute; top: 3px; left: 3px;
+  width: 16px; height: 16px; border-radius: 50%;
   background: var(--text3);
   transition: transform var(--trans), background var(--trans);
 }
 body.light .theme-toggle-knob {
-  transform: translateX(16px);
+  transform: translateX(20px);
   background: var(--accent);
 }
 
@@ -1920,11 +1921,7 @@ body.light input[type="time"]::-webkit-calendar-picker-indicator {
   }
 }
 
-/* ── Fix topbar: toggle tema entre Briefing IA y + Nuevo ────────── */
-/* Mover el toggle al extremo izquierdo de topbar-actions            */
+/* ── Fix topbar: toggle tema bien posicionado ───────────────────── */
 .topbar-actions {
   gap: 8px;
-}
-.theme-toggle {
-  order: -1; /* aparece primero, antes de Briefing IA */
 }

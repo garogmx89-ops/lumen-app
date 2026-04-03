@@ -1947,3 +1947,32 @@ body.light input[type="time"]::-webkit-calendar-picker-indicator {
   text-overflow: ellipsis;
   max-width: 140px;
 }
+
+/* ── Directorio de contactos en Entidades ───────────────────────── */
+.directorio-fila {
+  display: grid;
+  grid-template-columns: 1fr 1fr 60px 24px;
+  gap: 0.35rem;
+  align-items: center;
+}
+.directorio-input {
+  background: var(--bg3);
+  border: 1px solid var(--border);
+  border-radius: 6px;
+  padding: 0.3rem 0.5rem;
+  color: var(--text);
+  font-size: 0.78rem;
+  font-family: inherit;
+  width: 100%;
+}
+.directorio-input--corto { text-align: center; }
+.directorio-btn-quitar {
+  background: none;
+  border: none;
+  color: var(--text3);
+  cursor: pointer;
+  font-size: 0.85rem;
+  padding: 0;
+  line-height: 1;
+}
+.directorio-btn-quitar:hover { color: #f87171; }

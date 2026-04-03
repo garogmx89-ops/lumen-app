@@ -15,7 +15,8 @@ const colorEstado = {
 let todosLosAnalisis = []; // se usa para exportar
 let filtroActivo     = "todos";
 let modoEdicion      = null;
-let normasSeleccionadas = [];
+let normasSeleccionadas    = [];
+let entidadesSeleccionadas = [];
 
 // Helper: asigna valor a un elemento si existe
 const set = (id, val) => { const el = document.getElementById(id); if (el) el.value = val; };
@@ -24,8 +25,9 @@ const get = (id) => { const el = document.getElementById(id); return el ? el.val
 onAuthStateChanged(auth, (user) => {
   if (!user) return;
 
-  const analisisRef = collection(db, "usuarios", user.uid, "analisis");
-  const normasRef   = collection(db, "usuarios", user.uid, "normatividad");
+  const analisisRef   = collection(db, "usuarios", user.uid, "analisis");
+  const normasRef     = collection(db, "usuarios", user.uid, "normatividad");
+  const entidadesRef  = collection(db, "usuarios", user.uid, "entidades");
 
   // ─── CARGAR CATÁLOGO DE NORMAS ────────────────────────────────────────────
   onSnapshot(query(normasRef, orderBy("creadoEn", "desc")), (snapshot) => {
@@ -40,6 +42,50 @@ onAuthStateChanged(auth, (user) => {
       select.appendChild(option);
     });
   });
+
+  // ─── CARGAR CATÁLOGO DE ENTIDADES ────────────────────────────────────────
+  onSnapshot(query(entidadesRef, orderBy("creadoEn", "asc")), (snap) => {
+    const sel = document.getElementById("analisis-entidad-select");
+    if (!sel) return;
+    sel.innerHTML = '<option value="">— Agregar entidad —</option>';
+    snap.docs.forEach(d => {
+      const e = d.data();
+      const opt = document.createElement("option");
+      opt.value = d.id;
+      opt.textContent = e.siglas ? `${e.siglas} — ${e.nombre}` : e.nombre;
+      opt.dataset.nombre = e.siglas || e.nombre;
+      sel.appendChild(opt);
+    });
+  });
+
+  // ─── SELECCIONAR ENTIDAD ──────────────────────────────────────────────────
+  document.getElementById("analisis-entidad-select")?.addEventListener("change", (e) => {
+    const id     = e.target.value;
+    const nombre = e.target.options[e.target.selectedIndex].dataset.nombre;
+    if (!id) return;
+    if (entidadesSeleccionadas.find(x => x.id === id)) { e.target.value = ""; return; }
+    entidadesSeleccionadas.push({ id, nombre });
+    renderEntidadesSeleccionadas();
+    e.target.value = "";
+  });
+
+  function renderEntidadesSeleccionadas() {
+    const cont = document.getElementById("analisis-entidades-seleccionadas");
+    if (!cont) return;
+    if (entidadesSeleccionadas.length === 0) { cont.innerHTML = ""; return; }
+    cont.innerHTML = entidadesSeleccionadas.map((e, i) => `
+      <span class="participante-tag">
+        🏛️ ${e.nombre}
+        <button type="button" class="participante-tag-quitar" data-index="${i}">✕</button>
+      </span>
+    `).join("");
+    cont.querySelectorAll(".participante-tag-quitar").forEach(btn => {
+      btn.addEventListener("click", () => {
+        entidadesSeleccionadas.splice(Number(btn.dataset.index), 1);
+        renderEntidadesSeleccionadas();
+      });
+    });
+  }
 
   // ─── SELECCIONAR NORMA ────────────────────────────────────────────────────
   document.getElementById("analisis-norma-select")?.addEventListener("change", (e) => {
@@ -75,13 +121,14 @@ onAuthStateChanged(auth, (user) => {
     set("analisis-pregunta",    "");
     set("analisis-estado",      "Abierto");
     set("analisis-norma-select","");
-    set("analisis-norma",       "");
-    set("analisis-ley",         "");
-    set("analisis-practica",    "");
+    set("analisis-contexto",    "");
+    set("analisis-norma-extra", "");
     set("analisis-precedente",  "");
     set("analisis-ia",          "");
-    normasSeleccionadas = [];
+    normasSeleccionadas    = [];
+    entidadesSeleccionadas = [];
     renderNormasSeleccionadas();
+    renderEntidadesSeleccionadas();
     const titulo = document.querySelector("#panel-analisis .reunion-form-card h2");
     if (titulo) titulo.textContent = "Nuevo Análisis";
     const btnCancelar = document.getElementById("btn-cancelar-analisis");
@@ -94,17 +141,20 @@ onAuthStateChanged(auth, (user) => {
     const analisis = todosLosAnalisis.find(a => a.id === id);
     if (!analisis) return;
     modoEdicion = id;
-    set("analisis-pregunta",   analisis.pregunta   || "");
-    set("analisis-estado",     analisis.estado     || "Abierto");
-    set("analisis-norma",      analisis.norma      || "");
-    set("analisis-ley",        analisis.ley        || "");
-    set("analisis-practica",   analisis.practica   || "");
-    set("analisis-precedente", analisis.precedente || "");
-    set("analisis-ia",         analisis.ia         || "");
+    set("analisis-pregunta",    analisis.pregunta    || "");
+    set("analisis-estado",      analisis.estado      || "Abierto");
+    set("analisis-contexto",    analisis.contexto    || analisis.ley || ""); // compat. registros viejos
+    set("analisis-norma-extra", analisis.normaExtra  || analisis.practica || "");
+    set("analisis-precedente",  analisis.precedente  || "");
+    set("analisis-ia",          analisis.ia          || "");
     normasSeleccionadas = Array.isArray(analisis.normasVinculadas)
       ? analisis.normasVinculadas.map(n => ({ ...n }))
       : [];
+    entidadesSeleccionadas = Array.isArray(analisis.entidadesVinculadas)
+      ? analisis.entidadesVinculadas.map(e => ({ ...e }))
+      : [];
     renderNormasSeleccionadas();
+    renderEntidadesSeleccionadas();
     const titulo = document.querySelector("#panel-analisis .reunion-form-card h2");
     if (titulo) titulo.textContent = "Editar Análisis";
     const btnCancelar = document.getElementById("btn-cancelar-analisis");
@@ -119,19 +169,19 @@ onAuthStateChanged(auth, (user) => {
     btnGuardar.parentNode.replaceChild(btnNuevo, btnGuardar);
 
     btnNuevo.addEventListener("click", async () => {
-      const pregunta   = get("analisis-pregunta");
-      const estado     = get("analisis-estado");
-      const norma      = get("analisis-norma");
-      const ley        = get("analisis-ley");
-      const practica   = get("analisis-practica");
-      const precedente = get("analisis-precedente");
-      const ia         = get("analisis-ia");
+      const pregunta    = get("analisis-pregunta");
+      const estado      = get("analisis-estado");
+      const contexto    = get("analisis-contexto");
+      const normaExtra  = get("analisis-norma-extra");
+      const precedente  = get("analisis-precedente");
+      const ia          = get("analisis-ia");
 
       if (!pregunta) { alert("La pregunta institucional es obligatoria."); return; }
 
       try {
-        const datos = { pregunta, estado, norma, ley, practica, precedente, ia,
-          normasVinculadas: normasSeleccionadas };
+        const datos = { pregunta, estado, contexto, normaExtra, precedente, ia,
+          normasVinculadas:    normasSeleccionadas,
+          entidadesVinculadas: entidadesSeleccionadas };
         if (modoEdicion) {
           await updateDoc(doc(db, "usuarios", user.uid, "analisis", modoEdicion), datos);
         } else {
@@ -155,11 +205,7 @@ onAuthStateChanged(auth, (user) => {
   const btnGenerarIA = document.getElementById("btn-generar-ia-analisis");
   if (btnGenerarIA) {
     btnGenerarIA.addEventListener("click", async () => {
-      const pregunta   = get("analisis-pregunta");
-      const ley        = get("analisis-ley");
-      const practica   = get("analisis-practica");
-      const precedente = get("analisis-precedente");
-
+      const pregunta = get("analisis-pregunta");
       if (!pregunta) { alert("Escribe primero la pregunta institucional."); return; }
 
       const campoIA = document.getElementById("analisis-ia");
@@ -167,33 +213,49 @@ onAuthStateChanged(auth, (user) => {
       btnGenerarIA.disabled = true;
       btnGenerarIA.textContent = "⏳ Generando...";
 
-      const normasTexto = normasSeleccionadas.map(n => n.nombre).join(", ") || "No especificadas";
+      const normasTexto    = normasSeleccionadas.map(n => n.nombre).join(", ") || "No especificadas";
+      const entidadesTexto = entidadesSeleccionadas.map(e => e.nombre).join(", ") || "No especificadas";
+      const contextoActual    = get("analisis-contexto");
+      const normaExtraActual  = get("analisis-norma-extra");
+      const precedenteActual  = get("analisis-precedente");
 
-      const prompt = `Eres un asesor jurídico-administrativo especializado en políticas públicas de vivienda y desarrollo urbano en México, con experiencia en el marco normativo federal y estatal aplicable a SEDUVOT Zacatecas.
+      const prompt = `Eres un asesor jurídico-administrativo especializado en políticas públicas de vivienda, desarrollo urbano y ordenamiento territorial en México, con experiencia en el marco normativo federal y estatal aplicable a SEDUVOT Zacatecas.
 
-Se te presenta un análisis institucional con tres capas ya desarrolladas. Tu tarea es generar la interpretación de la capa IA: una síntesis analítica que integre las tres capas y proporcione una conclusión operativa clara y fundamentada.
+Se te presenta una pregunta institucional con contexto y referencias. Tu tarea es generar una interpretación analítica fundamentada que sirva como guía operativa.
 
 PREGUNTA INSTITUCIONAL:
 ${pregunta}
 
-NORMAS RELACIONADAS:
+NORMATIVIDAD PRINCIPAL VINCULADA:
 ${normasTexto}
 
-CAPA 1 — LEY (qué dice la norma):
-${ley || "No registrada"}
+ENTIDADES RELACIONADAS:
+${entidadesTexto}
 
-CAPA 2 — PRÁCTICA (cómo se aplica):
-${practica || "No registrada"}
+CONTEXTO Y DESCRIPCIÓN DE LA SITUACIÓN:
+${contextoActual || "No registrado"}
 
-CAPA 3 — PRECEDENTE (casos anteriores):
-${precedente || "No registrado"}
+OTRA NORMATIVIDAD DE APOYO:
+${normaExtraActual || "No registrada"}
 
-Genera la CAPA IA con este formato:
-- Interpretación: (síntesis de las tres capas en 2-3 oraciones)
-- Conclusión operativa: (respuesta directa a la pregunta institucional)
-- Riesgo o consideración clave: (una alerta o recomendación para SEDUVOT)
+PRECEDENTE (casos anteriores):
+${precedenteActual || "No registrado"}
 
-Responde únicamente con el contenido de la capa IA, sin introducciones ni comentarios adicionales. Tono institucional, lenguaje técnico-administrativo, en español.`;
+Genera la interpretación con el siguiente formato EXACTO:
+
+**Interpretación:**
+(Síntesis analítica de 2-3 oraciones que integre el contexto, la normatividad y las entidades involucradas)
+
+**Fundamento jurídico:**
+(Cita los artículos, fracciones y disposiciones específicas que sustentan la respuesta. Si no tienes certeza de los artículos exactos, indica los cuerpos normativos aplicables y sugiere verificar la versión vigente.)
+
+**Conclusión operativa:**
+(Respuesta directa y accionable a la pregunta institucional)
+
+**Riesgo o consideración clave:**
+(Una alerta o recomendación prioritaria para SEDUVOT)
+
+Responde únicamente con el análisis en el formato indicado. Tono institucional, lenguaje técnico-administrativo, en español.`;
 
       try {
         const response = await fetch("https://lumen-briefing.garogmx89.workers.dev", {
@@ -276,9 +338,12 @@ Responde únicamente con el contenido de la capa IA, sin introducciones ni comen
           </div>
           ${tagsNormas}
           ${a.norma ? `<div class="reunion-card-meta">📄 ${a.norma}</div>` : ""}
+          ${Array.isArray(a.entidadesVinculadas) && a.entidadesVinculadas.length > 0 ? `
+            <div class="participantes-tags-display">
+              ${a.entidadesVinculadas.map(e => `<span class="participante-tag-display">🏛️ ${e.nombre}</span>`).join("")}
+            </div>` : ""}
           <div class="analisis-capas-display">
-            ${a.ley        ? `<div class="capa-display"><span class="capa-titulo">⚖️ Ley</span><span class="capa-texto">${a.ley}</span></div>` : ""}
-            ${a.practica   ? `<div class="capa-display"><span class="capa-titulo">🏛️ Práctica</span><span class="capa-texto">${a.practica}</span></div>` : ""}
+            ${(a.contexto || a.ley) ? `<div class="capa-display"><span class="capa-titulo">📋 Contexto</span><span class="capa-texto">${a.contexto || a.ley}</span></div>` : ""}
             ${a.precedente ? `<div class="capa-display"><span class="capa-titulo">📂 Precedente</span><span class="capa-texto">${a.precedente}</span></div>` : ""}
             ${a.ia         ? `<div class="capa-display"><span class="capa-titulo">🤖 IA</span><span class="capa-texto">${a.ia}</span></div>` : ""}
           </div>
@@ -353,8 +418,12 @@ Responde únicamente con el contenido de la capa IA, sin introducciones ni comen
       + '<div style="padding:1.2rem 1.4rem;display:flex;flex-direction:column;gap:1rem;">'
       + (tagsNormas ? '<div class="detalle-seccion"><div class="detalle-seccion-titulo">📄 Normatividad vinculada</div>'
         + '<div style="display:flex;flex-wrap:wrap;gap:0.4rem;margin-top:0.4rem">' + tagsNormas + '</div></div>' : '')
-      + capaHtml("⚖️", "Ley — qué dice la norma", a.ley)
-      + capaHtml("🏛️", "Práctica — cómo se aplica", a.practica)
+      + ((a.entidadesVinculadas||[]).length > 0 ? '<div class="detalle-seccion"><div class="detalle-seccion-titulo">🏛️ Entidades relacionadas</div>'
+        + '<div style="display:flex;flex-wrap:wrap;gap:0.4rem;margin-top:0.4rem">'
+        + (a.entidadesVinculadas||[]).map(e => '<span class="participante-tag" style="font-size:0.8rem">🏛️ ' + e.nombre + '</span>').join("")
+        + '</div></div>' : '')
+      + capaHtml("📋", "Contexto", a.contexto || a.ley)
+      + capaHtml("📄", "Otra normatividad de apoyo", a.normaExtra || a.practica)
       + capaHtml("📂", "Precedente — casos anteriores", a.precedente)
       + (a.ia ? '<div class="detalle-seccion"><div class="detalle-seccion-titulo">🤖 Interpretación IA</div>'
         + '<div class="detalle-briefing-texto">'
@@ -393,7 +462,9 @@ Responde únicamente con el contenido de la capa IA, sin introducciones ni comen
       const filas=todosLosAnalisis.map(a=>({
         "Pregunta":a.pregunta||"","Estado":a.estado||"",
         "Normas vinculadas":(a.normasVinculadas||[]).map(n=>n.nombre).join(", "),
-        "Ley":a.ley||"","Practica":a.practica||"","Precedente":a.precedente||"","IA":a.ia||""
+        "Entidades vinculadas":(a.entidadesVinculadas||[]).map(e=>e.nombre).join(", "),
+        "Contexto":a.contexto||a.ley||"","Otra normatividad":a.normaExtra||a.practica||"",
+        "Precedente":a.precedente||"","IA":a.ia||""
       }));
       const ws=window.XLSX.utils.json_to_sheet(filas);
       ws["!cols"]=[{wch:45},{wch:12},{wch:35},{wch:40},{wch:40},{wch:40},{wch:60}];

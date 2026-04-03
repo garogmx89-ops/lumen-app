@@ -34,6 +34,7 @@ onAuthStateChanged(auth, (user) => {
   let modoEdicion = null;
   let todasLasEntidades = [];
   let filtroAmbitoActivo = "todos";
+  let directorio = []; // [{unidad, responsable, extension}]
 
   // --- LIMPIAR FORMULARIO ---
   function limpiarFormulario() {
@@ -46,6 +47,8 @@ onAuthStateChanged(auth, (user) => {
     document.getElementById("entidad-titular").value      = "";
     document.getElementById("entidad-atribuciones").value = "";
 
+    directorio = [];
+    renderDirectorio();
     document.querySelector("#panel-entidades .reunion-form-card h2").textContent = "Nueva Entidad";
     document.getElementById("btn-cancelar-entidad").style.display = "none";
     modoEdicion = null;
@@ -64,6 +67,8 @@ onAuthStateChanged(auth, (user) => {
     document.getElementById("entidad-titular").value      = datos.titular      || "";
     document.getElementById("entidad-atribuciones").value = datos.atribuciones || "";
 
+    directorio = Array.isArray(datos.directorio) ? datos.directorio.map(d => ({...d})) : [];
+    renderDirectorio();
     document.querySelector("#panel-entidades .reunion-form-card h2").textContent = "Editar Entidad";
     document.getElementById("btn-cancelar-entidad").style.display = "inline-block";
     document.getElementById("panel-entidades").scrollIntoView({ behavior: "smooth" });
@@ -93,10 +98,10 @@ onAuthStateChanged(auth, (user) => {
       try {
         if (modoEdicion) {
           const docRef = doc(db, "usuarios", user.uid, "entidades", modoEdicion);
-          await updateDoc(docRef, { nombre, siglas, tipo, ambito, telefono, extension, titular, atribuciones });
+          await updateDoc(docRef, { nombre, siglas, tipo, ambito, telefono, extension, titular, atribuciones, directorio });
         } else {
           await addDoc(entidadesRef, {
-            nombre, siglas, tipo, ambito, telefono, extension, titular, atribuciones,
+            nombre, siglas, tipo, ambito, telefono, extension, titular, atribuciones, directorio,
             creadoEn: serverTimestamp()
           });
         }
@@ -113,6 +118,51 @@ onAuthStateChanged(auth, (user) => {
   if (btnCancelar) {
     btnCancelar.addEventListener("click", () => limpiarFormulario());
   }
+
+  // ─── DIRECTORIO DE CONTACTOS ─────────────────────────────────────────────
+  function renderDirectorio() {
+    const lista = document.getElementById("directorio-lista");
+    if (!lista) return;
+    if (directorio.length === 0) {
+      lista.innerHTML = '<p style="font-size:0.78rem;color:var(--text3);margin:0">Sin contactos agregados.</p>';
+      return;
+    }
+    lista.innerHTML = directorio.map((d, i) => `
+      <div class="directorio-fila">
+        <input type="text" class="directorio-input" placeholder="Unidad o área" value="${d.unidad||''}"
+          data-index="${i}" data-campo="unidad">
+        <input type="text" class="directorio-input" placeholder="Responsable" value="${d.responsable||''}"
+          data-index="${i}" data-campo="responsable">
+        <input type="text" class="directorio-input directorio-input--corto" placeholder="Ext." value="${d.extension||''}"
+          data-index="${i}" data-campo="extension">
+        <button type="button" class="directorio-btn-quitar" data-index="${i}">✕</button>
+      </div>
+    `).join("");
+
+    // Guardar cambios en tiempo real al escribir
+    lista.querySelectorAll(".directorio-input").forEach(input => {
+      input.addEventListener("input", () => {
+        const idx = Number(input.dataset.index);
+        const campo = input.dataset.campo;
+        if (directorio[idx]) directorio[idx][campo] = input.value;
+      });
+    });
+    lista.querySelectorAll(".directorio-btn-quitar").forEach(btn => {
+      btn.addEventListener("click", () => {
+        directorio.splice(Number(btn.dataset.index), 1);
+        renderDirectorio();
+      });
+    });
+  }
+
+  document.getElementById("btn-agregar-contacto")?.addEventListener("click", () => {
+    directorio.push({ unidad: "", responsable: "", extension: "" });
+    renderDirectorio();
+    // Enfocar el primer input del nuevo contacto
+    const lista = document.getElementById("directorio-lista");
+    const inputs = lista?.querySelectorAll(".directorio-input");
+    if (inputs && inputs.length > 0) inputs[inputs.length - 3]?.focus();
+  });
 
   // --- FILTROS POR ÁMBITO ---
   document.querySelectorAll("#entidades-filtros .filtro-btn").forEach((btn) => {
@@ -274,6 +324,20 @@ onAuthStateChanged(auth, (user) => {
       + (datos.atribuciones ? '<div class="detalle-seccion">'
         + '<div class="detalle-seccion-titulo">📋 Atribuciones</div>'
         + '<div class="detalle-seccion-texto">' + datos.atribuciones + '</div></div>' : '')
+      + ((datos.directorio||[]).length > 0 ? '<div class="detalle-seccion">'
+        + '<div class="detalle-seccion-titulo">📇 Directorio de contactos</div>'
+        + '<table style="width:100%;border-collapse:collapse;margin-top:0.4rem;font-size:0.8rem">'
+        + '<thead><tr style="color:var(--text3)">'
+        + '<th style="text-align:left;padding:3px 6px;border-bottom:1px solid var(--border)">Unidad / Área</th>'
+        + '<th style="text-align:left;padding:3px 6px;border-bottom:1px solid var(--border)">Responsable</th>'
+        + '<th style="text-align:left;padding:3px 6px;border-bottom:1px solid var(--border)">Ext.</th>'
+        + '</tr></thead><tbody>'
+        + (datos.directorio||[]).map(d =>
+            '<tr><td style="padding:4px 6px;color:var(--text)">' + (d.unidad||'—') + '</td>'
+            + '<td style="padding:4px 6px;color:var(--text)">' + (d.responsable||'—') + '</td>'
+            + '<td style="padding:4px 6px;color:var(--text2)">' + (d.extension||'—') + '</td></tr>'
+          ).join("")
+        + '</tbody></table></div>' : '')
       + '</div>'
 
       // Footer

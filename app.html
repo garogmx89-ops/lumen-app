@@ -544,6 +544,26 @@
   </div>
 </div>
 
+<!-- Jerarquía: norma padre -->
+<div class="form-group" id="campo-norma-padre">
+  <label for="norma-padre-select">Deriva de (norma padre)</label>
+  <select id="norma-padre-select" class="participantes-select">
+    <option value="">— Sin norma padre —</option>
+  </select>
+  <div id="norma-padre-seleccionada" style="margin-top:0.4rem;"></div>
+</div>
+
+<!-- Normas relacionadas/complementarias -->
+<div class="form-group" id="campo-normas-relacionadas">
+  <label>Normas relacionadas o complementarias</label>
+  <div class="participantes-selector">
+    <div id="norma-relacionadas-seleccionadas" class="participantes-seleccionados"></div>
+    <select id="norma-relacionada-select" class="participantes-select">
+      <option value="">— Agregar norma relacionada —</option>
+    </select>
+  </div>
+</div>
+
 <button class="btn-primary" id="btn-guardar-norma">Guardar norma</button>
 <button class="btn-secondary" id="btn-cancelar-norma" style="display:none;">Cancelar edición</button>
           </div>

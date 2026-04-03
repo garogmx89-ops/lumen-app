@@ -11,7 +11,6 @@ import {
 
 // ── Firebase Storage ─────────────────────────────────────────────────
 // Los PDFs se guardan en: normas/{userId}/{timestamp}_{nombreArchivo}
-// Los PDFs existentes en Cloudinary siguen funcionando por URL
 
 const colorTipo = {
   "Ley": "#7B2FBE", "Reglamento": "#3A0CA3",
@@ -20,14 +19,16 @@ const colorTipo = {
 
 let todasLasNormas = []; // se usa para exportar y filtrar
 let filtroActivo  = "todos";
-let filtroAmbito  = "todos"; // Federal / Estatal / Municipal
-let busquedaTexto = "";       // busqueda local dentro del modulo
+let filtroAmbito  = "todos";
+let busquedaTexto = "";
 let modoEdicion   = null;
-let pdfUrlActual = null; // Guarda la URL del PDF del registro que se está editando
+let pdfUrlActual  = null;
+
+// Estado de vinculaciones en el formulario
+let padreIdActual       = null;   // ID de la norma padre seleccionada
+let relacionadasActual  = [];     // [{id, nombre}] de normas relacionadas
 
 // ── Función para subir PDF a Firebase Storage ────────────────────────
-// Sube el archivo a normas/{userId}/{timestamp}_{nombre} y devuelve la URL de descarga.
-// Muestra progreso en el indicador existente (#norma-pdf-subiendo).
 async function subirPdfAFirebaseStorage(archivo, userId) {
   const storage   = getStorage();
   const timestamp = Date.now();
@@ -35,13 +36,11 @@ async function subirPdfAFirebaseStorage(archivo, userId) {
   const rutaArchivo  = `normas/${userId}/${timestamp}_${nombreLimpio}`;
   const storageRef   = ref(storage, rutaArchivo);
 
-  // uploadBytesResumable permite monitorear el progreso
   return new Promise((resolve, reject) => {
     const uploadTask = uploadBytesResumable(storageRef, archivo);
 
     uploadTask.on("state_changed",
       (snapshot) => {
-        // Mostrar porcentaje de subida
         const pct = Math.round((snapshot.bytesTransferred / snapshot.totalBytes) * 100);
         const el = document.getElementById("norma-pdf-subiendo");
         if (el) el.textContent = `Subiendo PDF... ${pct}%`;
@@ -51,7 +50,6 @@ async function subirPdfAFirebaseStorage(archivo, userId) {
         reject(new Error("Error al subir el PDF. Verifica tu conexión."));
       },
       async () => {
-        // Subida completa — obtener URL pública de descarga
         const url = await getDownloadURL(uploadTask.snapshot.ref);
         resolve(url);
       }
@@ -64,6 +62,112 @@ onAuthStateChanged(auth, (user) => {
 
   const normasRef = collection(db, "usuarios", user.uid, "normatividad");
 
+  // ── POBLAR SELECTORES DE PADRE Y RELACIONADAS ─────────────────────
+  // Se llama cada vez que cambia la lista de normas.
+  // Excluye la norma que se está editando para no crear ciclos.
+  function poblarSelectoresVinculacion() {
+    const selectPadre     = document.getElementById("norma-padre-select");
+    const selectRelacionada = document.getElementById("norma-relacionada-select");
+    if (!selectPadre || !selectRelacionada) return;
+
+    // Normas disponibles = todas menos la que se está editando
+    const disponibles = todasLasNormas.filter(n => n.id !== modoEdicion);
+
+    // Selector padre
+    selectPadre.innerHTML = '<option value="">— Sin norma padre —</option>';
+    disponibles.forEach(n => {
+      const opt = document.createElement("option");
+      opt.value = n.id;
+      opt.textContent = `${n.tipo ? "[" + n.tipo + "] " : ""}${n.nombre}`;
+      selectPadre.appendChild(opt);
+    });
+
+    // Selector relacionadas
+    selectRelacionada.innerHTML = '<option value="">— Agregar norma relacionada —</option>';
+    disponibles.forEach(n => {
+      const opt = document.createElement("option");
+      opt.value = n.id;
+      opt.textContent = `${n.tipo ? "[" + n.tipo + "] " : ""}${n.nombre}`;
+      selectRelacionada.appendChild(opt);
+    });
+
+    // Re-aplicar valores actuales
+    if (padreIdActual) selectPadre.value = padreIdActual;
+    renderPadreSeleccionado();
+    renderRelacionadasSeleccionadas();
+  }
+
+  // ── Renderizar chip del padre seleccionado ────────────────────────
+  function renderPadreSeleccionado() {
+    const contenedor = document.getElementById("norma-padre-seleccionada");
+    if (!contenedor) return;
+    if (!padreIdActual) { contenedor.innerHTML = ""; return; }
+    const norma = todasLasNormas.find(n => n.id === padreIdActual);
+    const nombre = norma ? norma.nombre : padreIdActual;
+    contenedor.innerHTML = `
+      <span class="tag-chip" style="display:inline-flex;align-items:center;gap:0.3rem;
+        background:var(--accent);color:white;border-radius:20px;padding:0.2rem 0.7rem;
+        font-size:0.78rem;font-weight:600;">
+        ↑ ${nombre}
+        <button type="button" data-padre-quitar="1"
+          style="background:none;border:none;color:white;cursor:pointer;font-size:0.9rem;
+          padding:0;line-height:1;">✕</button>
+      </span>`;
+    contenedor.querySelector("[data-padre-quitar]").addEventListener("click", () => {
+      padreIdActual = null;
+      document.getElementById("norma-padre-select").value = "";
+      renderPadreSeleccionado();
+    });
+  }
+
+  // ── Renderizar chips de relacionadas ──────────────────────────────
+  function renderRelacionadasSeleccionadas() {
+    const contenedor = document.getElementById("norma-relacionadas-seleccionadas");
+    if (!contenedor) return;
+    if (!relacionadasActual.length) { contenedor.innerHTML = ""; return; }
+    contenedor.innerHTML = relacionadasActual.map(r => `
+      <span class="tag-chip" style="display:inline-flex;align-items:center;gap:0.3rem;
+        background:var(--bg3,#2a2a3a);color:var(--text);border:1px solid var(--border);
+        border-radius:20px;padding:0.2rem 0.7rem;font-size:0.78rem;">
+        ↔ ${r.nombre}
+        <button type="button" data-quitar-rel="${r.id}"
+          style="background:none;border:none;color:var(--text2);cursor:pointer;
+          font-size:0.9rem;padding:0;line-height:1;">✕</button>
+      </span>`).join("");
+    contenedor.querySelectorAll("[data-quitar-rel]").forEach(btn => {
+      btn.addEventListener("click", () => {
+        relacionadasActual = relacionadasActual.filter(r => r.id !== btn.dataset.quitarRel);
+        renderRelacionadasSeleccionadas();
+      });
+    });
+  }
+
+  // ── Listener selector padre ───────────────────────────────────────
+  const selectPadre = document.getElementById("norma-padre-select");
+  if (selectPadre) {
+    selectPadre.addEventListener("change", () => {
+      padreIdActual = selectPadre.value || null;
+      renderPadreSeleccionado();
+    });
+  }
+
+  // ── Listener selector relacionadas ───────────────────────────────
+  const selectRel = document.getElementById("norma-relacionada-select");
+  if (selectRel) {
+    selectRel.addEventListener("change", () => {
+      const id = selectRel.value;
+      if (!id) return;
+      const norma = todasLasNormas.find(n => n.id === id);
+      if (!norma) return;
+      // Evitar duplicados
+      if (!relacionadasActual.find(r => r.id === id)) {
+        relacionadasActual.push({ id, nombre: norma.nombre });
+        renderRelacionadasSeleccionadas();
+      }
+      selectRel.value = "";
+    });
+  }
+
   // --- LIMPIAR FORMULARIO ---
   function limpiarFormulario() {
     document.getElementById("norma-nombre").value        = "";
@@ -75,15 +179,24 @@ onAuthStateChanged(auth, (user) => {
     document.getElementById("norma-anotaciones").value   = "";
     document.getElementById("norma-pdf").value           = "";
 
+    // Limpiar vinculaciones
+    padreIdActual      = null;
+    relacionadasActual = [];
+    const sp = document.getElementById("norma-padre-select");
+    if (sp) sp.value = "";
+    renderPadreSeleccionado();
+    renderRelacionadasSeleccionadas();
+
     // Ocultar indicadores de PDF
     document.getElementById("norma-pdf-actual").style.display  = "none";
     const elSubiendo = document.getElementById("norma-pdf-subiendo");
-          if (elSubiendo) { elSubiendo.textContent = "Subiendo PDF..."; elSubiendo.style.display = "none"; }
+    if (elSubiendo) { elSubiendo.textContent = "Subiendo PDF..."; elSubiendo.style.display = "none"; }
     pdfUrlActual = null;
 
     document.querySelector("#panel-normatividad .reunion-form-card h2").textContent = "Nueva Norma";
     document.getElementById("btn-cancelar-norma").style.display = "none";
     modoEdicion = null;
+    poblarSelectoresVinculacion();
   }
 
   // --- ACTIVAR MODO EDICIÓN ---
@@ -101,7 +214,12 @@ onAuthStateChanged(auth, (user) => {
     document.getElementById("norma-anotaciones").value   = norma.anotaciones   || "";
     document.getElementById("norma-pdf").value           = "";
 
-    // Si la norma ya tiene PDF, mostramos el nombre del archivo actual
+    // Cargar vinculaciones
+    padreIdActual      = norma.padreId || null;
+    relacionadasActual = norma.relacionadas || [];
+    poblarSelectoresVinculacion(); // re-renderiza chips con los valores cargados
+
+    // PDF
     pdfUrlActual = norma.pdfUrl || null;
     if (pdfUrlActual) {
       const nombreArchivo = pdfUrlActual.split("/").pop();
@@ -116,7 +234,7 @@ onAuthStateChanged(auth, (user) => {
     document.getElementById("panel-normatividad").scrollIntoView({ behavior: "smooth" });
   }
 
-  // --- BOTÓN QUITAR PDF (al editar, para eliminar el PDF existente) ---
+  // --- BOTÓN QUITAR PDF ---
   const btnQuitarPdf = document.getElementById("btn-quitar-pdf");
   if (btnQuitarPdf) {
     btnQuitarPdf.addEventListener("click", () => {
@@ -144,14 +262,12 @@ onAuthStateChanged(auth, (user) => {
 
       if (!nombre) { alert("El nombre del documento es obligatorio."); return; }
 
-      // Deshabilitar botón mientras se procesa
       btnNuevo.disabled = true;
       btnNuevo.textContent = "Guardando...";
 
       try {
-        let pdfUrl = pdfUrlActual; // Conserva el PDF existente si no se sube uno nuevo
+        let pdfUrl = pdfUrlActual;
 
-        // Si el usuario seleccionó un archivo nuevo, lo subimos primero
         if (archivoPdf) {
           document.getElementById("norma-pdf-subiendo").style.display = "block";
           pdfUrl = await subirPdfAFirebaseStorage(archivoPdf, user.uid);
@@ -159,7 +275,13 @@ onAuthStateChanged(auth, (user) => {
           if (elSubiendo) { elSubiendo.textContent = "Subiendo PDF..."; elSubiendo.style.display = "none"; }
         }
 
-        const datos = { nombre, tipo, ambito, fecha, fechaReforma, resumen, anotaciones, pdfUrl: pdfUrl || null };
+        const datos = {
+          nombre, tipo, ambito, fecha, fechaReforma, resumen, anotaciones,
+          pdfUrl: pdfUrl || null,
+          // Vinculaciones — guardamos null si no hay padre, array vacío si no hay relacionadas
+          padreId:     padreIdActual || null,
+          relacionadas: relacionadasActual.map(r => ({ id: r.id, nombre: r.nombre }))
+        };
 
         if (modoEdicion) {
           const docRef = doc(db, "usuarios", user.uid, "normatividad", modoEdicion);
@@ -172,7 +294,7 @@ onAuthStateChanged(auth, (user) => {
         console.error("Error al guardar norma:", error);
         alert("Hubo un error al guardar. Revisa la consola.");
         const elSubiendo = document.getElementById("norma-pdf-subiendo");
-          if (elSubiendo) { elSubiendo.textContent = "Subiendo PDF..."; elSubiendo.style.display = "none"; }
+        if (elSubiendo) { elSubiendo.textContent = "Subiendo PDF..."; elSubiendo.style.display = "none"; }
       } finally {
         btnNuevo.disabled = false;
         btnNuevo.textContent = "Guardar norma";
@@ -200,11 +322,10 @@ onAuthStateChanged(auth, (user) => {
   const q = query(normasRef, orderBy("creadoEn", "desc"));
   onSnapshot(q, (snapshot) => {
     todasLasNormas = snapshot.docs.map(d => ({ id: d.id, ...d.data() }));
-    // Cargar conteo de paginas relevantes para cada norma
+    poblarSelectoresVinculacion();
     cargarConteoRelevantes().then(() => renderNormas());
   });
 
-  // Carga cuantas paginas estan marcadas como relevantes por norma
   async function cargarConteoRelevantes() {
     try {
       const snap = await getDocs(query(collection(db, "usuarios", user.uid, "anotaciones")));
@@ -221,7 +342,6 @@ onAuthStateChanged(auth, (user) => {
     } catch(e) { /* silencioso */ }
   }
 
-  // Inicializar busqueda local y filtro de ambito
   const inputBusqueda = document.getElementById("norma-busqueda");
   if (inputBusqueda) {
     inputBusqueda.addEventListener("input", () => {
@@ -243,7 +363,6 @@ onAuthStateChanged(auth, (user) => {
     const contenedor = document.getElementById("normatividad-contenido");
     if (!contenedor) return;
 
-    // Botones exportar
     const exportBar_normatividad = document.getElementById("normatividad-export-bar");
     if (exportBar_normatividad && !exportBar_normatividad.dataset.init) {
       exportBar_normatividad.dataset.init = "1";
@@ -255,8 +374,6 @@ onAuthStateChanged(auth, (user) => {
       document.getElementById("btn-exportar-pdf-normatividad").addEventListener("click", () => exportarPDF_normatividad());
     }
 
-    // Filtrar por tipo, ambito y busqueda de texto
-    const hoyFiltro = new Date(); hoyFiltro.setHours(0,0,0,0);
     const filtradas = todasLasNormas.filter(n => {
       if (filtroActivo !== "todos" && n.tipo !== filtroActivo) return false;
       if (filtroAmbito !== "todos" && n.ambito !== filtroAmbito) return false;
@@ -276,8 +393,6 @@ onAuthStateChanged(auth, (user) => {
     contenedor.innerHTML = filtradas.map((n) => {
       const color = colorTipo[n.tipo] || "#555";
 
-      // ── Semaforo de vigencia ──────────────────────────────────────────────
-      // Basado en la fecha de ultima reforma (o publicacion si no hay reforma)
       const fechaRef = n.fechaReforma || n.fecha;
       let semaforoHtml = "";
       if (fechaRef) {
@@ -293,15 +408,19 @@ onAuthStateChanged(auth, (user) => {
         semaforoHtml = `<span class="norma-semaforo" style="background:${sColor}" title="${sTitle}">${sLabel}</span>`;
       }
 
-      // ── Badge de ambito ───────────────────────────────────────────────────
       const ambitoBadge = n.ambito
         ? `<span class="norma-ambito-badge">${n.ambito}</span>`
         : "";
 
-      // ── Badge de paginas relevantes ───────────────────────────────────────
       const relevantes = (n._paginasRelevantes || 0);
       const relevanteBadge = relevantes > 0
         ? `<span class="norma-relevante-badge" title="Paginas marcadas como relevantes">⭐ ${relevantes} pag.</span>`
+        : "";
+
+      // Indicador visual de vinculaciones en la tarjeta (solo pequeño badge)
+      const tieneVinc = (n.padreId || (n.relacionadas && n.relacionadas.length > 0));
+      const vincBadge = tieneVinc
+        ? `<span style="font-size:0.72rem;color:var(--text2);margin-left:0.3rem" title="Tiene normas vinculadas">🔗</span>`
         : "";
 
       return `
@@ -312,6 +431,7 @@ onAuthStateChanged(auth, (user) => {
               ${semaforoHtml}
               ${ambitoBadge}
               <span class="reunion-card-titulo">${n.nombre}</span>
+              ${vincBadge}
             </div>
             <div class="reunion-card-acciones">
               <button class="btn-editar" data-id="${n.id}" title="Editar norma">✏️</button>
@@ -335,7 +455,6 @@ onAuthStateChanged(auth, (user) => {
       `;
     }).join("");
 
-    // Clic en tarjeta → modal de detalle
     contenedor.querySelectorAll(".norma-card--clickable").forEach((card) => {
       card.addEventListener("click", (e) => {
         if (e.target.closest("button") || e.target.closest("a")) return;
@@ -344,12 +463,10 @@ onAuthStateChanged(auth, (user) => {
       });
     });
 
-    // Botones EDITAR
     contenedor.querySelectorAll(".btn-editar").forEach((btn) => {
       btn.addEventListener("click", () => activarEdicion(btn.dataset.id));
     });
 
-    // Botones ABRIR VISOR
     contenedor.querySelectorAll(".btn-abrir-visor").forEach((btn) => {
       btn.addEventListener("click", (e) => {
         e.stopPropagation();
@@ -357,7 +474,6 @@ onAuthStateChanged(auth, (user) => {
       });
     });
 
-    // Botones ELIMINAR
     contenedor.querySelectorAll(".btn-eliminar").forEach((btn) => {
       btn.addEventListener("click", async () => {
         if (!confirm("¿Eliminar esta norma? Esta acción no se puede deshacer.")) return;
@@ -406,10 +522,21 @@ onAuthStateChanged(auth, (user) => {
         + 'font-family:inherit;text-decoration:none;">📄 Ver PDF</a>'
       : "";
 
+    // ── Sección de jerarquía y relacionadas ──────────────────────────
+    // Se construye de forma asíncrona después de renderizar el modal.
+    // Primero ponemos un placeholder con id para llenarlo.
+    const tieneVinc = (norma.padreId || (norma.relacionadas && norma.relacionadas.length > 0));
+    const vincPlaceholder = tieneVinc
+      ? '<div class="detalle-seccion" id="detalle-vinc-seccion">'
+        + '<div class="detalle-seccion-titulo">🔗 Vinculaciones normativas</div>'
+        + '<div id="detalle-vinc-contenido" style="margin-top:0.5rem">'
+        + '<span style="color:var(--text2);font-size:0.82rem">Cargando...</span>'
+        + '</div></div>'
+      : "";
+
     modal.innerHTML = '<div style="background:var(--bg2);border:1px solid var(--border);border-radius:14px;'
       + 'width:100%;max-width:560px;max-height:85vh;overflow-y:auto;box-shadow:var(--shadow);">'
 
-      // Header
       + '<div style="display:flex;justify-content:space-between;align-items:flex-start;'
       + 'padding:1.2rem 1.4rem 1rem;border-bottom:1px solid var(--border);'
       + 'position:sticky;top:0;background:var(--bg2);z-index:1;">'
@@ -423,7 +550,6 @@ onAuthStateChanged(auth, (user) => {
       + 'font-size:1.1rem;cursor:pointer;padding:0.2rem;flex-shrink:0;margin-left:1rem;">✕</button>'
       + '</div>'
 
-      // Cuerpo
       + '<div style="padding:1.2rem 1.4rem;display:flex;flex-direction:column;gap:1rem;">'
       + fechas
       + (norma.resumen ? '<div class="detalle-seccion">'
@@ -432,9 +558,9 @@ onAuthStateChanged(auth, (user) => {
       + (norma.anotaciones ? '<div class="detalle-seccion">'
         + '<div class="detalle-seccion-titulo">🖊️ Notas de aplicación</div>'
         + '<div class="detalle-seccion-texto">' + norma.anotaciones + '</div></div>' : '')
+      + vincPlaceholder
       + '</div>'
 
-      // Footer
       + '<div style="padding:1rem 1.4rem;border-top:1px solid var(--border);'
       + 'display:flex;gap:0.75rem;justify-content:flex-end;'
       + 'position:sticky;bottom:0;background:var(--bg2);">'
@@ -455,16 +581,92 @@ onAuthStateChanged(auth, (user) => {
       activarEdicion(norma.id);
     });
 
-    // Botón Ver PDF desde detalle
-    const btnPdfDetalle = document.getElementById("detalle-norma-pdf");
-    if (btnPdfDetalle) {
-      btnPdfDetalle.addEventListener("click", () => {
-        modal.style.display = "none";
-        abrirVisor(norma.id, norma.pdfUrl, norma.nombre);
-      });
+    modal.style.display = "flex";
+
+    // ── Llenar sección de vinculaciones ──────────────────────────────
+    if (tieneVinc) {
+      renderVinculacionesEnDetalle(norma);
+    }
+  }
+
+  // ── Renderiza chips clicables de padre, hijos y relacionadas en el modal ──
+  function renderVinculacionesEnDetalle(norma) {
+    const contenedor = document.getElementById("detalle-vinc-contenido");
+    if (!contenedor) return;
+
+    let html = "";
+
+    // 1. Norma padre
+    if (norma.padreId) {
+      const padre = todasLasNormas.find(n => n.id === norma.padreId);
+      const nombrePadre = padre ? padre.nombre : "Norma no encontrada";
+      const colorPadre = padre ? (colorTipo[padre.tipo] || "#555") : "#555";
+      html += `<div style="margin-bottom:0.6rem">
+        <div style="font-size:0.75rem;color:var(--text2);margin-bottom:0.3rem;font-weight:600">↑ DERIVA DE</div>
+        <button class="chip-vinc" data-vinc-id="${norma.padreId}"
+          style="display:inline-flex;align-items:center;gap:0.4rem;background:${colorPadre}22;
+          color:var(--text);border:1px solid ${colorPadre}66;border-radius:20px;
+          padding:0.3rem 0.8rem;font-size:0.8rem;cursor:pointer;font-family:inherit;">
+          ${padre && padre.tipo ? `<span style="background:${colorPadre};color:white;border-radius:10px;padding:0.1rem 0.5rem;font-size:0.7rem">${padre.tipo}</span>` : ""}
+          ${nombrePadre}
+        </button>
+      </div>`;
     }
 
-    modal.style.display = "flex";
+    // 2. Normas hijas (query inversa: normas cuyo padreId == norma.id)
+    const hijos = todasLasNormas.filter(n => n.padreId === norma.id);
+    if (hijos.length > 0) {
+      html += `<div style="margin-bottom:0.6rem">
+        <div style="font-size:0.75rem;color:var(--text2);margin-bottom:0.3rem;font-weight:600">↓ NORMAS HIJAS (${hijos.length})</div>
+        <div style="display:flex;flex-wrap:wrap;gap:0.4rem">`;
+      hijos.forEach(h => {
+        const colorH = colorTipo[h.tipo] || "#555";
+        html += `<button class="chip-vinc" data-vinc-id="${h.id}"
+          style="display:inline-flex;align-items:center;gap:0.4rem;background:${colorH}22;
+          color:var(--text);border:1px solid ${colorH}66;border-radius:20px;
+          padding:0.3rem 0.8rem;font-size:0.8rem;cursor:pointer;font-family:inherit;">
+          ${h.tipo ? `<span style="background:${colorH};color:white;border-radius:10px;padding:0.1rem 0.5rem;font-size:0.7rem">${h.tipo}</span>` : ""}
+          ${h.nombre}
+        </button>`;
+      });
+      html += `</div></div>`;
+    }
+
+    // 3. Normas relacionadas/complementarias
+    const rel = norma.relacionadas || [];
+    if (rel.length > 0) {
+      html += `<div>
+        <div style="font-size:0.75rem;color:var(--text2);margin-bottom:0.3rem;font-weight:600">↔ RELACIONADAS (${rel.length})</div>
+        <div style="display:flex;flex-wrap:wrap;gap:0.4rem">`;
+      rel.forEach(r => {
+        const normaRel = todasLasNormas.find(n => n.id === r.id);
+        const colorR = normaRel ? (colorTipo[normaRel.tipo] || "#555") : "#555";
+        const nombreR = normaRel ? normaRel.nombre : r.nombre;
+        const tipoR   = normaRel ? normaRel.tipo : "";
+        html += `<button class="chip-vinc" data-vinc-id="${r.id}"
+          style="display:inline-flex;align-items:center;gap:0.4rem;background:var(--bg3,#1e1e2e);
+          color:var(--text);border:1px solid var(--border);border-radius:20px;
+          padding:0.3rem 0.8rem;font-size:0.8rem;cursor:pointer;font-family:inherit;">
+          ${tipoR ? `<span style="background:${colorR};color:white;border-radius:10px;padding:0.1rem 0.5rem;font-size:0.7rem">${tipoR}</span>` : ""}
+          ${nombreR}
+        </button>`;
+      });
+      html += `</div></div>`;
+    }
+
+    contenedor.innerHTML = html || '<span style="color:var(--text2);font-size:0.82rem">Sin vinculaciones registradas.</span>';
+
+    // Clic en chip → cerrar modal actual y abrir detalle de la norma vinculada
+    contenedor.querySelectorAll(".chip-vinc").forEach(btn => {
+      btn.addEventListener("click", () => {
+        const modal = document.getElementById("detalle-norma-modal");
+        if (modal) modal.style.display = "none";
+        const normaDestino = todasLasNormas.find(n => n.id === btn.dataset.vincId);
+        if (normaDestino) {
+          setTimeout(() => mostrarDetalle(normaDestino), 120);
+        }
+      });
+    });
   }
 
 
@@ -515,21 +717,23 @@ onAuthStateChanged(auth, (user) => {
         "Publicacion original": n.fecha ? fmtFecha_(n.fecha) : "",
         "Ultima reforma": n.fechaReforma ? fmtFecha_(n.fechaReforma) : "",
         "Resumen": n.resumen||"", "Anotaciones": n.anotaciones||"",
+        "Norma padre": n.padreId ? (todasLasNormas.find(p=>p.id===n.padreId)||{}).nombre||n.padreId : "",
+        "Normas relacionadas": (n.relacionadas||[]).map(r=>r.nombre).join("; "),
         "PDF": n.pdfUrl||""
       }));
       const ws = window.XLSX.utils.json_to_sheet(filas);
-      ws["!cols"] = [{wch:45},{wch:14},{wch:20},{wch:20},{wch:50},{wch:40},{wch:50}];
+      ws["!cols"] = [{wch:45},{wch:14},{wch:20},{wch:20},{wch:50},{wch:40},{wch:35},{wch:50},{wch:50}];
       const wb = window.XLSX.utils.book_new();
       window.XLSX.utils.book_append_sheet(wb, ws, "Normatividad");
       window.XLSX.writeFile(wb, "Lumen_Normatividad_"+fechaHoy_()+".xlsx");
     }
-
     if (window.XLSX) { gen(); } else {
       const s = document.createElement("script");
       s.src = "https://cdnjs.cloudflare.com/ajax/libs/xlsx/0.18.5/xlsx.full.min.js";
       s.onload = gen; document.head.appendChild(s);
     }
   }
+
   function exportarPDF_normatividad() {
     if (!todasLasNormas.length) { alert("No hay normas para exportar."); return; }
     function gen() {
@@ -551,7 +755,6 @@ onAuthStateChanged(auth, (user) => {
       pdfFooter_(doc);
       doc.save("Lumen_Normatividad_"+fechaHoy_()+".pdf");
     }
-
     if (window.jspdf) { gen(); } else {
       const s = document.createElement("script");
       s.src = "https://cdnjs.cloudflare.com/ajax/libs/jspdf/2.5.1/jspdf.umd.min.js";
@@ -560,13 +763,11 @@ onAuthStateChanged(auth, (user) => {
   }
 
   // ─── VISOR DE PDF CON ANOTACIONES ────────────────────────────────────────
-  // Carga PDF.js dinámicamente, renderiza el PDF página por página,
-  // y gestiona notas y marcado de páginas relevantes en Firestore.
 
-  let _visorPdfDoc   = null;  // Instancia del PDF cargado
-  let _visorPagActual = 1;    // Página visible en este momento
-  let _visorNormaId  = null;  // ID de la norma activa en el visor
-  let _visorRenderTask = null; // Para cancelar renders previos
+  let _visorPdfDoc    = null;
+  let _visorPagActual = 1;
+  let _visorNormaId   = null;
+  let _visorRenderTask = null;
 
   async function abrirVisor(normaId, pdfUrl, nombre) {
     if (!pdfUrl) { alert("Esta norma no tiene PDF adjunto."); return; }
@@ -575,7 +776,6 @@ onAuthStateChanged(auth, (user) => {
     _visorPagActual = 1;
     _visorPdfDoc    = null;
 
-    // Mostrar visor, ocultar lista
     document.querySelector("#panel-normatividad .reunion-form-card").style.display = "none";
     document.querySelector("#panel-normatividad .norma-filtros").style.display     = "none";
     document.querySelector("#panel-normatividad .reuniones-lista").style.display   = "none";
@@ -587,13 +787,11 @@ onAuthStateChanged(auth, (user) => {
     document.getElementById("visor-notas-lista").innerHTML    = "";
     document.getElementById("visor-nota-texto").value         = "";
 
-    // Configurar botón Cerrar
     const btnCerrar = document.getElementById("visor-btn-cerrar");
     const btnCerrarNuevo = btnCerrar.cloneNode(true);
     btnCerrar.parentNode.replaceChild(btnCerrarNuevo, btnCerrar);
     btnCerrarNuevo.addEventListener("click", cerrarVisor);
 
-    // Cargar PDF.js dinámicamente
     if (!window.pdfjsLib) {
       await cargarScript("https://cdnjs.cloudflare.com/ajax/libs/pdf.js/3.11.174/pdf.min.js");
       window.pdfjsLib.GlobalWorkerOptions.workerSrc =
@@ -601,7 +799,6 @@ onAuthStateChanged(auth, (user) => {
     }
 
     try {
-      // Usar proxy CORS de PDF.js para URLs externas (Firebase Storage las sirve con CORS correcto)
       const loadingTask = window.pdfjsLib.getDocument({ url: pdfUrl, withCredentials: false });
       _visorPdfDoc = await loadingTask.promise;
       document.getElementById("visor-loading").style.display = "none";
@@ -615,7 +812,6 @@ onAuthStateChanged(auth, (user) => {
       document.getElementById("visor-loading").textContent = "Error al cargar el PDF. Verifica la URL.";
     }
 
-    // ── Navegación ──────────────────────────────────────────────────────────
     const btnPrev = document.getElementById("visor-btn-prev");
     const btnNext = document.getElementById("visor-btn-next");
     const btnPrevN = btnPrev.cloneNode(true); btnPrev.parentNode.replaceChild(btnPrevN, btnPrev);
@@ -639,42 +835,33 @@ onAuthStateChanged(auth, (user) => {
       cargarEstadoRelevante(_visorPagActual);
     });
 
-    // ── Guardar nota ─────────────────────────────────────────────────────────
     const btnNota = document.getElementById("visor-btn-guardar-nota");
     const btnNotaN = btnNota.cloneNode(true); btnNota.parentNode.replaceChild(btnNotaN, btnNota);
     btnNotaN.addEventListener("click", () => guardarNota());
 
-    // ── Marcar relevante ─────────────────────────────────────────────────────
     const btnRel = document.getElementById("visor-btn-relevante");
     const btnRelN = btnRel.cloneNode(true); btnRel.parentNode.replaceChild(btnRelN, btnRel);
     btnRelN.addEventListener("click", () => toggleRelevante());
   }
 
-  // ── Renderizar página ──────────────────────────────────────────────────────
   async function renderPagina(numPag) {
     if (!_visorPdfDoc) return;
     if (_visorRenderTask) { _visorRenderTask.cancel(); }
-
     const pagina  = await _visorPdfDoc.getPage(numPag);
     const canvas  = document.getElementById("visor-canvas");
     const ctx     = canvas.getContext("2d");
-
-    // Escala responsiva — ancho disponible del contenedor
     const contenedorAncho = canvas.parentElement.clientWidth || 600;
     const viewport0 = pagina.getViewport({ scale: 1 });
     const escala    = Math.min((contenedorAncho - 20) / viewport0.width, 1.8);
     const viewport  = pagina.getViewport({ scale: escala });
-
     canvas.width  = viewport.width;
     canvas.height = viewport.height;
-
     const renderCtx = { canvasContext: ctx, viewport };
     _visorRenderTask = pagina.render(renderCtx);
     await _visorRenderTask.promise;
     _visorRenderTask = null;
   }
 
-  // ── Actualizar info de navegación ─────────────────────────────────────────
   function actualizarNavegacion() {
     const total = _visorPdfDoc ? _visorPdfDoc.numPages : 1;
     document.getElementById("visor-pagina-info").textContent = "Pag " + _visorPagActual + " / " + total;
@@ -683,39 +870,23 @@ onAuthStateChanged(auth, (user) => {
     document.getElementById("visor-btn-next").disabled = _visorPagActual >= total;
   }
 
-  // ── Notas por página ──────────────────────────────────────────────────────
-  // Ruta en Firestore: usuarios/{uid}/anotaciones/{normaId}_pag{num}
   async function guardarNota() {
     const texto = document.getElementById("visor-nota-texto").value.trim();
     if (!texto) { alert("Escribe una nota antes de guardar."); return; }
-
     const docId  = _visorNormaId + "_pag" + _visorPagActual;
     const notaRef = doc(db, "usuarios", user.uid, "anotaciones", docId);
-
-    // Obtener notas existentes y agregar la nueva
     let notasExistentes = [];
     try {
-      const snap = await getDocs(query(
-        collection(db, "usuarios", user.uid, "anotaciones")
-      ));
+      const snap = await getDocs(query(collection(db, "usuarios", user.uid, "anotaciones")));
       const docSnap = snap.docs.find(d => d.id === docId);
       if (docSnap) notasExistentes = docSnap.data().notas || [];
     } catch(e) {}
-
-    const nuevaNota = {
-      texto,
-      fecha: new Date().toISOString(),
-      pagina: _visorPagActual
-    };
+    const nuevaNota = { texto, fecha: new Date().toISOString(), pagina: _visorPagActual };
     notasExistentes.push(nuevaNota);
-
     await setDoc(notaRef, {
-      normaId: _visorNormaId,
-      pagina:  _visorPagActual,
-      notas:   notasExistentes,
-      actualizadoEn: serverTimestamp()
+      normaId: _visorNormaId, pagina: _visorPagActual,
+      notas: notasExistentes, actualizadoEn: serverTimestamp()
     });
-
     document.getElementById("visor-nota-texto").value = "";
     cargarNotasPagina(_visorPagActual);
   }
@@ -723,18 +894,15 @@ onAuthStateChanged(auth, (user) => {
   async function cargarNotasPagina(numPag) {
     const lista = document.getElementById("visor-notas-lista");
     if (!lista) return;
-
     const docId = _visorNormaId + "_pag" + numPag;
     try {
       const snap = await getDocs(query(collection(db, "usuarios", user.uid, "anotaciones")));
       const docSnap = snap.docs.find(d => d.id === docId);
       const notas = docSnap ? (docSnap.data().notas || []) : [];
-
       if (notas.length === 0) {
         lista.innerHTML = '<p style="color:var(--text2);font-size:0.8rem;margin-top:0.5rem">Sin notas en esta pagina</p>';
         return;
       }
-
       lista.innerHTML = notas.slice().reverse().map((n, i) => `
         <div class="visor-nota-item">
           <div class="visor-nota-fecha">${new Date(n.fecha).toLocaleDateString("es-MX",{day:"2-digit",month:"short",year:"numeric"})}</div>
@@ -742,7 +910,6 @@ onAuthStateChanged(auth, (user) => {
           <button class="visor-nota-eliminar" data-index="${notas.length - 1 - i}" title="Eliminar nota">✕</button>
         </div>
       `).join("");
-
       lista.querySelectorAll(".visor-nota-eliminar").forEach(btn => {
         btn.addEventListener("click", async () => {
           const idx = Number(btn.dataset.index);
@@ -752,22 +919,17 @@ onAuthStateChanged(auth, (user) => {
           cargarNotasPagina(numPag);
         });
       });
-    } catch(e) {
-      console.error("Error cargando notas:", e);
-    }
+    } catch(e) { console.error("Error cargando notas:", e); }
   }
 
-  // ── Marcar página como relevante ──────────────────────────────────────────
   async function toggleRelevante() {
     const docId   = _visorNormaId + "_rel_pag" + _visorPagActual;
     const relRef  = doc(db, "usuarios", user.uid, "anotaciones", docId);
     const btnRel  = document.getElementById("visor-btn-relevante");
-
     try {
       const snap = await getDocs(query(collection(db, "usuarios", user.uid, "anotaciones")));
       const docSnap = snap.docs.find(d => d.id === docId);
       const esRelevante = docSnap ? (docSnap.data().relevante === true) : false;
-
       if (esRelevante) {
         await setDoc(relRef, { normaId: _visorNormaId, pagina: _visorPagActual, relevante: false });
         btnRel.textContent = "⭐ Relevante";
@@ -779,9 +941,7 @@ onAuthStateChanged(auth, (user) => {
         btnRel.style.background = "var(--accent)";
         btnRel.style.color = "white";
       }
-    } catch(e) {
-      console.error("Error marcando relevante:", e);
-    }
+    } catch(e) { console.error("Error marcando relevante:", e); }
   }
 
   async function cargarEstadoRelevante(numPag) {
@@ -804,7 +964,6 @@ onAuthStateChanged(auth, (user) => {
     } catch(e) {}
   }
 
-  // ── Cerrar visor ──────────────────────────────────────────────────────────
   function cerrarVisor() {
     document.getElementById("norma-visor-panel").style.display = "none";
     document.querySelector("#panel-normatividad .reunion-form-card").style.display = "";
@@ -814,7 +973,6 @@ onAuthStateChanged(auth, (user) => {
     _visorPdfDoc = null;
   }
 
-  // ── Helper: cargar script dinámicamente ──────────────────────────────────
   function cargarScript(src) {
     return new Promise((resolve, reject) => {
       if (document.querySelector(`script[src="${src}"]`)) { resolve(); return; }

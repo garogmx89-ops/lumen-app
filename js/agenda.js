@@ -24,15 +24,17 @@ let filtroActivo     = "todos";
 let modoEdicion      = null;
 
 // Arrays que guardan los vínculos seleccionados en el formulario
-let procesosVinculados = []; // [{ id, nombre }]
-let normasVinculadas   = []; // [{ nombre }]
+let procesosVinculados  = []; // [{ id, nombre }]
+let normasVinculadas    = []; // [{ nombre }]
+let entidadesVinculadas = []; // [{ id, nombre }]
 
 onAuthStateChanged(auth, (user) => {
   if (!user) return;
 
-  const alertasRef  = collection(db, "usuarios", user.uid, "agenda");
-  const procesosRef = collection(db, "usuarios", user.uid, "procesos");
-  const normasRef   = collection(db, "usuarios", user.uid, "normatividad");
+  const alertasRef   = collection(db, "usuarios", user.uid, "agenda");
+  const procesosRef  = collection(db, "usuarios", user.uid, "procesos");
+  const normasRef    = collection(db, "usuarios", user.uid, "normatividad");
+  const entidadesRef = collection(db, "usuarios", user.uid, "entidades");
 
   // ─── CARGAR CATÁLOGO DE PROCESOS ─────────────────────────────────────────
   // Escuchamos la colección Procesos en tiempo real para poblar el selector

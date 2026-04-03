@@ -14,6 +14,7 @@ const colorEstado = {
 
 let todosLosProcesos           = [];
 let filtroActivo               = "todos";
+let filtroEntidadActivo        = "todos";
 let modoEdicion                = null;
 let normasSeleccionadasProceso = [];
 let pasos                      = [];

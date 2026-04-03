@@ -483,15 +483,13 @@ body.light .theme-toggle-knob {
 /* ─── RESPONSIVE ─────────────────────────────────────────────────────────────── */
 @media (max-width: 768px) {
   .sidebar { display: none; }
-  .shell   { flex-direction: column; height: 100vh; overflow: hidden; }
-  .main    { flex: 1; display: flex; flex-direction: column; overflow: hidden; min-height: 0; }
+  .shell   { flex-direction: column; }
+  /* En móvil, .main ocupa todo el espacio restante y permite scroll interno */
+  .main    { min-height: 0; flex: 1; }
   .content {
-    flex: 1;
-    min-height: 0;
-    overflow-y: auto;
     padding: 14px;
+    /* Espacio suficiente para que la barra inferior no tape el último elemento */
     padding-bottom: calc(var(--bnav-h) + 32px);
-    -webkit-overflow-scrolling: touch;
   }
   .stat-grid { grid-template-columns: 1fr 1fr; }
   .two-col   { grid-template-columns: 1fr; }
@@ -1915,24 +1913,6 @@ body.light input[type="time"]::-webkit-calendar-picker-indicator {
   padding-left: 22px !important;
 }
 
-/* ── Fix menú inferior tapa contenido en móvil ─────────────────── */
-@media (max-width: 768px) {
-  /* Espacio extra al final de cada formulario */
-  .reunion-form-card {
-    padding-bottom: calc(var(--bnav-h) + 16px);
-  }
-  /* Espacio extra al final de cada lista de tarjetas */
-  .reuniones-lista,
-  #entidades-contenido,
-  #analisis-contenido,
-  #procesos-contenido,
-  #agenda-contenido,
-  #territorio-contenido,
-  #contexto-contenido,
-  #normatividad-contenido {
-    padding-bottom: calc(var(--bnav-h) + 16px);
-  }
-}
 
 /* ── Fix topbar: toggle tema bien posicionado ───────────────────── */
 .topbar-actions {

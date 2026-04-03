@@ -73,10 +73,10 @@ onAuthStateChanged(auth, (user) => {
   // ─── LIMPIAR FORMULARIO ───────────────────────────────────────────────────
   function limpiarFormulario() {
     document.getElementById("reunion-titulo").value        = "";
-    document.getElementById("reunion-fecha").value = "";
-    document.getElementById("reunion-hora").value  = "";
-    document.getElementById("reunion-participantes").value = "";
-    document.getElementById("reunion-acuerdos").value      = "";
+    document.getElementById("reunion-fecha").value          = "";
+    document.getElementById("reunion-hora").value           = "";
+    document.getElementById("reunion-participantes").value  = "";
+    document.getElementById("reunion-acuerdos").value       = ""; // campo Asunto
     participantesSeleccionados = [];
     renderParticipantesSeleccionados();
     document.querySelector("#panel-reuniones .reunion-form-card h2").textContent = "Nueva Reunión";
@@ -101,7 +101,7 @@ onAuthStateChanged(auth, (user) => {
       document.getElementById("reunion-hora").value  = datos.hora  || "";
     }
     document.getElementById("reunion-participantes").value = datos.participantes || "";
-    document.getElementById("reunion-acuerdos").value      = datos.acuerdos      || "";
+    document.getElementById("reunion-acuerdos").value      = datos.asunto        || datos.acuerdos || ""; // compatibilidad
     participantesSeleccionados = Array.isArray(datos.participantesVinculados)
       ? datos.participantesVinculados.map(p => ({ ...p }))
       : [];
@@ -119,18 +119,25 @@ onAuthStateChanged(auth, (user) => {
 
     btnLimpio.addEventListener("click", async () => {
       const titulo        = document.getElementById("reunion-titulo").value.trim();
-      const fecha = document.getElementById("reunion-fecha").value;
-      const hora  = document.getElementById("reunion-hora").value;
+      const fecha         = document.getElementById("reunion-fecha").value;
+      const hora          = document.getElementById("reunion-hora").value;
       const participantes = document.getElementById("reunion-participantes").value.trim();
-      const acuerdos      = document.getElementById("reunion-acuerdos").value.trim();
+      const asunto        = document.getElementById("reunion-acuerdos").value.trim();
 
       if (!titulo) { alert("El título de la reunión es obligatorio."); return; }
 
       try {
         const datos = {
-          titulo, fecha, hora, participantes, acuerdos,
+          titulo, fecha, hora, participantes,
+          asunto,       // lo que se va a tratar / trató en la reunion
+          acuerdos: "", // se llena despues desde el modal de detalle
           participantesVinculados: participantesSeleccionados
         };
+        // Si estamos editando, conservar los acuerdos existentes
+        if (modoEdicion) {
+          const reunionExistente = snapshot.docs.find(d => d.id === modoEdicion);
+          if (reunionExistente) datos.acuerdos = reunionExistente.data().acuerdos || "";
+        }
         if (modoEdicion) {
           await updateDoc(doc(db, "usuarios", user.uid, "reuniones", modoEdicion), datos);
         } else {
@@ -175,7 +182,8 @@ DATOS DE LA REUNIÓN:
 - Título: ${datos.titulo}
 - Fecha: ${datos.fecha ? formatearFecha(datos.fecha, datos.hora) : "No especificada"}
 - Participantes: ${participantesTexto}
-- Acuerdos y compromisos: ${datos.acuerdos || "No registrados"}
+- Asunto / Tema: ${datos.asunto || datos.acuerdos || "No especificado"}
+- Acuerdos alcanzados: ${datos.acuerdos || "Sin acuerdos registrados aun"}
 
 El briefing debe incluir exactamente estas secciones:
 1. RESUMEN EJECUTIVO (2-3 oraciones que capturen la esencia de la reunión)
@@ -325,9 +333,10 @@ Usa un tono institucional profesional, en español.`;
           <div class="reunion-card-header">
             <div class="reunion-card-titulo">${d.titulo}</div>
             <div class="reunion-card-acciones">
-              <button class="btn-briefing-ia" data-id="${id}" title="Generar Briefing IA">✨</button>
-              <button class="btn-editar"      data-id="${id}" title="Editar reunión">✏️</button>
-              <button class="btn-eliminar"    data-id="${id}" title="Eliminar reunión">🗑️</button>
+              <button class="btn-briefing-ia"  data-id="${id}" title="Generar Briefing IA">✨</button>
+              <button class="btn-acuerdos"     data-id="${id}" title="Agregar acuerdos post-reunion">📋</button>
+              <button class="btn-editar"       data-id="${id}" title="Editar reunión">✏️</button>
+              <button class="btn-eliminar"     data-id="${id}" title="Eliminar reunión">🗑️</button>
             </div>
           </div>
           <div class="reunion-card-meta">
@@ -335,7 +344,8 @@ Usa un tono institucional profesional, en español.`;
           </div>
           ${tagsVinculados}
           ${d.participantes ? `<div class="reunion-card-meta">👥 ${d.participantes}</div>` : ""}
-          ${d.acuerdos ? `<div class="reunion-card-acuerdos"><strong>Acuerdos:</strong> ${d.acuerdos}</div>` : ""}
+          ${d.asunto   ? `<div class="reunion-card-acuerdos"><strong>Asunto:</strong> ${d.asunto}</div>` : ""}
+          ${d.acuerdos ? `<div class="reunion-card-acuerdos" style="border-left:3px solid var(--accent);padding-left:0.5rem;margin-top:0.3rem"><strong>Asunto:</strong> ${d.acuerdos}</div>` : ""}
         </div>
       `;
     }).join("");
@@ -357,6 +367,14 @@ Usa un tono institucional profesional, en español.`;
       btn.addEventListener("click", () => {
         const documentoEncontrado = snapshot.docs.find(d => d.id === btn.dataset.id);
         if (documentoEncontrado) generarBriefing(btn.dataset.id, documentoEncontrado.data());
+      });
+    });
+
+    // Botones ACUERDOS POST-REUNION
+    contenedor.querySelectorAll(".btn-acuerdos").forEach((btn) => {
+      btn.addEventListener("click", () => {
+        const documentoEncontrado = snapshot.docs.find(d => d.id === btn.dataset.id);
+        if (documentoEncontrado) mostrarModalAcuerdos(btn.dataset.id, documentoEncontrado.data());
       });
     });
 
@@ -456,11 +474,40 @@ Usa un tono institucional profesional, en español.`;
               <div class="detalle-seccion-texto">${datos.participantes}</div>
             </div>` : ""}
 
-          ${datos.acuerdos ? `
+          ${datos.asunto ? `
             <div class="detalle-seccion">
-              <div class="detalle-seccion-titulo">📋 Acuerdos y compromisos</div>
-              <div class="detalle-seccion-texto">${datos.acuerdos}</div>
+              <div class="detalle-seccion-titulo">📌 Asunto</div>
+              <div class="detalle-seccion-texto">${datos.asunto}</div>
             </div>` : ""}
+          <div class="detalle-seccion">
+            <div class="detalle-seccion-titulo" style="display:flex;justify-content:space-between;align-items:center">
+              <span>📋 Acuerdos y compromisos</span>
+              <button id="detalle-btn-editar-acuerdos" style="background:none;border:1px solid var(--border);
+                color:var(--text2);border-radius:6px;padding:0.2rem 0.6rem;font-size:0.75rem;cursor:pointer;
+                font-family:inherit">${datos.acuerdos ? "✏️ Editar" : "➕ Agregar"}</button>
+            </div>
+            <div id="detalle-acuerdos-display" style="margin-top:0.4rem">
+              ${datos.acuerdos
+                ? `<div class="detalle-seccion-texto" style="border-left:3px solid var(--accent);padding-left:0.5rem">${datos.acuerdos}</div>`
+                : `<p style="color:var(--text2);font-size:0.82rem;font-style:italic">Sin acuerdos registrados aun.</p>`}
+            </div>
+            <div id="detalle-acuerdos-editor" style="display:none;margin-top:0.4rem">
+              <textarea id="detalle-acuerdos-textarea" rows="4"
+                style="width:100%;background:var(--bg3);border:1px solid var(--border);border-radius:8px;
+                       padding:0.5rem;color:var(--text);font-family:inherit;font-size:0.875rem;resize:vertical"
+                placeholder="Escribe los acuerdos y compromisos alcanzados...">${datos.acuerdos || ""}</textarea>
+              <div style="display:flex;gap:0.5rem;margin-top:0.4rem">
+                <button id="detalle-btn-guardar-acuerdos" style="background:var(--accent);color:white;border:none;
+                  border-radius:8px;padding:0.45rem 1rem;font-size:0.82rem;cursor:pointer;font-family:inherit;font-weight:600">
+                  Guardar acuerdos
+                </button>
+                <button id="detalle-btn-cancelar-acuerdos" style="background:none;border:1px solid var(--border);
+                  color:var(--text2);border-radius:8px;padding:0.45rem 1rem;font-size:0.82rem;cursor:pointer;font-family:inherit">
+                  Cancelar
+                </button>
+              </div>
+            </div>
+          </div>
 
           ${briefingHtml}
 
@@ -475,6 +522,12 @@ Usa un tono institucional profesional, en español.`;
                    padding:0.55rem 1.2rem;font-size:0.875rem;cursor:pointer;
                    font-family:inherit;font-weight:600;">
             ✏️ Editar
+          </button>
+          <button id="detalle-btn-acuerdos"
+            style="background:none;border:1px solid var(--border);color:var(--text2);
+                   border-radius:8px;padding:0.55rem 1.2rem;font-size:0.875rem;
+                   cursor:pointer;font-family:inherit;">
+            ${datos.acuerdos_post ? "📋 Ver acuerdos" : "📋 Agregar acuerdos"}
           </button>
           <button id="detalle-btn-briefing"
             style="background:none;border:1px solid var(--border);color:var(--text2);
@@ -504,6 +557,48 @@ Usa un tono institucional profesional, en español.`;
     document.getElementById("detalle-btn-editar").addEventListener("click", () => {
       modal.style.display = "none";
       activarEdicion(id, datos);
+    });
+
+    // Botón editar/agregar acuerdos desde detalle
+    document.getElementById("detalle-btn-editar-acuerdos").addEventListener("click", () => {
+      const editor  = document.getElementById("detalle-acuerdos-editor");
+      const display = document.getElementById("detalle-acuerdos-display");
+      editor.style.display  = "block";
+      display.style.display = "none";
+    });
+
+    document.getElementById("detalle-btn-cancelar-acuerdos").addEventListener("click", () => {
+      document.getElementById("detalle-acuerdos-editor").style.display  = "none";
+      document.getElementById("detalle-acuerdos-display").style.display = "block";
+    });
+
+    document.getElementById("detalle-btn-guardar-acuerdos").addEventListener("click", async () => {
+      const texto = document.getElementById("detalle-acuerdos-textarea").value.trim();
+      const btnG  = document.getElementById("detalle-btn-guardar-acuerdos");
+      btnG.disabled = true; btnG.textContent = "Guardando...";
+      try {
+        await updateDoc(doc(db, "usuarios", user.uid, "reuniones", id), { acuerdos: texto });
+        // Actualizar display sin cerrar el modal
+        const display = document.getElementById("detalle-acuerdos-display");
+        display.innerHTML = texto
+          ? `<div class="detalle-seccion-texto" style="border-left:3px solid var(--accent);padding-left:0.5rem">${texto}</div>`
+          : `<p style="color:var(--text2);font-size:0.82rem;font-style:italic">Sin acuerdos registrados aun.</p>`;
+        document.getElementById("detalle-btn-editar-acuerdos").textContent = texto ? "✏️ Editar" : "➕ Agregar";
+        document.getElementById("detalle-acuerdos-editor").style.display  = "none";
+        display.style.display = "block";
+        datos.acuerdos = texto; // actualizar datos locales
+      } catch(e) {
+        alert("Error al guardar. Revisa la consola.");
+        console.error(e);
+      } finally {
+        btnG.disabled = false; btnG.textContent = "Guardar acuerdos";
+      }
+    });
+
+    // Boton Acuerdos desde detalle
+    document.getElementById("detalle-btn-acuerdos").addEventListener("click", () => {
+      modal.style.display = "none";
+      mostrarModalAcuerdos(id, datos);
     });
 
     // Botón Briefing — abre el modal de IA
@@ -536,7 +631,7 @@ Usa un tono institucional profesional, en español.`;
         "Fecha":                 r.fecha ? formatearFechaExport(r.fecha) : "","Hora": r.hora || "",
         "Participantes":         r.participantes || "",
         "Entidades vinculadas":  (r.participantesVinculados || []).map(p => p.nombre).join(", "),
-        "Acuerdos":              r.acuerdos || "",
+        "Asunto": r.asunto || r.acuerdos || "","Acuerdos": r.acuerdos || "",
         "Briefing IA":           r.briefing ? "Sí" : "No",
       }));
 
@@ -637,7 +732,7 @@ Usa un tono institucional profesional, en español.`;
         if (r.acuerdos) {
           checkPage(10);
           doc.setFontSize(8); doc.setFont("helvetica", "bold");
-          doc.text("Acuerdos:", marginL, y); y += 4;
+          doc.text("Asunto:", marginL, y); y += 4;
           doc.setFont("helvetica", "normal");
           const acuLines = doc.splitTextToSize(r.acuerdos, contentW);
           checkPage(acuLines.length * 4.5);
@@ -742,7 +837,7 @@ Usa un tono institucional profesional, en español.`;
       seccion("Participantes", datos.participantes);
 
       // Acuerdos
-      seccion("Acuerdos y compromisos", datos.acuerdos);
+      seccion("Asunto", datos.acuerdos);
 
       // Briefing IA
       if (datos.briefing) {
@@ -796,6 +891,67 @@ Usa un tono institucional profesional, en español.`;
     const d = new Date(fechaStr);
     if (!isNaN(d)) return d.toLocaleDateString("es-MX", { day: "2-digit", month: "short", year: "numeric" });
     return fechaStr;
+  }
+
+  // ─── MODAL DE ACUERDOS POST-REUNION ──────────────────────────────────────
+  // Permite agregar o editar los acuerdos alcanzados despues de la reunion.
+  function mostrarModalAcuerdos(id, datos) {
+    let modal = document.getElementById("modal-acuerdos");
+    if (!modal) {
+      modal = document.createElement("div");
+      modal.id = "modal-acuerdos";
+      modal.style.cssText = "position:fixed;inset:0;background:rgba(0,0,0,0.6);"
+        + "display:flex;align-items:center;justify-content:center;z-index:800;padding:1rem;";
+      document.body.appendChild(modal);
+    }
+
+    modal.innerHTML = '<div style="background:var(--bg2);border:1px solid var(--border);'
+      + 'border-radius:14px;width:100%;max-width:540px;box-shadow:var(--shadow);">'
+      + '<div style="display:flex;justify-content:space-between;align-items:center;'
+      + 'padding:1.2rem 1.4rem 1rem;border-bottom:1px solid var(--border);">'
+      + '<div>'
+      + '<div style="font-weight:700;color:var(--text);font-size:0.95rem">📋 Acuerdos y compromisos</div>'
+      + '<div style="font-size:0.8rem;color:var(--text2);margin-top:0.2rem">' + (datos.titulo || "") + '</div>'
+      + '</div>'
+      + '<button id="modal-acuerdos-cerrar" style="background:none;border:none;color:var(--text2);'
+      + 'font-size:1.1rem;cursor:pointer;">✕</button>'
+      + '</div>'
+      + '<div style="padding:1.2rem 1.4rem;">'
+      + '<label style="font-size:0.85rem;color:var(--text2);font-weight:500;display:block;margin-bottom:0.4rem">'
+      + 'Acuerdos alcanzados en esta reunion</label>'
+      + '<textarea id="modal-acuerdos-texto" rows="6" '
+      + 'style="width:100%;background:var(--bg3);border:1px solid var(--border);border-radius:8px;'
+      + 'padding:0.6rem 0.8rem;color:var(--text);font-family:inherit;font-size:0.9rem;resize:vertical;box-sizing:border-box"'
+      + ' placeholder="Ej. 1. COEPLA entregara validacion el viernes. 2. SEDUVOT preparara oficio de respuesta...">'
+      + (datos.acuerdos_post || "") + '</textarea>'
+      + '</div>'
+      + '<div style="padding:1rem 1.4rem;border-top:1px solid var(--border);'
+      + 'display:flex;gap:0.75rem;justify-content:flex-end;">'
+      + '<button id="modal-acuerdos-guardar" style="background:var(--accent);color:white;border:none;'
+      + 'border-radius:8px;padding:0.55rem 1.4rem;font-size:0.875rem;cursor:pointer;'
+      + 'font-family:inherit;font-weight:600;">Guardar acuerdos</button>'
+      + '</div>'
+      + '</div>';
+
+    modal.style.display = "flex";
+
+    document.getElementById("modal-acuerdos-cerrar").addEventListener("click", () => {
+      modal.style.display = "none";
+    });
+    modal.addEventListener("click", (e) => { if (e.target === modal) modal.style.display = "none"; });
+
+    document.getElementById("modal-acuerdos-guardar").addEventListener("click", async () => {
+      const texto = document.getElementById("modal-acuerdos-texto").value.trim();
+      try {
+        await updateDoc(doc(db, "usuarios", user.uid, "reuniones", id), {
+          acuerdos_post: texto
+        });
+        modal.style.display = "none";
+      } catch(error) {
+        console.error("Error al guardar acuerdos:", error);
+        alert("No se pudieron guardar los acuerdos. Revisa la consola.");
+      }
+    });
   }
 
 });

@@ -166,6 +166,11 @@ function parsearArticulos(textoCompleto) {
     .replace(/\r/g, "\n")
     .replace(/\xa0/g, " ");  // espacio no separable → espacio normal
 
+  // Pre-limpiar notas de reforma sueltas del texto completo ANTES de cualquier uso
+  // Esto evita que "Artículo reformado POG..." aparezca como bloque desconocido
+  const RE_NOTA_PREVIA = /^(?:Art[ií]culo\s+)?(?:reformado|adicionado|derogado|párrafo\s+reformado|fracción\s+\S+\s+(?:reformada|derogada))[^\n]*/gim;
+  const textoProcesado = texto.replace(RE_NOTA_PREVIA, "").replace(/\n{3,}/g, "\n\n");
+
   // Paso 1 — separadores de sección documental
   let posSepOrig    = Infinity;
   let posSepReforma = Infinity;
@@ -173,11 +178,6 @@ function parsearArticulos(textoCompleto) {
   if (mOrig) posSepOrig = mOrig.index;
   const mRef  = RE_SEP_REFORMA.exec(textoProcesado);
   if (mRef)  posSepReforma = mRef.index;
-
-  // Pre-limpiar notas de reforma sueltas del texto completo
-  // Esto evita que "Artículo reformado POG..." aparezca como bloque desconocido
-  const RE_NOTA_PREVIA = /^(?:Art[ií]culo\s+)?(?:reformado|adicionado|derogado|párrafo\s+reformado|fracción\s+\S+\s+(?:reformada|derogada))[^\n]*/gim;
-  const textoProcesado = texto.replace(RE_NOTA_PREVIA, "").replace(/\n{3,}/g, "\n\n");
 
   // Paso 2 — estructura jerárquica (Título / Capítulo / Sección)
   const estructura = detectarEstructura(textoProcesado);

@@ -17,9 +17,13 @@ import {
 
 const iconoTipo = {
   "Dependencia": "🏛️",
-  "Programa":    "📋",
-  "Comité":      "👥",
-  "Consejo":     "⚖️"
+  "Programa":    "📋"
+};
+
+const iconoAmbito = {
+  "Federal":   "🇲🇽",
+  "Estatal":   "🏙️",
+  "Municipal": "🏘️"
 };
 
 onAuthStateChanged(auth, (user) => {
@@ -28,13 +32,15 @@ onAuthStateChanged(auth, (user) => {
   const entidadesRef = collection(db, "usuarios", user.uid, "entidades");
 
   let modoEdicion = null;
-let todasLasEntidades = [];
+  let todasLasEntidades = [];
+  let filtroAmbitoActivo = "todos";
 
   // --- LIMPIAR FORMULARIO ---
   function limpiarFormulario() {
     document.getElementById("entidad-nombre").value       = "";
     document.getElementById("entidad-siglas").value       = "";
     document.getElementById("entidad-tipo").value         = "";
+    document.getElementById("entidad-ambito").value       = "";
     document.getElementById("entidad-titular").value      = "";
     document.getElementById("entidad-atribuciones").value = "";
 
@@ -50,6 +56,7 @@ let todasLasEntidades = [];
     document.getElementById("entidad-nombre").value       = datos.nombre       || "";
     document.getElementById("entidad-siglas").value       = datos.siglas       || "";
     document.getElementById("entidad-tipo").value         = datos.tipo         || "";
+    document.getElementById("entidad-ambito").value       = datos.ambito       || "";
     document.getElementById("entidad-titular").value      = datos.titular      || "";
     document.getElementById("entidad-atribuciones").value = datos.atribuciones || "";
 
@@ -68,6 +75,7 @@ let todasLasEntidades = [];
       const nombre       = document.getElementById("entidad-nombre").value.trim();
       const siglas       = document.getElementById("entidad-siglas").value.trim();
       const tipo         = document.getElementById("entidad-tipo").value;
+      const ambito       = document.getElementById("entidad-ambito").value;
       const titular      = document.getElementById("entidad-titular").value.trim();
       const atribuciones = document.getElementById("entidad-atribuciones").value.trim();
 
@@ -79,10 +87,10 @@ let todasLasEntidades = [];
       try {
         if (modoEdicion) {
           const docRef = doc(db, "usuarios", user.uid, "entidades", modoEdicion);
-          await updateDoc(docRef, { nombre, siglas, tipo, titular, atribuciones });
+          await updateDoc(docRef, { nombre, siglas, tipo, ambito, titular, atribuciones });
         } else {
           await addDoc(entidadesRef, {
-            nombre, siglas, tipo, titular, atribuciones,
+            nombre, siglas, tipo, ambito, titular, atribuciones,
             creadoEn: serverTimestamp()
           });
         }
@@ -100,11 +108,26 @@ let todasLasEntidades = [];
     btnCancelar.addEventListener("click", () => limpiarFormulario());
   }
 
+  // --- FILTROS POR ÁMBITO ---
+  document.querySelectorAll("#entidades-filtros .filtro-btn").forEach((btn) => {
+    btn.addEventListener("click", () => {
+      document.querySelectorAll("#entidades-filtros .filtro-btn")
+        .forEach(b => b.classList.remove("filtro-activo"));
+      btn.classList.add("filtro-activo");
+      filtroAmbitoActivo = btn.dataset.filtro;
+      renderEntidades();
+    });
+  });
+
   // --- LEER, MOSTRAR, EDITAR Y ELIMINAR ---
   const q = query(entidadesRef, orderBy("creadoEn", "desc"));
 
   onSnapshot(q, (snapshot) => {
     todasLasEntidades = snapshot.docs.map(d => ({ id: d.id, ...d.data() }));
+    renderEntidades();
+  });
+
+  function renderEntidades() {
     const contenedor = document.getElementById("entidades-contenido");
     if (!contenedor) return;
 
@@ -120,15 +143,19 @@ let todasLasEntidades = [];
       document.getElementById("btn-exportar-pdf-entidades").addEventListener("click", () => exportarPDF_entidades());
     }
 
-    if (snapshot.empty) {
-      contenedor.innerHTML = '<p class="lista-vacia">No hay entidades registradas aún.</p>';
+    const filtradas = filtroAmbitoActivo === "todos"
+      ? todasLasEntidades
+      : todasLasEntidades.filter(e => e.ambito === filtroAmbitoActivo);
+
+    if (filtradas.length === 0) {
+      contenedor.innerHTML = '<p class="lista-vacia">No hay entidades registradas para este filtro.</p>';
       return;
     }
 
-    contenedor.innerHTML = snapshot.docs.map((documento) => {
-      const d  = documento.data();
-      const id = documento.id;
+    contenedor.innerHTML = filtradas.map((d) => {
+      const id = d.id;
       const icono = iconoTipo[d.tipo] || "🏢";
+      const iconoAmb = iconoAmbito[d.ambito] || "";
 
       return `
         <div class="reunion-card entidad-card entidad-card--clickable" data-id="${id}" style="cursor:pointer">
@@ -143,9 +170,10 @@ let todasLasEntidades = [];
               <button class="btn-eliminar" data-id="${id}" title="Eliminar entidad">🗑️</button>
             </div>
           </div>
-          ${d.tipo || d.titular ? `
+          ${d.tipo || d.ambito || d.titular ? `
             <div class="reunion-card-meta">
               ${d.tipo    ? `${icono} ${d.tipo}` : ""}
+              ${d.ambito  ? `· ${iconoAmb} ${d.ambito}` : ""}
               ${d.titular ? `· 👤 ${d.titular}` : ""}
             </div>` : ""}
           ${d.atribuciones ? `
@@ -161,8 +189,8 @@ let todasLasEntidades = [];
       card.addEventListener("click", (e) => {
         if (e.target.closest("button")) return;
         const id = card.dataset.id;
-        const encontrado = snapshot.docs.find(d => d.id === id);
-        if (encontrado) mostrarDetalle(id, encontrado.data());
+        const encontrado = todasLasEntidades.find(e => e.id === id);
+        if (encontrado) mostrarDetalle(id, encontrado);
       });
     });
 
@@ -170,8 +198,8 @@ let todasLasEntidades = [];
     contenedor.querySelectorAll(".btn-editar").forEach((btn) => {
       btn.addEventListener("click", () => {
         const id = btn.dataset.id;
-        const encontrado = snapshot.docs.find((d) => d.id === id);
-        if (encontrado) activarEdicion(id, encontrado.data());
+        const encontrado = todasLasEntidades.find(e => e.id === id);
+        if (encontrado) activarEdicion(id, encontrado);
       });
     });
 
@@ -190,7 +218,7 @@ let todasLasEntidades = [];
         }
       });
     });
-  });
+  } // fin renderEntidades
 
   // ─── MODAL DE DETALLE ────────────────────────────────────────────────────
   function mostrarDetalle(id, datos) {
@@ -219,8 +247,8 @@ let todasLasEntidades = [];
         + 'font-weight:700;padding:0.15rem 0.5rem;border-radius:20px;margin-left:0.4rem">'
         + datos.siglas + '</span>' : '')
       + '</div>'
-      + (datos.tipo ? '<div style="font-size:0.8rem;color:var(--text2);margin-top:0.2rem">'
-        + datos.tipo + '</div>' : '')
+      + ((datos.tipo || datos.ambito) ? '<div style="font-size:0.8rem;color:var(--text2);margin-top:0.2rem">'
+        + [datos.tipo, datos.ambito ? (iconoAmbito[datos.ambito]||"") + " " + datos.ambito : ""].filter(Boolean).join(" · ") + '</div>' : '')
       + '</div>'
       + '<button id="detalle-entidad-cerrar" style="background:none;border:none;color:var(--text2);'
       + 'font-size:1.1rem;cursor:pointer;padding:0.2rem;flex-shrink:0;margin-left:1rem;">✕</button>'
@@ -302,7 +330,7 @@ let todasLasEntidades = [];
     function gen() {
       const filas = todasLasEntidades.map(e => ({
         "Nombre": e.nombre||"", "Siglas": e.siglas||"", "Tipo": e.tipo||"",
-        "Titular": e.titular||"", "Atribuciones": e.atribuciones||""
+        "Ambito": e.ambito||"", "Titular": e.titular||"", "Atribuciones": e.atribuciones||""
       }));
       const ws = window.XLSX.utils.json_to_sheet(filas);
       ws["!cols"] = [{wch:35},{wch:12},{wch:15},{wch:25},{wch:60}];

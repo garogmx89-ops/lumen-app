@@ -130,12 +130,12 @@
           <span>Territorio</span><span class="bloque-chevron" id="chv-territorio">▾</span>
         </div>
         <div id="bloque-territorio">
-          <div class="nav-item" onclick="goTo('territorio')" id="nav-territorio">
+          <div class="nav-item" onclick="goTo('planeacion')" id="nav-planeacion">
             <svg class="nav-icon" viewBox="0 0 16 16" fill="none">
               <path d="M2 3l4 2 4-2 4 2v8l-4-2-4 2-4-2V3z" stroke="currentColor" stroke-width="1.3"/>
               <circle cx="8" cy="8" r="1.5" fill="currentColor" stroke="none"/>
             </svg>
-            <span class="nav-label">Indicadores</span>
+            <span class="nav-label">Planeación</span>
           </div>
         </div>
 
@@ -416,8 +416,16 @@
                 <option value="">— Seleccionar tipo —</option>
                 <option value="Dependencia">Dependencia</option>
                 <option value="Programa">Programa</option>
-                <option value="Comité">Comité</option>
-                <option value="Consejo">Consejo</option>
+              </select>
+            </div>
+
+            <div class="form-group">
+              <label for="entidad-ambito">Ámbito</label>
+              <select id="entidad-ambito">
+                <option value="">— Seleccionar ámbito —</option>
+                <option value="Federal">Federal</option>
+                <option value="Estatal">Estatal</option>
+                <option value="Municipal">Municipal</option>
               </select>
             </div>
 
@@ -825,16 +833,16 @@
         </div>
 
 <!-- TERRITORIO -->
-        <div class="panel" id="panel-territorio">
+        <div class="panel" id="panel-planeacion">
 
           <!-- Formulario para registrar territorio -->
           <div class="reunion-form-card">
-            <h2 class="panel-title">Nuevo Territorio</h2>
+            <h2 class="panel-title">Nuevo registro</h2>
 
             <div class="form-row">
               <div class="form-group">
-                <label for="territorio-nombre">Nombre de la zona</label>
-                <input type="text" id="territorio-nombre" placeholder="Ej. Guadalupe, Zacatecas">
+                <label for="territorio-nombre">Nombre</label>
+                <input type="text" id="territorio-nombre" placeholder="Ej. COPLADERT, Guadalupe">
               </div>
               <div class="form-group form-group--corto">
                 <label for="territorio-tipo">Tipo</label>
@@ -873,7 +881,7 @@
               <textarea id="territorio-indicadores" rows="3" placeholder="Ej. Población: 12,450 hab. / Rezago habitacional: 34% / Viviendas precarias: 1,230"></textarea>
             </div>
 
-            <button class="btn-primary" id="btn-guardar-territorio">Guardar territorio</button>
+            <button class="btn-primary" id="btn-guardar-territorio">Guardar registro</button>
             <button class="btn-secondary" id="btn-cancelar-territorio" style="display:none;">Cancelar edición</button>
           </div>
 
@@ -888,7 +896,7 @@
           <!-- Lista de territorios -->
           <div class="reuniones-lista">
             <div style="display:flex;justify-content:space-between;align-items:center;flex-wrap:wrap;gap:0.5rem;margin-bottom:0.75rem;">
-              <h2 class="panel-title" style="margin-bottom:0">Territorios registrados</h2>
+              <h2 class="panel-title" style="margin-bottom:0">Registros de Planeación</h2>
               <div id="territorio-export-bar" style="display:flex;gap:0.5rem;flex-wrap:wrap;"></div>
             </div>
             <div id="territorio-contenido">
@@ -918,11 +926,17 @@
             <div class="form-row">
               <div class="form-group">
                 <label for="contexto-asignado">Monto asignado</label>
-                <input type="text" id="contexto-asignado" placeholder="Ej. $12,450,000">
+                <div class="monto-input-wrap">
+                  <span class="monto-prefix">$</span>
+                  <input type="text" id="contexto-asignado" placeholder="12,450,000">
+                </div>
               </div>
               <div class="form-group">
                 <label for="contexto-ejercido">Monto ejercido</label>
-                <input type="text" id="contexto-ejercido" placeholder="Ej. $8,320,000">
+                <div class="monto-input-wrap">
+                  <span class="monto-prefix">$</span>
+                  <input type="text" id="contexto-ejercido" placeholder="8,320,000">
+                </div>
               </div>
             </div>
 
@@ -1013,7 +1027,7 @@
         </svg>
         <span class="bnav-label">Normas</span>
       </div>
-      <div class="bnav-item" id="bn-territorio" onclick="goTo('territorio')">
+      <div class="bnav-item" id="bn-planeacion" onclick="goTo('planeacion')">
         <svg viewBox="0 0 20 20" fill="none">
           <path d="M2 4l5 2.5 6-2.5 5 2.5v9l-5-2.5-6 2.5-5-2.5V4z" stroke="currentColor" stroke-width="1.4"/>
           <circle cx="10" cy="10" r="1.5" fill="currentColor" stroke="none"/>

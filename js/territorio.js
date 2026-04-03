@@ -1,5 +1,5 @@
 // js/territorio.js
-// Módulo Territorio — zonas con indicadores y programas vinculados
+// Módulo Planeación — órganos de planeación e indicadores territoriales
 
 import { auth, db } from "./firebase-config.js";
 import { onAuthStateChanged } from "https://www.gstatic.com/firebasejs/10.12.0/firebase-auth.js";
@@ -39,7 +39,7 @@ onAuthStateChanged(auth, (user) => {
     document.getElementById("territorio-descripcion").value = "";
     document.getElementById("territorio-indicadores").value = "";
 
-    document.querySelector("#panel-territorio .reunion-form-card h2").textContent = "Nuevo Territorio";
+    document.querySelector("#panel-planeacion .reunion-form-card h2").textContent = "Nuevo registro";
     document.getElementById("btn-cancelar-territorio").style.display = "none";
     modoEdicion = null;
   }
@@ -57,9 +57,9 @@ onAuthStateChanged(auth, (user) => {
     document.getElementById("territorio-descripcion").value = territorio.descripcion || "";
     document.getElementById("territorio-indicadores").value = territorio.indicadores || "";
 
-    document.querySelector("#panel-territorio .reunion-form-card h2").textContent = "Editar Territorio";
+    document.querySelector("#panel-planeacion .reunion-form-card h2").textContent = "Editar registro";
     document.getElementById("btn-cancelar-territorio").style.display = "inline-block";
-    document.getElementById("panel-territorio").scrollIntoView({ behavior: "smooth" });
+    document.getElementById("panel-planeacion").scrollIntoView({ behavior: "smooth" });
   }
 
   // --- BOTÓN GUARDAR ---
@@ -106,9 +106,9 @@ onAuthStateChanged(auth, (user) => {
   }
 
   // --- FILTROS ---
-  document.querySelectorAll("#panel-territorio .filtro-btn").forEach((btn) => {
+  document.querySelectorAll("#panel-planeacion .filtro-btn").forEach((btn) => {
     btn.addEventListener("click", () => {
-      document.querySelectorAll("#panel-territorio .filtro-btn")
+      document.querySelectorAll("#panel-planeacion .filtro-btn")
         .forEach(b => b.classList.remove("filtro-activo"));
       btn.classList.add("filtro-activo");
       filtroActivo = btn.dataset.filtro;
@@ -140,7 +140,7 @@ onAuthStateChanged(auth, (user) => {
       : todosLosTerritorios.filter(t => t.estado === filtroActivo);
 
     if (filtrados.length === 0) {
-      contenedor.innerHTML = '<p class="lista-vacia">No hay territorios registrados para este filtro.</p>';
+      contenedor.innerHTML = '<p class="lista-vacia">No hay registros para este filtro.</p>';
       return;
     }
 
@@ -280,8 +280,8 @@ onAuthStateChanged(auth, (user) => {
       }));
       const ws=window.XLSX.utils.json_to_sheet(filas);
       ws["!cols"]=[{wch:30},{wch:20},{wch:14},{wch:30},{wch:50},{wch:50}];
-      const wb=window.XLSX.utils.book_new();window.XLSX.utils.book_append_sheet(wb,ws,"Territorio");
-      window.XLSX.writeFile(wb,"Lumen_Territorio_"+fechaHoy_()+".xlsx");
+      const wb=window.XLSX.utils.book_new();window.XLSX.utils.book_append_sheet(wb,ws,"Planeacion");
+      window.XLSX.writeFile(wb,"Lumen_Planeacion_"+fechaHoy_()+".xlsx");
     }
 
     if(window.XLSX){gen();}else{const s=document.createElement("script");s.src="https://cdnjs.cloudflare.com/ajax/libs/xlsx/0.18.5/xlsx.full.min.js";s.onload=gen;document.head.appendChild(s);}
@@ -291,7 +291,7 @@ onAuthStateChanged(auth, (user) => {
     if (!todosLosTerritorios.length){alert("No hay territorios para exportar.");return;}
     function gen(){
       const {jsPDF}=window.jspdf;const doc=new jsPDF({unit:"mm",format:"a4"});
-      let y=pdfHdr_(doc,"Catalogo de Territorio");
+      let y=pdfHdr_(doc,"Catalogo de Planeacion");
       todosLosTerritorios.forEach((t,i)=>{
         if(y+20>280){doc.addPage();y=20;}
         doc.setDrawColor(200,200,200);doc.line(20,y,190,y);y+=5;
@@ -306,7 +306,7 @@ onAuthStateChanged(auth, (user) => {
         y=pdfSec_(doc,"Indicadores",t.indicadores,y);
         y+=3;
       });
-      pdfFtr_(doc);doc.save("Lumen_Territorio_"+fechaHoy_()+".pdf");
+      pdfFtr_(doc);doc.save("Lumen_Planeacion_"+fechaHoy_()+".pdf");
     }
 
     if(window.jspdf){gen();}else{const s=document.createElement("script");s.src="https://cdnjs.cloudflare.com/ajax/libs/jspdf/2.5.1/jspdf.umd.min.js";s.onload=gen;document.head.appendChild(s);}

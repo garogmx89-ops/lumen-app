@@ -174,8 +174,8 @@ onAuthStateChanged(auth, (user) => {
     btnNuevo.addEventListener("click", async () => {
       const nombre      = document.getElementById("contexto-nombre").value.trim();
       const periodo     = document.getElementById("contexto-periodo").value.trim();
-      const asignado    = document.getElementById("contexto-asignado").value.trim();
-      const ejercido    = document.getElementById("contexto-ejercido").value.trim();
+      const asignado    = document.getElementById("contexto-asignado").value.trim().replace(/^\$/, "").trim();
+      const ejercido    = document.getElementById("contexto-ejercido").value.trim().replace(/^\$/, "").trim();
       const indicadores = document.getElementById("contexto-indicadores").value.trim();
       const notas       = document.getElementById("contexto-notas").value.trim();
 
@@ -296,8 +296,8 @@ onAuthStateChanged(auth, (user) => {
           </div>
           ${c.asignado || c.ejercido ? `
             <div class="contexto-montos">
-              ${c.asignado ? `<div class="contexto-monto"><span class="contexto-monto-label">Asignado</span><span class="contexto-monto-valor">${c.asignado}</span></div>` : ""}
-              ${c.ejercido ? `<div class="contexto-monto"><span class="contexto-monto-label">Ejercido</span><span class="contexto-monto-valor">${c.ejercido}</span></div>` : ""}
+              ${c.asignado ? `<div class="contexto-monto"><span class="contexto-monto-label">Asignado</span><span class="contexto-monto-valor">$${c.asignado}</span></div>` : ""}
+              ${c.ejercido ? `<div class="contexto-monto"><span class="contexto-monto-label">Ejercido</span><span class="contexto-monto-valor">$${c.ejercido}</span></div>` : ""}
             </div>` : ""}
           ${c.indicadores ? `
             <div class="reunion-card-acuerdos">
@@ -569,9 +569,9 @@ Tono institucional, lenguaje técnico-administrativo. Máximo 300 palabras. Resp
         + '<div class="detalle-seccion-titulo">💰 Presupuesto</div>'
         + '<div style="display:flex;gap:1.5rem;margin-top:0.3rem">'
         + (c.asignado ? '<div><div style="font-size:0.75rem;color:var(--text2)">Asignado</div>'
-          + '<div style="font-weight:700;color:var(--text)">' + c.asignado + '</div></div>' : '')
+          + '<div style="font-weight:700;color:var(--text)">$' + c.asignado + '</div></div>' : '')
         + (c.ejercido ? '<div><div style="font-size:0.75rem;color:var(--text2)">Ejercido</div>'
-          + '<div style="font-weight:700;color:var(--text)">' + c.ejercido + '</div></div>' : '')
+          + '<div style="font-weight:700;color:var(--text)">$' + c.ejercido + '</div></div>' : '')
         + '</div></div>' : '')
       + (c.indicadores ? '<div class="detalle-seccion">'
         + '<div class="detalle-seccion-titulo">📈 Indicadores clave</div>'

@@ -97,7 +97,9 @@ function detectarEstructura(texto) {
   const hits = [];
 
   // Regex para texto plano — sin \*\*, al inicio de línea
-  const reEstructura = /^((?:T[ÍI]TULO|TITULO)\s+\S+(?:\s+[A-ZÁÉÍÓÚ][^\n]*)?|(?:Cap[ií]tulo|CAP[ÍI]TULO|CAPITULO)\s+(?:[IVXLivxl0-9]+(?:\s+[A-ZÁÉÍÓÚ][^\n]*)?|[ÚU]nico)|(?:Secci[oó]n)\s+[^\n]+)\s*$/gm;
+  // Capturar solo hasta fin de línea — el nombre del capítulo está en la SIGUIENTE línea
+  // "CAPÍTULO I\n\nDISPOSICIONES GENERALES" → número = "I", nombre resuelto después
+  const reEstructura = /^((?:T[ÍI]TULO|TITULO)\s+[^\n]+|(?:Cap[ií]tulo|CAP[ÍI]TULO|CAPITULO)\s+(?:[IVXLivxl0-9]+|[ÚU]nico)|(?:Secci[oó]n)\s+[^\n]+)\s*$/gm;
 
   let m;
   while ((m = reEstructura.exec(texto)) !== null) {
@@ -158,18 +160,27 @@ function detectarEstructura(texto) {
 }
 
 function parsearArticulos(textoCompleto) {
-  const texto = textoCompleto.replace(/\r\n/g, "\n").replace(/\r/g, "\n");
+  // Normalizar saltos de línea y espacios no separables (  bloquea regex)
+  const texto = textoCompleto
+    .replace(/\r\n/g, "\n")
+    .replace(/\r/g, "\n")
+    .replace(/\xa0/g, " ");  // espacio no separable → espacio normal
 
   // Paso 1 — separadores de sección documental
   let posSepOrig    = Infinity;
   let posSepReforma = Infinity;
-  const mOrig = RE_SEP_TRANSITORIO.exec(texto);
+  const mOrig = RE_SEP_TRANSITORIO.exec(textoProcesado);
   if (mOrig) posSepOrig = mOrig.index;
-  const mRef  = RE_SEP_REFORMA.exec(texto);
+  const mRef  = RE_SEP_REFORMA.exec(textoProcesado);
   if (mRef)  posSepReforma = mRef.index;
 
+  // Pre-limpiar notas de reforma sueltas del texto completo
+  // Esto evita que "Artículo reformado POG..." aparezca como bloque desconocido
+  const RE_NOTA_PREVIA = /^(?:Art[ií]culo\s+)?(?:reformado|adicionado|derogado|párrafo\s+reformado|fracción\s+\S+\s+(?:reformada|derogada))[^\n]*/gim;
+  const textoProcesado = texto.replace(RE_NOTA_PREVIA, "").replace(/\n{3,}/g, "\n\n");
+
   // Paso 2 — estructura jerárquica (Título / Capítulo / Sección)
-  const estructura = detectarEstructura(texto);
+  const estructura = detectarEstructura(textoProcesado);
 
   // Paso 3 — encabezados de artículo
   const reArt = new RegExp(
@@ -189,13 +200,13 @@ function parsearArticulos(textoCompleto) {
 
   const hits = [];
   let m;
-  while ((m = reArt.exec(texto)) !== null) {
+  while ((m = reArt.exec(textoProcesado)) !== null) {
     const pos    = m.index;
     // Grupos: 1=número arábigo, 2=Único, 3=ordinal con Artículo, 4=ordinal solo al inicio
     const rawNum = (m[1] || m[2] || m[3] || m[4] || "").trim();
     if (!rawNum) continue;
 
-    const ctx = texto.slice(Math.max(0, pos - 50), pos + m[0].length + 30);
+    const ctx = textoProcesado.slice(Math.max(0, pos - 50), pos + m[0].length + 30);
     if (RE_FALSO.some(r => r.test(ctx))) continue;
 
     let seccion = "ley";
@@ -231,12 +242,12 @@ function parsearArticulos(textoCompleto) {
   // Paso 4 — construir fragmentos
   const articulos   = [];
   const sospechosos = [];
-  const textoPrevio = hits.length > 0 ? texto.slice(0, hits[0].pos).trim() : texto;
+  const textoPrevio = hits.length > 0 ? textoProcesado.slice(0, hits[0].pos).trim() : textoProcesado;
 
   for (let i = 0; i < hits.length; i++) {
     const inicio = hits[i].pos;
-    const fin    = i + 1 < hits.length ? hits[i + 1].pos : texto.length;
-    let bloque   = texto.slice(inicio, fin).trim();
+    const fin    = i + 1 < hits.length ? hits[i + 1].pos : textoProcesado.length;
+    let bloque   = textoProcesado.slice(inicio, fin).trim();
 
     // Limpiar notas de reforma
     const notasReforma = [];
@@ -300,7 +311,7 @@ function parsearArticulos(textoCompleto) {
   const desconocidos = [];
   const reParece     = /^\s*(?:art[ií]culo|art\.)\s+[^\n]{3,}/im;
   for (let i = 0; i < hits.length - 1; i++) {
-    const entre = texto.slice(hits[i].pos + hits[i].matchLen, hits[i + 1].pos);
+    const entre = textoProcesado.slice(hits[i].pos + hits[i].matchLen, hits[i + 1].pos);
     if (reParece.test(entre)) {
       const matchD = reParece.exec(entre);
       desconocidos.push({

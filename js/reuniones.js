@@ -75,6 +75,8 @@ onAuthStateChanged(auth, (user) => {
     document.getElementById("reunion-titulo").value        = "";
     document.getElementById("reunion-fecha").value          = "";
     document.getElementById("reunion-hora").value           = "";
+    const cbPendiente = document.getElementById("reunion-hora-pendiente");
+    if (cbPendiente) { cbPendiente.checked = false; document.getElementById("reunion-hora").disabled = false; }
     document.getElementById("reunion-participantes").value  = "";
     document.getElementById("reunion-acuerdos").value       = ""; // campo Asunto
     participantesSeleccionados = [];
@@ -98,7 +100,10 @@ onAuthStateChanged(auth, (user) => {
     } else {
       // Formato nuevo: fecha y hora separados en Firestore
       document.getElementById("reunion-fecha").value = datos.fecha || "";
-      document.getElementById("reunion-hora").value  = datos.hora  || "";
+      const esPendiente = datos.hora === "pendiente";
+      const cbPend = document.getElementById("reunion-hora-pendiente");
+      if (cbPend) { cbPend.checked = esPendiente; document.getElementById("reunion-hora").disabled = esPendiente; }
+      document.getElementById("reunion-hora").value  = esPendiente ? "" : (datos.hora || "");
     }
     document.getElementById("reunion-participantes").value = datos.participantes || "";
     document.getElementById("reunion-acuerdos").value      = datos.asunto        || datos.acuerdos || ""; // compatibilidad
@@ -120,7 +125,8 @@ onAuthStateChanged(auth, (user) => {
     btnLimpio.addEventListener("click", async () => {
       const titulo        = document.getElementById("reunion-titulo").value.trim();
       const fecha         = document.getElementById("reunion-fecha").value;
-      const hora          = document.getElementById("reunion-hora").value;
+      const horaPendiente = document.getElementById("reunion-hora-pendiente")?.checked;
+      const hora          = horaPendiente ? "pendiente" : document.getElementById("reunion-hora").value;
       const participantes = document.getElementById("reunion-participantes").value.trim();
       const asunto        = document.getElementById("reunion-acuerdos").value.trim();
 
@@ -155,6 +161,16 @@ onAuthStateChanged(auth, (user) => {
   const btnCancelar = document.getElementById("btn-cancelar-reunion");
   if (btnCancelar) {
     btnCancelar.addEventListener("click", () => limpiarFormulario());
+  }
+
+  // Checkbox "Por confirmar" — deshabilita/habilita el campo hora
+  const cbHoraPendiente = document.getElementById("reunion-hora-pendiente");
+  if (cbHoraPendiente) {
+    cbHoraPendiente.addEventListener("change", () => {
+      const horaInput = document.getElementById("reunion-hora");
+      horaInput.disabled = cbHoraPendiente.checked;
+      if (cbHoraPendiente.checked) horaInput.value = "";
+    });
   }
 
   // ─── FUNCIÓN: GENERAR BRIEFING IA ─────────────────────────────────────────
@@ -969,5 +985,6 @@ function formatearFecha(fechaStr, horaStr) {
   const [y,m,d] = fechaStr.split("-");
   const fechaFmt = new Date(Number(y), Number(m)-1, Number(d))
     .toLocaleDateString("es-MX", { day: "2-digit", month: "short", year: "numeric" });
+  if (horaStr === "pendiente") return fechaFmt + " · Por confirmar";
   return horaStr ? fechaFmt + " " + horaStr : fechaFmt;
 }

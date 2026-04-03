@@ -50,7 +50,7 @@ const titulos = {
   normatividad: { title: 'Normatividad',      sub: 'Marco normativo vigente' },
   analisis:     { title: 'Análisis',          sub: 'Razonamiento institucional' },
   procesos:     { title: 'Procesos',          sub: 'Flujos y trámites' },
-  agenda:       { title: 'Agenda / Alertas',  sub: 'Vencimientos y pendientes' },
+  agenda:       { title: 'Agenda',             sub: 'Seguimiento y vencimientos' },
   territorio:   { title: 'Indicadores',       sub: 'Datos territoriales y estadisticos' },
   contexto:     { title: 'Contexto',          sub: 'Datos de referencia' },
 };

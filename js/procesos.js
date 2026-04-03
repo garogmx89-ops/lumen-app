@@ -212,12 +212,22 @@ onAuthStateChanged(auth, (user) => {
   }
 
   // ─── FILTROS ───────────────────────────────────────────────────────────────
-  document.querySelectorAll("#panel-procesos .filtro-btn").forEach((btn) => {
+  document.querySelectorAll("#panel-procesos .filtro-btn[data-filtro]").forEach((btn) => {
     btn.addEventListener("click", () => {
-      document.querySelectorAll("#panel-procesos .filtro-btn")
+      document.querySelectorAll("#panel-procesos .filtro-btn[data-filtro]")
         .forEach(b => b.classList.remove("filtro-activo"));
       btn.classList.add("filtro-activo");
       filtroActivo = btn.dataset.filtro;
+      renderProcesos();
+    });
+  });
+
+  document.querySelectorAll("#procesos-filtros-entidad .filtro-btn[data-entidad]").forEach((btn) => {
+    btn.addEventListener("click", () => {
+      document.querySelectorAll("#procesos-filtros-entidad .filtro-btn")
+        .forEach(b => b.classList.remove("filtro-activo"));
+      btn.classList.add("filtro-activo");
+      filtroEntidadActivo = btn.dataset.entidad;
       renderProcesos();
     });
   });
@@ -242,9 +252,16 @@ onAuthStateChanged(auth, (user) => {
       document.getElementById("btn-pdf-procesos").addEventListener("click", () => exportarPDF_procesos());
     }
 
-    const filtrados = filtroActivo === "todos"
+    let filtrados = filtroActivo === "todos"
       ? todosLosProcesos
       : todosLosProcesos.filter(p => p.estado === filtroActivo);
+
+    if (filtroEntidadActivo !== "todos") {
+      filtrados = filtrados.filter(p =>
+        (p.entidad || "") === filtroEntidadActivo ||
+        (filtroEntidadActivo === "SEDUVOT" && !p.entidad)
+      );
+    }
 
     if (filtrados.length === 0) {
       contenedor.innerHTML = '<p class="lista-vacia">No hay procesos registrados para este filtro.</p>';
@@ -263,16 +280,10 @@ onAuthStateChanged(auth, (user) => {
         : "";
 
       const pasosHTML = p.pasos && p.pasos.length > 0
-        ? `<div class="proceso-pasos">
-            ${p.pasos.map((paso, i) => `
-              <div class="proceso-paso">
-                <span class="proceso-paso-num">${i + 1}</span>
-                <div class="proceso-paso-contenido">
-                  <span class="proceso-paso-nombre">${paso.nombre}</span>
-                  ${paso.detalle ? `<span class="proceso-paso-detalle">${paso.detalle}</span>` : ""}
-                </div>
-              </div>
-            `).join("")}
+        ? `<div class="proceso-pasos-resumen">
+            <span class="proceso-pasos-contador">⚙️ ${p.pasos.length} paso${p.pasos.length !== 1 ? "s" : ""}</span>
+            ${p.pasos.slice(0,2).map(paso => `<span class="proceso-paso-preview">· ${paso.nombre}</span>`).join("")}
+            ${p.pasos.length > 2 ? `<span class="proceso-paso-preview" style="color:var(--text3)">+${p.pasos.length - 2} más</span>` : ""}
            </div>`
         : "";
 
@@ -289,9 +300,10 @@ onAuthStateChanged(auth, (user) => {
             </div>
           </div>
           ${tagsNormas}
-          ${p.norma       ? `<div class="reunion-card-meta">📄 ${p.norma}</div>` : ""}
-          ${p.descripcion ? `<div class="reunion-card-acuerdos">${p.descripcion}</div>` : ""}
+          ${p.norma        ? `<div class="reunion-card-meta">📄 ${p.norma}</div>` : ""}
+          ${p.descripcion  ? `<div class="reunion-card-acuerdos">${p.descripcion}</div>` : ""}
           ${pasosHTML}
+          ${p.comentarios  ? `<div class="reunion-card-acuerdos" style="border-left:3px solid var(--accent);padding-left:0.5rem;margin-top:0.25rem;font-size:0.8rem;color:var(--text2)">💬 ${p.comentarios}</div>` : ""}
         </div>
       `;
     }).join("");

@@ -41,6 +41,8 @@ onAuthStateChanged(auth, (user) => {
     document.getElementById("entidad-siglas").value       = "";
     document.getElementById("entidad-tipo").value         = "";
     document.getElementById("entidad-ambito").value       = "";
+    document.getElementById("entidad-telefono").value     = "";
+    document.getElementById("entidad-extension").value    = "";
     document.getElementById("entidad-titular").value      = "";
     document.getElementById("entidad-atribuciones").value = "";
 
@@ -57,6 +59,8 @@ onAuthStateChanged(auth, (user) => {
     document.getElementById("entidad-siglas").value       = datos.siglas       || "";
     document.getElementById("entidad-tipo").value         = datos.tipo         || "";
     document.getElementById("entidad-ambito").value       = datos.ambito       || "";
+    document.getElementById("entidad-telefono").value     = datos.telefono     || "";
+    document.getElementById("entidad-extension").value    = datos.extension    || "";
     document.getElementById("entidad-titular").value      = datos.titular      || "";
     document.getElementById("entidad-atribuciones").value = datos.atribuciones || "";
 
@@ -76,6 +80,8 @@ onAuthStateChanged(auth, (user) => {
       const siglas       = document.getElementById("entidad-siglas").value.trim();
       const tipo         = document.getElementById("entidad-tipo").value;
       const ambito       = document.getElementById("entidad-ambito").value;
+      const telefono     = document.getElementById("entidad-telefono").value.trim();
+      const extension    = document.getElementById("entidad-extension").value.trim();
       const titular      = document.getElementById("entidad-titular").value.trim();
       const atribuciones = document.getElementById("entidad-atribuciones").value.trim();
 
@@ -87,10 +93,10 @@ onAuthStateChanged(auth, (user) => {
       try {
         if (modoEdicion) {
           const docRef = doc(db, "usuarios", user.uid, "entidades", modoEdicion);
-          await updateDoc(docRef, { nombre, siglas, tipo, ambito, titular, atribuciones });
+          await updateDoc(docRef, { nombre, siglas, tipo, ambito, telefono, extension, titular, atribuciones });
         } else {
           await addDoc(entidadesRef, {
-            nombre, siglas, tipo, ambito, titular, atribuciones,
+            nombre, siglas, tipo, ambito, telefono, extension, titular, atribuciones,
             creadoEn: serverTimestamp()
           });
         }
@@ -170,11 +176,12 @@ onAuthStateChanged(auth, (user) => {
               <button class="btn-eliminar" data-id="${id}" title="Eliminar entidad">🗑️</button>
             </div>
           </div>
-          ${d.tipo || d.ambito || d.titular ? `
+          ${d.tipo || d.ambito || d.titular || d.telefono ? `
             <div class="reunion-card-meta">
-              ${d.tipo    ? `${icono} ${d.tipo}` : ""}
-              ${d.ambito  ? `· ${iconoAmb} ${d.ambito}` : ""}
-              ${d.titular ? `· 👤 ${d.titular}` : ""}
+              ${d.tipo     ? `${icono} ${d.tipo}` : ""}
+              ${d.ambito   ? `· ${iconoAmb} ${d.ambito}` : ""}
+              ${d.titular  ? `· 👤 ${d.titular}` : ""}
+              ${d.telefono ? `· 📞 ${d.telefono}${d.extension ? " ext. " + d.extension : ""}` : ""}
             </div>` : ""}
           ${d.atribuciones ? `
             <div class="reunion-card-acuerdos">
@@ -259,6 +266,11 @@ onAuthStateChanged(auth, (user) => {
       + (datos.titular ? '<div class="detalle-seccion">'
         + '<div class="detalle-seccion-titulo">👤 Titular</div>'
         + '<div class="detalle-seccion-texto">' + datos.titular + '</div></div>' : '')
+      + ((datos.telefono) ? '<div class="detalle-seccion">'
+        + '<div class="detalle-seccion-titulo">📞 Contacto</div>'
+        + '<div class="detalle-seccion-texto">' + datos.telefono
+        + (datos.extension ? ' &nbsp;·&nbsp; Ext. ' + datos.extension : '')
+        + '</div></div>' : '')
       + (datos.atribuciones ? '<div class="detalle-seccion">'
         + '<div class="detalle-seccion-titulo">📋 Atribuciones</div>'
         + '<div class="detalle-seccion-texto">' + datos.atribuciones + '</div></div>' : '')
@@ -330,7 +342,8 @@ onAuthStateChanged(auth, (user) => {
     function gen() {
       const filas = todasLasEntidades.map(e => ({
         "Nombre": e.nombre||"", "Siglas": e.siglas||"", "Tipo": e.tipo||"",
-        "Ambito": e.ambito||"", "Titular": e.titular||"", "Atribuciones": e.atribuciones||""
+        "Ambito": e.ambito||"", "Telefono": e.telefono||"", "Extension": e.extension||"",
+        "Titular": e.titular||"", "Atribuciones": e.atribuciones||""
       }));
       const ws = window.XLSX.utils.json_to_sheet(filas);
       ws["!cols"] = [{wch:35},{wch:12},{wch:15},{wch:25},{wch:60}];

@@ -1925,3 +1925,25 @@ body.light input[type="time"]::-webkit-calendar-picker-indicator {
 .topbar-actions {
   gap: 8px;
 }
+
+/* ── Procesos: resumen de pasos en tarjeta ──────────────────────── */
+.proceso-pasos-resumen {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 0.3rem;
+  margin-top: 0.4rem;
+  font-size: 0.78rem;
+  color: var(--text2);
+}
+.proceso-pasos-contador {
+  font-weight: 600;
+  color: var(--accent);
+}
+.proceso-paso-preview {
+  color: var(--text3);
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  max-width: 140px;
+}

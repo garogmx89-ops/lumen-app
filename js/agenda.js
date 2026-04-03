@@ -49,6 +49,21 @@ onAuthStateChanged(auth, (user) => {
     });
   });
 
+  // ─── CARGAR CATÁLOGO DE ENTIDADES ────────────────────────────────────────
+  onSnapshot(query(entidadesRef, orderBy("creadoEn", "asc")), (snap) => {
+    const sel = document.getElementById("alerta-selector-entidad");
+    if (!sel) return;
+    sel.innerHTML = '<option value="">— Selecciona una dependencia —</option>';
+    snap.docs.forEach(d => {
+      const e = d.data();
+      const opt = document.createElement("option");
+      opt.value = d.id;
+      opt.textContent = e.siglas ? `${e.siglas} — ${e.nombre}` : e.nombre;
+      opt.dataset.nombre = e.siglas || e.nombre;
+      sel.appendChild(opt);
+    });
+  });
+
   // ─── CARGAR CATÁLOGO DE NORMATIVIDAD ─────────────────────────────────────
   onSnapshot(query(normasRef, orderBy("creadoEn", "asc")), (snap) => {
     const selector = document.getElementById("alerta-selector-norma");
@@ -133,6 +148,37 @@ onAuthStateChanged(auth, (user) => {
     });
   }
 
+  // ─── SELECTOR ENTIDAD ────────────────────────────────────────────────────
+  const selEntidad = document.getElementById("alerta-selector-entidad");
+  if (selEntidad) {
+    selEntidad.addEventListener("change", () => {
+      const id     = selEntidad.value;
+      const nombre = selEntidad.options[selEntidad.selectedIndex].dataset.nombre;
+      if (!id) return;
+      if (entidadesVinculadas.find(e => e.id === id)) { selEntidad.value = ""; return; }
+      entidadesVinculadas.push({ id, nombre });
+      renderTagsEntidades();
+      selEntidad.value = "";
+    });
+  }
+
+  function renderTagsEntidades() {
+    const cont = document.getElementById("alerta-tags-entidades");
+    if (!cont) return;
+    cont.innerHTML = entidadesVinculadas.map((e, i) => `
+      <span class="participante-tag">
+        🏛️ ${e.nombre}
+        <button type="button" class="tag-remove" data-index="${i}" data-tipo="entidad">×</button>
+      </span>
+    `).join("");
+    cont.querySelectorAll(".tag-remove[data-tipo='entidad']").forEach(btn => {
+      btn.addEventListener("click", () => {
+        entidadesVinculadas.splice(Number(btn.dataset.index), 1);
+        renderTagsEntidades();
+      });
+    });
+  }
+
   // ─── LIMPIAR FORMULARIO ───────────────────────────────────────────────────
   function limpiarFormulario() {
     document.getElementById("alerta-titulo").value    = "";
@@ -141,12 +187,14 @@ onAuthStateChanged(auth, (user) => {
     document.getElementById("alerta-estado").value    = "Pendiente";
 
     // Limpiar vínculos
-    procesosVinculados = [];
-    normasVinculadas   = [];
+    procesosVinculados  = [];
+    normasVinculadas    = [];
+    entidadesVinculadas = [];
     renderTagsProcesos();
     renderTagsNormas();
+    renderTagsEntidades();
 
-    document.querySelector("#panel-agenda .reunion-form-card h2").textContent = "Nueva Alerta";
+    document.querySelector("#panel-agenda .reunion-form-card h2").textContent = "Nueva Agenda";
     document.getElementById("btn-cancelar-alerta").style.display = "none";
     modoEdicion = null;
   }
@@ -163,12 +211,14 @@ onAuthStateChanged(auth, (user) => {
     document.getElementById("alerta-estado").value    = alerta.estado    || "Pendiente";
 
     // Recuperar vínculos guardados
-    procesosVinculados = alerta.procesosVinculados || [];
-    normasVinculadas   = alerta.normasVinculadas   || [];
+    procesosVinculados  = alerta.procesosVinculados  || [];
+    normasVinculadas    = alerta.normasVinculadas    || [];
+    entidadesVinculadas = alerta.entidadesVinculadas || [];
     renderTagsProcesos();
     renderTagsNormas();
+    renderTagsEntidades();
 
-    document.querySelector("#panel-agenda .reunion-form-card h2").textContent = "Editar Alerta";
+    document.querySelector("#panel-agenda .reunion-form-card h2").textContent = "Editar Agenda";
     document.getElementById("btn-cancelar-alerta").style.display = "inline-block";
     document.getElementById("panel-agenda").scrollIntoView({ behavior: "smooth" });
   }
@@ -194,13 +244,15 @@ onAuthStateChanged(auth, (user) => {
           await updateDoc(docRef, {
             titulo, fecha, prioridad, estado,
             procesosVinculados,
-            normasVinculadas
+            normasVinculadas,
+            entidadesVinculadas
           });
         } else {
           await addDoc(alertasRef, {
             titulo, fecha, prioridad, estado,
             procesosVinculados,
             normasVinculadas,
+            entidadesVinculadas,
             creadoEn: serverTimestamp()
           });
         }
@@ -290,8 +342,12 @@ onAuthStateChanged(auth, (user) => {
         `<span class="participante-tag" style="font-size:0.75rem">📄 ${n.nombre}</span>`
       ).join("");
 
-      const seccionVinculos = (procesosTags || normasTags)
-        ? `<div class="reunion-card-participantes">${procesosTags}${normasTags}</div>`
+      const entidadesTags = (a.entidadesVinculadas || []).map(e =>
+        `<span class="participante-tag" style="font-size:0.75rem">🏛️ ${e.nombre}</span>`
+      ).join("");
+
+      const seccionVinculos = (procesosTags || normasTags || entidadesTags)
+        ? `<div class="reunion-card-participantes">${entidadesTags}${procesosTags}${normasTags}</div>`
         : "";
 
       return `

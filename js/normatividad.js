@@ -15,7 +15,7 @@ import {
 
 const colorTipo = {
   "Ley": "#7B2FBE", "Reglamento": "#3A0CA3",
-  "Lineamiento": "#0077B6", "Circular": "#2D6A4F", "Acuerdo": "#9B2226"
+  "Lineamiento": "#0077B6", "Reglas de Operación": "#2D6A4F", "Acuerdo": "#9B2226"
 };
 
 let todasLasNormas = []; // se usa para exportar y filtrar

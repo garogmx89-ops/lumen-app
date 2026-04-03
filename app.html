@@ -90,7 +90,7 @@
               <circle cx="8" cy="8" r="4" stroke="currentColor" stroke-width="1.3"/>
               <circle cx="8" cy="8" r="1" fill="currentColor"/>
             </svg>
-            <span class="nav-label">Agenda / Alertas</span>
+            <span class="nav-label">Agenda</span>
             <span class="nav-badge amber" id="badge-agenda">3</span>
           </div>
           <div class="nav-item" onclick="goTo('contexto')" id="nav-contexto">
@@ -351,6 +351,10 @@
                 <div class="form-group form-group--corto">
                   <label for="reunion-hora">Hora</label>
                   <input type="time" id="reunion-hora">
+                  <label style="display:flex;align-items:center;gap:0.4rem;margin-top:0.4rem;font-size:0.8rem;color:var(--text2);cursor:pointer;">
+                    <input type="checkbox" id="reunion-hora-pendiente" style="accent-color:var(--accent);">
+                    Por confirmar
+                  </label>
                 </div>
               </div>
             </div>
@@ -428,6 +432,17 @@
               </select>
             </div>
 
+            <div class="form-row">
+              <div class="form-group">
+                <label for="entidad-telefono">Teléfono</label>
+                <input type="text" id="entidad-telefono" placeholder="Ej. 492 123 4567">
+              </div>
+              <div class="form-group form-group--corto">
+                <label for="entidad-extension">Extensión</label>
+                <input type="text" id="entidad-extension" placeholder="Ej. 305">
+              </div>
+            </div>
+
             <div class="form-group">
               <label for="entidad-titular">Titular / Responsable</label>
               <input type="text" id="entidad-titular" placeholder="Ej. Lic. María García">
@@ -475,7 +490,7 @@
                   <option value="Ley">Ley</option>
                   <option value="Reglamento">Reglamento</option>
                   <option value="Lineamiento">Lineamiento</option>
-                  <option value="Circular">Circular</option>
+                  <option value="Reglas de Operación">Reglas de Operación</option>
                   <option value="Acuerdo">Acuerdo</option>
                 </select>
               </div>
@@ -539,7 +554,7 @@
             <button class="filtro-btn" data-filtro="Ley">Ley</button>
             <button class="filtro-btn" data-filtro="Reglamento">Reglamento</button>
             <button class="filtro-btn" data-filtro="Lineamiento">Lineamiento</button>
-            <button class="filtro-btn" data-filtro="Circular">Circular</button>
+            <button class="filtro-btn" data-filtro="Reglas de Operación">Reglas Op.</button>
             <button class="filtro-btn" data-filtro="Acuerdo">Acuerdo</button>
           </div>
 
@@ -726,6 +741,11 @@
             </div>
             <div id="pasos-lista"></div>
 
+            <div class="form-group">
+              <label for="proceso-comentarios">Comentarios y notas relevantes</label>
+              <textarea id="proceso-comentarios" rows="2" placeholder="Ej. Fecha límite: último día hábil del mes. Problema común: dictamen llega sin firma..."></textarea>
+            </div>
+
             <button class="btn-primary" id="btn-guardar-proceso">Guardar proceso</button>
             <button class="btn-secondary" id="btn-cancelar-proceso" style="display:none;">Cancelar edición</button>
           </div>
@@ -736,6 +756,14 @@
             <button class="filtro-btn" data-filtro="Activo">Activo</button>
             <button class="filtro-btn" data-filtro="En revisión">En revisión</button>
             <button class="filtro-btn" data-filtro="Obsoleto">Obsoleto</button>
+          </div>
+
+          <!-- Filtro por entidad responsable -->
+          <div class="norma-filtros" style="margin-top:-0.5rem" id="procesos-filtros-entidad">
+            <button class="filtro-btn filtro-activo" data-entidad="todos">Todas las entidades</button>
+            <button class="filtro-btn" data-entidad="SEDUVOT">SEDUVOT</button>
+            <button class="filtro-btn" data-entidad="COEPLA">COEPLA</button>
+            <button class="filtro-btn" data-entidad="Otra">Otra</button>
           </div>
 
           <!-- Lista de procesos -->
@@ -756,7 +784,7 @@
 
           <!-- Formulario para registrar alerta -->
           <div class="reunion-form-card">
-            <h2 class="panel-title">Nueva Alerta</h2>
+            <h2 class="panel-title">Nueva Agenda</h2>
 
             <div class="form-group">
               <label for="alerta-titulo">Título o descripción</label>
@@ -804,7 +832,15 @@
               <div id="alerta-tags-normas" class="tags-container"></div>
             </div>
 
-            <button class="btn-primary" id="btn-guardar-alerta">Guardar alerta</button>
+            <div class="form-group">
+              <label for="alerta-selector-entidad">Dependencia vinculada</label>
+              <select id="alerta-selector-entidad">
+                <option value="">— Selecciona una dependencia —</option>
+              </select>
+              <div id="alerta-tags-entidades" class="tags-container"></div>
+            </div>
+
+            <button class="btn-primary" id="btn-guardar-alerta">Guardar agenda</button>
             <button class="btn-secondary" id="btn-cancelar-alerta" style="display:none;">Cancelar edición</button>
           </div>
 
@@ -821,7 +857,7 @@
           <!-- Lista de alertas -->
           <div class="reuniones-lista">
             <div style="display:flex;justify-content:space-between;align-items:center;flex-wrap:wrap;gap:0.5rem;margin-bottom:0.75rem;">
-              <h2 class="panel-title" style="margin-bottom:0">Alertas registradas</h2>
+              <h2 class="panel-title" style="margin-bottom:0">Agenda registrada</h2>
               <div id="agenda-export-bar" style="display:flex;gap:0.5rem;flex-wrap:wrap;"></div>
             </div>
             <div id="agenda-contenido">
@@ -1039,7 +1075,7 @@
           <circle cx="10" cy="10" r="5" stroke="currentColor" stroke-width="1.4"/>
           <circle cx="10" cy="10" r="1.2" fill="currentColor" stroke="none"/>
         </svg>
-        <span class="bnav-label">Alertas</span>
+        <span class="bnav-label">Agenda</span>
         <span class="bnav-dot"></span>
       </div>
       <div class="bnav-item" id="bn-more" onclick="openMore()">

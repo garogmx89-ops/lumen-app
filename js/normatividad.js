@@ -520,8 +520,8 @@ onAuthStateChanged(auth, (user) => {
           <div style="color:var(--text3);font-size:0.82rem;margin-top:0.3rem">Sin texto cargado aún.</div>
           <div style="margin-top:0.5rem">
             <label id="label-cargar-docx" style="display:inline-flex;align-items:center;gap:0.4rem;background:none;border:1px solid var(--accent);color:var(--accent);border-radius:8px;padding:0.4rem 0.9rem;font-size:0.82rem;cursor:pointer;font-weight:600;">
-              📄 Cargar .docx
-              <input type="file" id="input-docx-norma" accept=".docx" style="display:none">
+              📄 Cargar documento Word
+              <input type="file" id="input-docx-norma" accept=".doc,.docx" style="display:none">
             </label>
             <div style="font-size:0.75rem;color:var(--text3);margin-top:0.4rem">Descarga el .docx del Congreso y súbelo aquí</div>
           </div>
@@ -565,7 +565,7 @@ onAuthStateChanged(auth, (user) => {
         // Reemplazar botón por input de archivo
         const btn = document.getElementById("btn-recargar-docx");
         btn.outerHTML = `<label style="display:inline-flex;align-items:center;gap:0.4rem;background:none;border:1px solid var(--border);color:var(--text2);border-radius:8px;padding:0.4rem 0.8rem;font-size:0.78rem;cursor:pointer;">
-          📄 Seleccionar .docx <input type="file" id="input-docx-norma" accept=".docx" style="display:none">
+          📄 Seleccionar documento Word <input type="file" id="input-docx-norma" accept=".doc,.docx" style="display:none">
         </label>
         <div id="docx-proceso" style="font-size:0.82rem;color:var(--text2);margin-top:0.4rem"></div>`;
         inicializarCargaDocx(norma.id, norma.nombre);
@@ -587,6 +587,24 @@ onAuthStateChanged(auth, (user) => {
     input.addEventListener("change", async (e) => {
       const archivo = e.target.files[0];
       if (!archivo) return;
+
+      // Detectar formato antiguo .doc — mammoth solo procesa .docx
+      const esDocAntiguo = archivo.name.toLowerCase().endsWith(".doc") && !archivo.name.toLowerCase().endsWith(".docx");
+      if (esDocAntiguo) {
+        const proceso = document.getElementById("docx-proceso");
+        if (proceso) {
+          proceso.style.display = "block";
+          proceso.innerHTML = `⚠️ <strong>Formato no compatible.</strong> El archivo es un documento Word 97-2003 (.doc antiguo).<br>
+            <div style="margin-top:0.5rem;font-size:0.78rem;color:var(--text2);line-height:1.6">
+              Para cargarlo en Lumen, conviértelo primero:<br>
+              1. Abre el archivo en Word<br>
+              2. Archivo → Guardar como<br>
+              3. Formato: <strong>Documento Word (.docx)</strong><br>
+              4. Vuelve a intentar aquí con el nuevo archivo
+            </div>`;
+        }
+        return;
+      }
 
       const proceso = document.getElementById("docx-proceso");
       if (proceso) { proceso.style.display = "block"; proceso.textContent = "⏳ Leyendo archivo..."; }

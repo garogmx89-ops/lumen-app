@@ -133,9 +133,12 @@ function detectarEstructura(texto) {
   for (let i = 0; i < hits.length; i++) {
     if (hits[i].nombre !== null) continue;
     const limPos = hits[i + 1]?.pos ?? hits[i].pos + 400;
-    // Usar la longitud del encabezado detectado (no la variable 'm' del while exterior)
-    const encabezadoLen = hits[i].numero.length + 20; // número + prefijo estimado
-    const despues = texto.slice(hits[i].pos + encabezadoLen, limPos);
+    // Avanzar hasta el fin de la línea del encabezado de capítulo/título
+    // En texto plano: "CAPÍTULO I\n\nNOMBRE\n\nArtículo..."
+    // Necesitamos saltar la línea del encabezado completa para llegar al nombre
+    const finLineaEncabezado = texto.indexOf("\n", hits[i].pos);
+    const inicioNombre = finLineaEncabezado >= 0 ? finLineaEncabezado + 1 : hits[i].pos + 20;
+    const despues = texto.slice(inicioNombre, limPos);
     // Buscar siguiente línea no vacía
     const lineas = despues.split("\n").map(l => l.trim()).filter(l => l.length > 2);
     if (lineas.length > 0) {
@@ -170,16 +173,15 @@ function parsearArticulos(textoCompleto) {
 
   // Paso 3 — encabezados de artículo
   const reArt = new RegExp(
+    // Artículo + número/ordinal — lookahead de fin de línea SOLO para números arábigos
+    // Los ordinales (PRIMERO, primero, Primero) van seguidos de "." o ".-" no de "\n"
     "(?:Art[ií]culo|ART[ÍI]CULO|ARTICULO)\\s+" +
-      "(" +
-        // Número arábigo — Bis/Ter/letra solo si va seguido de fin de línea o guión
-        // Esto evita capturar la primera letra del texto del artículo
-        "\\d+(?:\\s*(?:Bis|Ter|[A-Z])(?=[\\s]*(?:\\n|$|-)))?|" +
-        "[ÚU]nico|" +
-        // Ordinales — con flag i ya cubre PRIMERO, SEGUNDO... y primero, segundo...
-        "(?:" + ORDINALES_PAT + ")" +
+      "(?:" +
+        "(\\d+(?:\\s*(?:Bis|Ter|[A-Z])(?=[\\s]*(?:\\n|$|-)))?)(?=[\\s]*(?:\\n|[-.]?\\s*\\n|$))" +  // números → requiere fin de línea
+        "|([ÚU]nico)" +                   // Único
+        "|(" + ORDINALES_PAT + ")" +      // ordinales → sin lookahead (van seguidos de ".")
       ")" +
-      "\\s*[-.]?[-.]?\\s*(?=[\\n]|$)" +  // el número termina antes del salto de línea
+      "\\s*[-.]?[-.]?\\s*" +
     "|" +
     "^\\s*(" + ORDINALES_PAT + ")\\s*[-.]\\s*",
     "gim"
@@ -189,7 +191,8 @@ function parsearArticulos(textoCompleto) {
   let m;
   while ((m = reArt.exec(texto)) !== null) {
     const pos    = m.index;
-    const rawNum = (m[1] || m[2] || "").trim();
+    // Grupos: 1=número arábigo, 2=Único, 3=ordinal con Artículo, 4=ordinal solo al inicio
+    const rawNum = (m[1] || m[2] || m[3] || m[4] || "").trim();
     if (!rawNum) continue;
 
     const ctx = texto.slice(Math.max(0, pos - 50), pos + m[0].length + 30);
@@ -242,8 +245,12 @@ function parsearArticulos(textoCompleto) {
     while ((nb = reNotaCopy.exec(bloque)) !== null) {
       notasReforma.push(nb[0].replace(/\*/g, "").trim());
     }
+    // Limpiar notas de reforma — con o sin asteriscos, incluyendo líneas completas
+    // Ej: "*Reformado POG 20-06-2018*"  o  "Artículo reformado POG 20-06-2018"
+    const RE_NOTA_LINEA = /^(?:Art[ií]culo\s+)?(?:reformado|adicionado|derogado|párrafo\s+reformado)[^\n]*/gim;
     const textoLimpio = bloque
       .replace(RE_NOTA_REFORMA, "")
+      .replace(RE_NOTA_LINEA, "")
       .replace(/\n{3,}/g, "\n\n")
       .trim();
 

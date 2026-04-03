@@ -49,56 +49,186 @@ async function subirPdfAFirebaseStorage(archivo, userId) {
 }
 
 // ══════════════════════════════════════════════════════════════════════
-// PARSER DE ARTÍCULOS — detecta todas las variantes de leyes mexicanas
 // ══════════════════════════════════════════════════════════════════════
-// Patrones reconocidos:
-//   Artículo 1.   Artículo 1.-   Artículo 1o.   Artículo 1°
-//   ARTÍCULO 1.   ARTICULO 1.    Art. 1.
-//   Con o sin epígrafe en la línea siguiente
+// PARSER DE ARTÍCULOS v2 — leyes mexicanas del Congreso de Zacatecas
+// ══════════════════════════════════════════════════════════════════════
+// Secciones detectadas: "ley" / "transitorio" / "reforma"
+// Artículos reconocidos: Artículo N, Artículo N Bis/Ter, Artículo N A/B,
+//   Artículo Único, Artículo Primero/Segundo... (ordinales)
+// Separadores: T R A N S I T O R I O S / TRANSITORIOS /
+//   ARTÍCULOS TRANSITORIOS DE LOS DECRETOS DE REFORMAS
+// Notas de reforma (*Reformado POG*) se limpian del texto y se guardan aparte
+// Reporte de confianza incluido: alta / media / baja / nula
+// ══════════════════════════════════════════════════════════════════════
+
+const ORDINALES = [
+  "primero","segundo","tercero","cuarto","quinto","sexto","s\u00e9ptimo","octavo",
+  "noveno","d\u00e9cimo","und\u00e9cimo","duod\u00e9cimo","decimotercero","decimocuarto",
+  "decimoquinto","\u00fanico"
+];
+const ORDINALES_PAT = ORDINALES.join("|");
+
+// Separadores de sección
+const RE_SEP_TRANSITORIO = /T\s*R\s*A\s*N\s*S\s*I\s*T\s*O\s*R\s*I\s*O\s*S|^TRANSITORIOS\s*$/mi;
+const RE_SEP_REFORMA      = /ART[ÍI]CULOS\s+TRANSITORIOS\s+DE\s+LOS\s+DECRETOS/i;
+
+// Notas editoriales de reforma incrustadas en el texto
+const RE_NOTA_REFORMA = /\*\s*(?:P[áa]rrafo\s+)?(?:[Rr]eformado|[Aa]dicionado|[Dd]erogado|[Ff]racci[oó]n\s+\S+|[Ii]nciso\s+\S+)(?:\s+POG|\s+por|\s+mediante)[^\n*]*\*/gi;
+
+// Falsos positivos — referencias internas que contienen "Artículo N"
+const RE_FALSO = [
+  /artículo\s+\d+\s+de\s+(?:la\s+)?(?:esta\s+)?(?:ley|presente|constituci)/i,
+  /(?:conforme\s+al?|según\s+el?|ver)\s+artículo/i,
+];
+
 function parsearArticulos(textoCompleto) {
-  // Normalizar saltos de línea
   const texto = textoCompleto.replace(/\r\n/g, "\n").replace(/\r/g, "\n");
 
-  // Regex flexible: captura número + todo el texto hasta el siguiente artículo
-  const regex = /(?:Art[ií]culo|ARTÍCULO|ARTICULO|Art\.)\s+(\d+\s*[o°]?)\s*[-.]?\.?\s*/gi;
+  // Paso 1 — posición de los separadores de sección
+  let posSepOrig    = Infinity;
+  let posSepReforma = Infinity;
+  const mOrig = RE_SEP_TRANSITORIO.exec(texto);
+  if (mOrig) posSepOrig = mOrig.index;
+  const mRef  = RE_SEP_REFORMA.exec(texto);
+  if (mRef)  posSepReforma = mRef.index;
 
-  const fragmentos = [];
-  let match;
-  const indices = [];
+  // Paso 2 — encontrar todos los encabezados de artículo
+  // Un solo regex con tres alternativas:
+  //   A) Artículo + número arábigo (con Bis/Ter/letra opcional)
+  //   B) Artículo + ordinal en español
+  //   C) Solo ordinal al inicio de línea (transitorios de decretos sin "Artículo")
+  const reArt = new RegExp(
+    "(?:Art[ií]culo|ART[ÍI]CULO|ARTICULO)\\s+" +
+      "(" +
+        "\\d+(?:\\s*(?:Bis|Ter|[A-Z]))?|" +  // arábigo + Bis/Ter/letra
+        "[ÚU]nico|" +                           // Único
+        "(?:" + ORDINALES_PAT + ")" +           // ordinal
+      ")" +
+      "\\s*[-.]?[-.]?\\s*" +
+    "|" +
+    "^\\s*(" + ORDINALES_PAT + ")\\s*[-.]\\s*",
+    "gim"
+  );
 
-  while ((match = regex.exec(texto)) !== null) {
-    indices.push({ pos: match.index, numero: match[1].trim().replace(/[o°]$/, "") });
+  const hits = [];
+  let m;
+  while ((m = reArt.exec(texto)) !== null) {
+    const pos         = m.index;
+    const rawNum      = (m[1] || m[2] || "").trim();
+    if (!rawNum) continue;
+
+    // Descartar falsos positivos (referencias internas)
+    const ctx = texto.slice(Math.max(0, pos - 50), pos + m[0].length + 30);
+    if (RE_FALSO.some(r => r.test(ctx))) continue;
+
+    // Determinar sección por posición
+    let seccion = "ley";
+    if (pos >= posSepReforma)   seccion = "reforma";
+    else if (pos >= posSepOrig) seccion = "transitorio";
+
+    // Ordinales siempre son transitorios (aunque no haya separador explícito)
+    const esOrdinal = ORDINALES.some(o => rawNum.toLowerCase() === o);
+    if (esOrdinal && seccion === "ley") seccion = "transitorio";
+
+    const numero = rawNum.trim().replace(/\s+/g, " ");
+    hits.push({ pos, numero, seccion, matchLen: m[0].length });
   }
 
-  for (let i = 0; i < indices.length; i++) {
-    const inicio  = indices[i].pos;
-    const fin     = i + 1 < indices.length ? indices[i + 1].pos : texto.length;
-    const bloque  = texto.slice(inicio, fin).trim();
-    const numero  = indices[i].numero;
+  // Paso 3 — construir fragmentos
+  const articulos   = [];
+  const sospechosos = [];
 
-    // Intentar extraer epígrafe — primera línea en mayúsculas después del número
-    const lineas  = bloque.split("\n").filter(l => l.trim());
-    let epígrafe  = "";
-    let textoArt  = bloque;
+  const textoPrevio = hits.length > 0 ? texto.slice(0, hits[0].pos).trim() : texto;
 
-    // Si la segunda línea es corta y en mayúsculas, es epígrafe
+  for (let i = 0; i < hits.length; i++) {
+    const inicio = hits[i].pos;
+    const fin    = i + 1 < hits.length ? hits[i + 1].pos : texto.length;
+    let bloque   = texto.slice(inicio, fin).trim();
+
+    // Limpiar notas de reforma — guardarlas separadas
+    const notasReforma = [];
+    let nb;
+    const reNotaCopy = new RegExp(RE_NOTA_REFORMA.source, "gi");
+    while ((nb = reNotaCopy.exec(bloque)) !== null) {
+      notasReforma.push(nb[0].replace(/\*/g, "").trim());
+    }
+    const textoLimpio = bloque
+      .replace(RE_NOTA_REFORMA, "")
+      .replace(/\n{3,}/g, "\n\n")
+      .trim();
+
+    // Detectar epígrafe — segunda línea corta en cursiva o mayúsculas
+    const lineas = textoLimpio.split("\n").filter(l => l.trim());
+    let epigrafe = "";
     if (lineas.length > 1) {
-      const segundaLinea = lineas[1].trim();
-      if (segundaLinea === segundaLinea.toUpperCase() && segundaLinea.length < 80 && segundaLinea.length > 3) {
-        epígrafe = segundaLinea;
+      const cand = lineas[1].trim().replace(/^\*+|\*+$/g, "");
+      if (cand.length > 3 && cand.length < 100 && !cand.endsWith(".") &&
+          !/^(?:reformado|adicionado|derogado)/i.test(cand)) {
+        epigrafe = cand;
       }
     }
 
-    fragmentos.push({
-      numero,
-      epigrafe: epígrafe,
-      texto:    bloque,
-      // Palabras clave para búsqueda (las 30 más relevantes, sin stopwords)
-      palabrasClave: extraerPalabrasClave(bloque)
+    // Detectar artículo sospechoso — texto muy corto (< 25 chars sin encabezado)
+    const sinEncabezado = lineas.slice(1).join(" ").trim();
+    const esSospechoso  = sinEncabezado.length < 25 &&
+      !/(se deroga|se abroga|reservado)/i.test(sinEncabezado);
+
+    if (esSospechoso) {
+      sospechosos.push({
+        numero:  hits[i].numero,
+        seccion: hits[i].seccion,
+        texto:   textoLimpio.slice(0, 150),
+        razon:   "Texto del artículo muy corto o vacío"
+      });
+    }
+
+    articulos.push({
+      numero:        hits[i].numero,
+      epigrafe,
+      seccion:       hits[i].seccion,
+      texto:         textoLimpio,
+      notasReforma,
+      palabrasClave: extraerPalabrasClave(textoLimpio),
+      sospechoso:    esSospechoso,
+      indice:        i + 1
     });
   }
 
-  return fragmentos;
+  // Paso 4 — detectar bloques desconocidos entre artículos reconocidos
+  const desconocidos = [];
+  const reParece     = /^\s*(?:art[ií]culo|art\.)\s+[^\n]{3,}/im;
+  for (let i = 0; i < hits.length - 1; i++) {
+    const entre = texto.slice(hits[i].pos + hits[i].matchLen, hits[i + 1].pos);
+    if (reParece.test(entre)) {
+      const match = reParece.exec(entre);
+      desconocidos.push({
+        despuesDe: hits[i].numero,
+        fragmento: (match ? match[0] : entre).trim().slice(0, 200)
+      });
+    }
+  }
+
+  // Paso 5 — reporte de confianza
+  const porSeccion = { ley: 0, transitorio: 0, reforma: 0 };
+  articulos.forEach(a => porSeccion[a.seccion]++);
+
+  const confianza = articulos.length === 0 ? "nula"
+    : desconocidos.length > 0 ? "baja"
+    : sospechosos.length > 2  ? "media"
+    : sospechosos.length > 0  ? "media"
+    : "alta";
+
+  const reporte = {
+    total: articulos.length,
+    porSeccion,
+    sospechosos,
+    desconocidos,
+    textoPrevioDescartado:   textoPrevio.length > 0,
+    caracteresTextoPrevio:   textoPrevio.length,
+    confianza
+  };
+
+  return { articulos, reporte };
 }
 
 const STOPWORDS = new Set([
@@ -119,7 +249,55 @@ function extraerPalabrasClave(texto) {
   )].slice(0, 40);
 }
 
-// ══════════════════════════════════════════════════════════════════════
+// Renderiza el reporte de confianza como HTML para mostrarlo en la vista previa
+function renderReporteConfianza(reporte) {
+  const iconoConf  = { alta:"✅", media:"⚠️", baja:"🔴", nula:"❌" }[reporte.confianza];
+  const colorConf  = { alta:"#2D6A4F", media:"#c9a227", baja:"#E76F51", nula:"#9B2226" }[reporte.confianza];
+
+  let html = `<div style="margin-top:0.5rem;border:1px solid var(--border);border-radius:8px;overflow:hidden;font-size:0.8rem">`;
+
+  html += `<div style="padding:0.45rem 0.8rem;background:${colorConf}22;display:flex;align-items:center;gap:0.5rem">
+    <span style="font-weight:600;color:${colorConf}">${iconoConf} Confianza ${reporte.confianza} — ${reporte.total} artículos detectados</span>
+  </div>`;
+
+  html += `<div style="padding:0.45rem 0.8rem;display:flex;gap:1.2rem;flex-wrap:wrap;border-bottom:1px solid var(--border);color:var(--text2)">
+    <span>📋 Ley: <strong style="color:var(--text)">${reporte.porSeccion.ley}</strong></span>
+    <span>⏱ Transitorios: <strong style="color:var(--text)">${reporte.porSeccion.transitorio}</strong></span>
+    <span>📝 Reformas: <strong style="color:var(--text)">${reporte.porSeccion.reforma}</strong></span>
+  </div>`;
+
+  if (reporte.textoPrevioDescartado && reporte.caracteresTextoPrevio > 200) {
+    html += `<div style="padding:0.4rem 0.8rem;border-bottom:1px solid var(--border);color:var(--text2)">
+      ℹ️ ${reporte.caracteresTextoPrevio.toLocaleString()} caracteres descartados antes del primer artículo (encabezados, exposición de motivos)
+    </div>`;
+  }
+
+  if (reporte.sospechosos.length > 0) {
+    html += `<div style="padding:0.4rem 0.8rem;border-bottom:1px solid var(--border)">
+      <div style="color:#c9a227;font-weight:600;margin-bottom:0.25rem">⚠️ ${reporte.sospechosos.length} artículo(s) con texto muy corto:</div>
+      <div style="color:var(--text2);line-height:1.6">
+        ${reporte.sospechosos.map(s => `• Art. ${s.numero} [${s.seccion}]: <em style="color:var(--text3)">${s.texto.slice(0,100) || "(vacío)"}</em>`).join("<br>")}
+      </div>
+    </div>`;
+  }
+
+  if (reporte.desconocidos.length > 0) {
+    html += `<div style="padding:0.4rem 0.8rem">
+      <div style="color:#E76F51;font-weight:600;margin-bottom:0.25rem">🔴 ${reporte.desconocidos.length} bloque(s) con patrón no reconocido — posibles artículos perdidos:</div>
+      <div style="color:var(--text2);line-height:1.6;font-size:0.75rem">
+        ${reporte.desconocidos.map(d => `• Después del Art. ${d.despuesDe}: <em>"${d.fragmento.slice(0,120)}..."</em>`).join("<br>")}
+      </div>
+      <div style="color:var(--text3);font-size:0.75rem;margin-top:0.35rem">
+        💡 Si hay artículos importantes perdidos, comparte el archivo para ajustar el parser.
+      </div>
+    </div>`;
+  }
+
+  html += `</div>`;
+  return html;
+}
+
+
 onAuthStateChanged(auth, (user) => {
   if (!user) return;
 
@@ -637,18 +815,25 @@ onAuthStateChanged(auth, (user) => {
 
         if (proceso) proceso.textContent = "⏳ Analizando y dividiendo por artículos...";
 
-        // Parsear artículos
-        const articulos = parsearArticulos(textoCompleto);
+        // Parsear artículos — devuelve { articulos, reporte }
+        const { articulos, reporte } = parsearArticulos(textoCompleto);
 
         if (articulos.length === 0) {
-          if (proceso) proceso.innerHTML = `⚠️ No se detectaron artículos. El documento tiene ${textoCompleto.length.toLocaleString()} caracteres pero no coincide con ningún patrón conocido.<br><span style="font-size:0.75rem;color:var(--text3)">Verifica que sea el texto completo de la ley, no solo metadatos.</span>`;
+          if (proceso) proceso.innerHTML =
+            `❌ No se detectaron artículos. El documento tiene ${textoCompleto.length.toLocaleString()} caracteres pero ningún encabezado coincide con los patrones conocidos.<br>
+            <span style="font-size:0.75rem;color:var(--text3)">Verifica que sea el texto completo de la ley y no solo metadatos. Puedes compartir el archivo para revisar el formato.</span>`;
           return;
         }
 
-        // Vista previa antes de guardar
-        if (proceso) proceso.innerHTML = `✅ Se detectaron <strong>${articulos.length} artículos</strong>. Primeros 3:<br>
-          <div style="margin-top:0.4rem;font-size:0.78rem;color:var(--text3);line-height:1.5">
-            ${articulos.slice(0, 3).map(a => `• Art. ${a.numero}${a.epigrafe ? " — " + a.epigrafe : ""}: ${a.texto.slice(0, 80)}...`).join("<br>")}
+        // Vista previa con reporte de confianza
+        const primerTres = articulos.slice(0, 3).map(a =>
+          `• Art. ${a.numero} [${a.seccion}]${a.epigrafe ? " — " + a.epigrafe : ""}: ${a.texto.slice(0, 80)}...`
+        ).join("<br>");
+
+        if (proceso) proceso.innerHTML =
+          renderReporteConfianza(reporte) +
+          `<div style="margin-top:0.5rem;font-size:0.78rem;color:var(--text3);line-height:1.6">
+            <strong style="color:var(--text2)">Primeros 3 artículos detectados:</strong><br>${primerTres}
           </div>
           <button id="btn-confirmar-guardar" style="margin-top:0.6rem;background:var(--accent);color:white;border:none;border-radius:8px;padding:0.4rem 1rem;font-size:0.82rem;cursor:pointer;font-family:inherit;font-weight:600;">
             💾 Guardar ${articulos.length} artículos en Lumen
@@ -702,7 +887,9 @@ onAuthStateChanged(auth, (user) => {
           batch.set(artRef, {
             numero:        art.numero,
             epigrafe:      art.epigrafe || "",
+            seccion:       art.seccion  || "ley",
             texto:         art.texto,
+            notasReforma:  art.notasReforma || [],
             palabrasClave: art.palabrasClave,
             indice:        i + j + 1
           });
@@ -768,10 +955,16 @@ onAuthStateChanged(auth, (user) => {
         </div>
         <div style="font-size:0.8rem;color:var(--text2)" id="explo-contador"></div>
       </div>
-      <div style="padding:0.75rem 1rem;background:var(--bg2);border:1px solid var(--border);border-top:none">
+      <div style="padding:0.6rem 1rem;background:var(--bg2);border:1px solid var(--border);border-top:none;display:flex;flex-direction:column;gap:0.5rem">
         <input type="text" id="explo-busqueda" placeholder="Buscar en el texto de la ley..." autocomplete="off"
           style="width:100%;background:var(--bg);border:1px solid var(--border);border-radius:8px;
           padding:0.5rem 0.75rem;font-size:0.875rem;color:var(--text);font-family:inherit">
+        <div style="display:flex;gap:0.4rem;flex-wrap:wrap">
+          <button class="explo-filtro-sec filtro-activo filtro-btn" data-sec="todos" style="font-size:0.75rem;padding:0.2rem 0.6rem">Todos</button>
+          <button class="explo-filtro-sec filtro-btn" data-sec="ley" style="font-size:0.75rem;padding:0.2rem 0.6rem">📋 Ley</button>
+          <button class="explo-filtro-sec filtro-btn" data-sec="transitorio" style="font-size:0.75rem;padding:0.2rem 0.6rem">⏱ Transitorios</button>
+          <button class="explo-filtro-sec filtro-btn" data-sec="reforma" style="font-size:0.75rem;padding:0.2rem 0.6rem">📝 Reformas</button>
+        </div>
       </div>
       <div id="explo-lista" style="padding:0.75rem 1rem;display:flex;flex-direction:column;gap:0.5rem;"></div>`;
 
@@ -779,9 +972,22 @@ onAuthStateChanged(auth, (user) => {
 
     // Buscador
     let debounceTimer;
+    let _exploSeccion = "todos";
+
     document.getElementById("explo-busqueda").addEventListener("input", (e) => {
       clearTimeout(debounceTimer);
-      debounceTimer = setTimeout(() => filtrarArticulos(e.target.value.trim()), 300);
+      debounceTimer = setTimeout(() => filtrarArticulos(e.target.value.trim(), _exploSeccion), 300);
+    });
+
+    // Filtros por sección
+    panelExplo.querySelectorAll(".explo-filtro-sec").forEach(btn => {
+      btn.addEventListener("click", () => {
+        panelExplo.querySelectorAll(".explo-filtro-sec").forEach(b => b.classList.remove("filtro-activo"));
+        btn.classList.add("filtro-activo");
+        _exploSeccion = btn.dataset.sec;
+        const termino = document.getElementById("explo-busqueda")?.value.trim() || "";
+        filtrarArticulos(termino, _exploSeccion);
+      });
     });
 
     // Cargar artículos de Firestore
@@ -801,25 +1007,31 @@ onAuthStateChanged(auth, (user) => {
     }
   }
 
-  function filtrarArticulos(termino) {
+  function filtrarArticulos(termino, seccion = "todos") {
     const contEl = document.getElementById("explo-contador");
-    if (!termino) {
-      _exploFiltrados = _exploArticulos;
-      if (contEl) contEl.textContent = `${_exploArticulos.length} artículos`;
-      renderArticulos(_exploArticulos);
-      return;
+
+    // Primero filtrar por sección
+    let base = seccion === "todos"
+      ? _exploArticulos
+      : _exploArticulos.filter(a => a.seccion === seccion);
+
+    // Luego filtrar por texto
+    if (termino) {
+      const t = termino.toLowerCase();
+      base = base.filter(a =>
+        a.texto.toLowerCase().includes(t) ||
+        (a.epigrafe && a.epigrafe.toLowerCase().includes(t)) ||
+        a.numero === termino ||
+        (a.palabrasClave || []).some(p => p.includes(t))
+      );
     }
 
-    const t = termino.toLowerCase();
-    _exploFiltrados = _exploArticulos.filter(a =>
-      a.texto.toLowerCase().includes(t) ||
-      (a.epigrafe && a.epigrafe.toLowerCase().includes(t)) ||
-      a.numero === termino ||
-      (a.palabrasClave || []).some(p => p.includes(t))
-    );
-
-    if (contEl) contEl.textContent = `${_exploFiltrados.length} de ${_exploArticulos.length} artículos`;
-    renderArticulos(_exploFiltrados, termino);
+    _exploFiltrados = base;
+    const totalBase = seccion === "todos" ? _exploArticulos.length : _exploArticulos.filter(a => a.seccion === seccion).length;
+    if (contEl) contEl.textContent = termino
+      ? `${base.length} de ${totalBase} artículos`
+      : `${base.length} artículos`;
+    renderArticulos(base, termino);
   }
 
   function renderArticulos(lista, termino = "") {
@@ -844,14 +1056,32 @@ onAuthStateChanged(auth, (user) => {
         ? resaltar(a.texto, termino)
         : a.texto.slice(0, 300) + (a.texto.length > 300 ? "..." : "");
 
+      // Badge de sección
+      const badgeSec = {
+        ley:         `<span style="background:#7B2FBE22;color:#7B2FBE;border:1px solid #7B2FBE44;border-radius:10px;padding:0.1rem 0.4rem;font-size:0.68rem;font-weight:600">📋 Ley</span>`,
+        transitorio: `<span style="background:#0077B622;color:#0077B6;border:1px solid #0077B644;border-radius:10px;padding:0.1rem 0.4rem;font-size:0.68rem;font-weight:600">⏱ Transitorio</span>`,
+        reforma:     `<span style="background:#2D6A4F22;color:#2D6A4F;border:1px solid #2D6A4F44;border-radius:10px;padding:0.1rem 0.4rem;font-size:0.68rem;font-weight:600">📝 Reforma</span>`
+      }[a.seccion] || "";
+
+      // Notas de reforma (si las hay)
+      const notasHtml = (a.notasReforma && a.notasReforma.length > 0)
+        ? `<div style="margin-top:0.3rem;font-size:0.72rem;color:var(--text3);font-style:italic">
+            🔄 ${a.notasReforma.join(" · ")}
+           </div>`
+        : "";
+
       return `<div class="reunion-card" style="cursor:default">
-        <div style="display:flex;justify-content:space-between;align-items:flex-start;margin-bottom:0.3rem">
-          <span style="font-size:0.75rem;font-weight:700;color:var(--accent)">Artículo ${a.numero}</span>
-          ${a.epigrafe ? `<span style="font-size:0.72rem;color:var(--text2);font-style:italic">${a.epigrafe}</span>` : ""}
+        <div style="display:flex;justify-content:space-between;align-items:flex-start;margin-bottom:0.3rem;flex-wrap:wrap;gap:0.3rem">
+          <div style="display:flex;align-items:center;gap:0.4rem;flex-wrap:wrap">
+            <span style="font-size:0.78rem;font-weight:700;color:var(--accent)">Artículo ${a.numero}</span>
+            ${badgeSec}
+            ${a.epigrafe ? `<span style="font-size:0.72rem;color:var(--text2);font-style:italic">${a.epigrafe}</span>` : ""}
+          </div>
         </div>
         <div style="font-size:0.82rem;color:var(--text);line-height:1.6" class="explo-art-texto" data-completo="${encodeURIComponent(a.texto)}" data-expandido="false">
           ${textoMostrar}
         </div>
+        ${notasHtml}
         ${!termino && a.texto.length > 300 ? `<button class="explo-btn-expandir" style="margin-top:0.3rem;background:none;border:none;color:var(--accent);font-size:0.78rem;cursor:pointer;padding:0;font-family:inherit">Ver texto completo ▾</button>` : ""}
       </div>`;
     }).join("");

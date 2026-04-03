@@ -1907,16 +1907,10 @@ body.light input[type="time"]::-webkit-calendar-picker-indicator {
   padding-left: 22px !important;
 }
 
-/* ── Fix menú inferior tapa tarjetas en móvil ──────────────────── */
+/* ── Fix menú inferior tapa contenido en móvil ─────────────────── */
+/* Se aplica al panel completo para cubrir formularios Y listas     */
 @media (max-width: 768px) {
-  .reuniones-lista,
-  .norma-lista,
-  #entidades-contenido,
-  #analisis-contenido,
-  #procesos-contenido,
-  #agenda-contenido,
-  #territorio-contenido,
-  #contexto-contenido {
+  .panel.active {
     padding-bottom: calc(var(--bnav-h) + 24px);
   }
 }

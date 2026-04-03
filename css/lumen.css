@@ -483,17 +483,13 @@ body.light .theme-toggle-knob {
 /* ─── RESPONSIVE ─────────────────────────────────────────────────────────────── */
 @media (max-width: 768px) {
   .sidebar { display: none; }
-  .shell   { flex-direction: column; overflow: hidden; }
-  .main    { flex: 1; min-height: 0; overflow: hidden; }
+  .shell   { flex-direction: column; }
+  /* En móvil, .main ocupa todo el espacio restante y permite scroll interno */
+  .main    { min-height: 0; flex: 1; }
   .content {
-    flex: 1;
-    min-height: 0;
-    overflow-y: scroll;
-    -webkit-overflow-scrolling: touch;
     padding: 14px;
-    padding-bottom: calc(var(--bnav-h) + 32px);
-    height: calc(100vh - var(--topbar-h) - var(--bnav-h));
-    max-height: calc(100vh - var(--topbar-h) - var(--bnav-h));
+    /* Espacio suficiente para que la barra inferior no tape el último elemento */
+    padding-bottom: calc(var(--bnav-h) + 48px);
   }
   .stat-grid { grid-template-columns: 1fr 1fr; }
   .two-col   { grid-template-columns: 1fr; }

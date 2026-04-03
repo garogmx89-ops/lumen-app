@@ -332,6 +332,7 @@ body.light .theme-toggle-knob {
   flex: 1;
   overflow-y: auto;
   padding: 20px;
+  padding-bottom: 60px;
 }
 
 .panel { display: none; animation: fadeIn 0.18s ease; }
@@ -485,10 +486,13 @@ body.light .theme-toggle-knob {
   .sidebar { display: none; }
   .shell   { flex-direction: column; }
   /* En móvil, .main ocupa todo el espacio restante y permite scroll interno */
-  .main    { min-height: 0; flex: 1; }
+  .main    { min-height: 0; flex: 1; overflow: hidden; }
   .content {
     padding: 14px;
-    /* Espacio suficiente para que la barra inferior no tape el último elemento */
+    /* Altura exacta: viewport menos topbar menos bottom-nav */
+    height: calc(100vh - var(--topbar-h) - var(--bnav-h));
+    overflow-y: scroll;
+    /* Espacio suficiente para que el último elemento respire sobre la barra */
     padding-bottom: calc(var(--bnav-h) + 48px);
   }
   .stat-grid { grid-template-columns: 1fr 1fr; }

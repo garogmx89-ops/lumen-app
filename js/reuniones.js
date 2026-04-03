@@ -183,7 +183,7 @@ DATOS DE LA REUNIÓN:
 - Fecha: ${datos.fecha ? formatearFecha(datos.fecha, datos.hora) : "No especificada"}
 - Participantes: ${participantesTexto}
 - Asunto / Tema: ${datos.asunto || datos.acuerdos || "No especificado"}
-- Acuerdos alcanzados: ${datos.acuerdos || "Sin acuerdos registrados aun"}
+- Acuerdos alcanzados: ${datos.acuerdos_post || "Sin acuerdos registrados aun"}
 
 El briefing debe incluir exactamente estas secciones:
 1. RESUMEN EJECUTIVO (2-3 oraciones que capturen la esencia de la reunión)
@@ -344,8 +344,8 @@ Usa un tono institucional profesional, en español.`;
           </div>
           ${tagsVinculados}
           ${d.participantes ? `<div class="reunion-card-meta">👥 ${d.participantes}</div>` : ""}
-          ${d.asunto   ? `<div class="reunion-card-acuerdos"><strong>Asunto:</strong> ${d.asunto}</div>` : ""}
-          ${d.acuerdos ? `<div class="reunion-card-acuerdos" style="border-left:3px solid var(--accent);padding-left:0.5rem;margin-top:0.3rem"><strong>Asunto:</strong> ${d.acuerdos}</div>` : ""}
+          ${(d.asunto || d.acuerdos) ? `<div class="reunion-card-acuerdos"><strong>Asunto:</strong> ${d.asunto || d.acuerdos}</div>` : ""}
+          ${d.acuerdos_post ? `<div class="reunion-card-acuerdos reunion-acuerdos-post"><strong>📋 Acuerdos:</strong> ${d.acuerdos_post}</div>` : ""}
         </div>
       `;
     }).join("");
@@ -631,7 +631,7 @@ Usa un tono institucional profesional, en español.`;
         "Fecha":                 r.fecha ? formatearFechaExport(r.fecha) : "","Hora": r.hora || "",
         "Participantes":         r.participantes || "",
         "Entidades vinculadas":  (r.participantesVinculados || []).map(p => p.nombre).join(", "),
-        "Asunto": r.asunto || r.acuerdos || "","Acuerdos": r.acuerdos || "",
+        "Asunto": r.asunto || r.acuerdos || "","Acuerdos post-reunion": r.acuerdos_post || "",
         "Briefing IA":           r.briefing ? "Sí" : "No",
       }));
 

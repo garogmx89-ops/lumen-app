@@ -1997,3 +1997,10 @@ onAuthStateChanged(auth, (user) => {
   }
 
 }); // fin onAuthStateChanged
+
+function formatearFecha(fechaStr) {
+  if (!fechaStr) return "";
+  const [year, month, day] = fechaStr.split("-");
+  return new Date(Number(year), Number(month) - 1, Number(day))
+    .toLocaleDateString("es-MX", { day: "2-digit", month: "short", year: "numeric" });
+}

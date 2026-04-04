@@ -335,15 +335,18 @@ function parsearArticulos(textoCompleto, ambito) {
     // Epígrafe: la segunda línea del bloque si es corta y descriptiva
     // NO capturar si es una fracción (I., II., a)) o inciso
     const RE_ES_FRACCION = /^\s*(?:[IVXLivxl]+\.|[a-zA-Z]\))/;
+    const RE_ES_ENCABEZADO = /^(?:T[ÍI]TULO|TITULO|CAP[ÍI]TULO|CAPITULO|Cap[ií]tulo|Secci[oó]n|Primero|Segundo|Tercero|Cuarto|Quinto|Sexto|S[eé]ptimo|Octavo|Noveno|D[eé]cimo)\s/i;
     if (perfil === "federal" && lineas.length > 1) {
       const cand = lineas[1].trim().replace(/^\*+|\*+$/g,"");
       if (cand.length > 3 && cand.length < 80 && !cand.endsWith(".") &&
           !RE_ES_FRACCION.test(cand) &&
+          !RE_ES_ENCABEZADO.test(cand) &&
           !/^(?:reformado|adicionado|derogado)/i.test(cand)) epigrafe = cand;
     } else if (perfil === "estatal" && lineas.length > 1) {
       const cand = lineas[1].trim().replace(/^\*+|\*+$/g,"");
       if (cand.length > 3 && cand.length < 100 && !cand.endsWith(".") &&
           !RE_ES_FRACCION.test(cand) &&
+          !RE_ES_ENCABEZADO.test(cand) &&
           !/^(?:reformado|adicionado|derogado)/i.test(cand)) epigrafe = cand;
     }
 

@@ -50,108 +50,101 @@ async function subirPdfAFirebaseStorage(archivo, userId) {
 
 // ══════════════════════════════════════════════════════════════════════
 // ══════════════════════════════════════════════════════════════════════
-// PARSER DE ARTÍCULOS v3 — leyes mexicanas del Congreso de Zacatecas
+// PARSER DE ARTÍCULOS v4 — Multi-perfil por ámbito
 // ══════════════════════════════════════════════════════════════════════
-// Jerarquía detectada: Título → Capítulo → Sección → Artículo
-// Secciones: "ley" / "transitorio" / "reforma"
-// Artículos: N, N Bis, N Ter, N A/B, Único, ordinales
-// Notas de reforma (*Reformado POG*) se limpian y guardan aparte
-// Reporte de confianza: alta / media / baja / nula
+//
+// PERFIL FEDERAL (DOF):
+//   Artículos: ARTÍCULO N.- texto en misma línea
+//              Artículo N.- texto en misma línea (algunas leyes mixtas)
+//   Transitorios: PRIMERO.- / SEGUNDO.-  (sin "Artículo")
+//   Notas: "Párrafo reformado DOF dd-mm-yyyy"
+//   Capítulos: TÍTULO PRIMERO + nombre en línea siguiente
+//              Capítulo Primero / Capítulo I + nombre en línea siguiente
+//
+// PERFIL ESTATAL (POG):
+//   Artículos: Artículo N  (texto en línea siguiente)
+//   Transitorios: ARTÍCULO PRIMERO. / Artículo primero.-
+//                 T R A N S I T O R I O S (separador espaciado)
+//   Notas: "*Reformado POG dd-mm-yyyy*" / "Artículo reformado POG..."
+//   Capítulos: CAPÍTULO I / Capítulo I + nombre en línea siguiente
+//
 // ══════════════════════════════════════════════════════════════════════
 
-const ORDINALES = [
+const ORDINALES_ES = [
   "primero","segundo","tercero","cuarto","quinto","sexto","séptimo","sétimo","octavo",
-  "noveno","décimo","undécimo","duodécimo","decimotercero","decimocuarto",
-  "decimoquinto","único",
+  "noveno","décimo","undécimo","duodécimo","decimotercero","decimocuarto","decimoquinto","único",
   "PRIMERO","SEGUNDO","TERCERO","CUARTO","QUINTO","SEXTO","SÉPTIMO","SÉTIMO","OCTAVO",
-  "NOVENO","DÉCIMO","UNDÉCIMO","DUODÉCIMO","DECIMOTERCERO","DECIMOCUARTO",
-  "DECIMOQUINTO","Único"
+  "NOVENO","DÉCIMO","UNDÉCIMO","DUODÉCIMO","DECIMOTERCERO","DECIMOCUARTO","DECIMOQUINTO","Único",
+  "Primero","Segundo","Tercero","Cuarto","Quinto","Sexto","Séptimo","Séti mo","Octavo",
+  "Noveno","Décimo","Undécimo","Duodécimo","Decimotercero","Decimocuarto","Decimoquinto"
 ];
-const ORDINALES_PAT = ORDINALES.join("|");
+const ORDINALES_PAT = ORDINALES_ES.join("|");
 
-// Separadores de sección documental
-const RE_SEP_TRANSITORIO = /T\s*R\s*A\s*N\s*S\s*I\s*T\s*O\s*R\s*I\s*O\s*S|^TRANSITORIOS\s*$/mi;
-const RE_SEP_REFORMA      = /ART[ÍI]CULOS\s+TRANSITORIOS\s+DE\s+LOS\s+DECRETOS/i;
+// ── Separadores de sección ────────────────────────────────────────────
+const RE_SEP_TRANS_ESTATAL  = /T\s*R\s*A\s*N\s*S\s*I\s*T\s*O\s*R\s*I\s*O\s*S|^TRANSITORIOS\s*$/mi;
+const RE_SEP_TRANS_FEDERAL  = /^TRANSITORIOS\s*$/m;
+const RE_SEP_REFORMA        = /ART[ÍI]CULOS\s+TRANSITORIOS\s+DE\s+LOS\s+DECRETOS/i;
 
-// Notas editoriales de reforma incrustadas — con o sin asteriscos
-// Variantes encontradas en leyes del Congreso de Zacatecas:
-//   *Reformado POG 20-06-2018*   (con asteriscos)
-//   Artículo reformado POG 20-06-2018  (línea suelta sin asteriscos)
-const RE_NOTA_REFORMA = /\*?\s*(?:Art[ií]culo\s+)?(?:P[áa]rrafo\s+)?(?:[Rr]eformado|[Aa]dicionado|[Dd]erogado|[Ff]racci[oó]n\s+\S+|[Ii]nciso\s+\S+)(?:\s+POG|\s+por|\s+mediante)[^\n*]*\*?/gi;
+// ── Detectar perfil automáticamente ──────────────────────────────────
+// Federal: artículos usan "ARTÍCULO N.-" o "Artículo N.-" (con guión)
+// Estatal: artículos usan "Artículo N" sin guión, texto en línea siguiente
+function detectarPerfil(texto) {
+  // Federal: artículos usan número arábigo con ".-" (ARTÍCULO 1.- o Artículo 1.-)
+  // Estatal: artículos usan número sin guión (Artículo 1 seguido de salto de línea)
+  // Buscamos en todo el texto, no solo al inicio de línea
+  const conGuion  = /(?:ARTÍCULO|Artículo)\s+\d+\s*\.[-]/i.test(texto);
+  const sinGuion  = /(?:Artículo)\s+\d+\n/i.test(texto);
+  // Si tiene patrón con ".-" es federal; si solo tiene sin guión es estatal
+  if (conGuion) return "federal";
+  if (sinGuion) return "estatal";
+  // Fallback: si tiene DOF en notas es federal
+  return /DOF\s+\d{2}-\d{2}-\d{4}/.test(texto) ? "federal" : "estatal";
+}
 
-// Falsos positivos — referencias internas
-const RE_FALSO = [
-  /artículo\s+\d+\s+de\s+(?:la\s+)?(?:esta\s+)?(?:ley|presente|constituci)/i,
-  /(?:conforme\s+al?|según\s+el?|ver)\s+artículo/i,
-];
-
-// ── Detectar jerarquía estructural (Título / Capítulo / Sección) ─────
-// Trabaja sobre texto plano (salida de mammoth) — sin negritas markdown.
-// Patrones en texto plano del Congreso de Zacatecas:
-//   CAPÍTULO I\n\nNOMBRE DEL CAPÍTULO      (nombre en línea siguiente)
-//   TÍTULO PRIMERO\n\nNOMBRE DEL TÍTULO
-//   TÍTULO PRIMERO NOMBRE EN MISMA LÍNEA   (Obra Pública)
-//   Sección Primera\n\nNombre sección        (Adquisiciones)
-//   Capítulo l  → normalizar "l" → "I"     (error tipográfico Fraccionamientos)
+// ── Detectar jerarquía estructural ───────────────────────────────────
+// Ambos perfiles tienen el mismo formato de Título/Capítulo en texto plano
 function detectarEstructura(texto) {
   const hits = [];
 
-  // Regex para texto plano — sin \*\*, al inicio de línea
-  // Capturar solo hasta fin de línea — el nombre del capítulo está en la SIGUIENTE línea
-  // "CAPÍTULO I\n\nDISPOSICIONES GENERALES" → número = "I", nombre resuelto después
-  const reEstructura = /^((?:T[ÍI]TULO|TITULO)\s+[^\n]+|(?:Cap[ií]tulo|CAP[ÍI]TULO|CAPITULO)\s+(?:[IVXLivxl0-9]+|[ÚU]nico)|(?:Secci[oó]n)\s+[^\n]+)\s*$/gm;
+  // Captura solo hasta fin de línea — nombre está en la línea siguiente
+  const reEst = /^((?:T[ÍI]TULO|TITULO)\s+[^\n]+|(?:Cap[ií]tulo|CAP[ÍI]TULO|CAPITULO)\s+(?:[IVXLivxl0-9]+|[ÚU]nico|(?:Primero|Segundo|Tercero|Cuarto|Quinto|Sexto|Séptimo|Octavo|Noveno|D[eé]cimo|[ÚU]nico))|(?:Secci[oó]n)\s+[^\n]+)\s*$/gm;
 
   let m;
-  while ((m = reEstructura.exec(texto)) !== null) {
+  while ((m = reEst.exec(texto)) !== null) {
     const linea = m[0].trim();
 
     if (/^T[ÍI]TULO|^TITULO/i.test(linea)) {
-      const sinPrefijo = linea.replace(/^T[ÍI]TULO\s*/i, "").trim();
-      // Primer token = número ordinal; resto = nombre en misma línea (si existe)
-      const partes   = sinPrefijo.split(/\s+/);
-      const numero   = partes[0];
-      // Si hay más palabras en mayúsculas = nombre en misma línea
-      const restante = partes.slice(1).join(" ").trim();
-      const esNombreInline = restante.length > 4 && /[A-ZÁÉÍÓÚ]{3}/.test(restante);
-      hits.push({
-        pos:    m.index,
-        tipo:   "titulo",
-        numero: numero,
-        nombre: esNombreInline ? restante : null
-      });
+      const sinPref = linea.replace(/^T[ÍI]TULO\s*/i, "").trim();
+      const partes  = sinPref.split(/\s+/);
+      const numero  = partes[0];
+      const resto   = partes.slice(1).join(" ").trim();
+      const inline  = resto.length > 4 && /[A-ZÁÉÍÓÚ]{3}/.test(resto);
+      hits.push({ pos: m.index, tipo: "titulo", numero, nombre: inline ? resto : null });
     } else if (/^Cap[ií]tulo|^CAP[ÍI]TULO/i.test(linea)) {
-      const sinPrefijo = linea.replace(/^Cap[ií]tulo\s*/i, "").trim();
-      // Normalizar "l" minúscula → "I" romano (error tipográfico del Congreso)
-      const numero = sinPrefijo.replace(/^l(\s|$)/, "I$1").trim();
+      const sinPref = linea.replace(/^Cap[ií]tulo\s*/i, "").trim();
+      // Normalizar "l" tipográfica → "I" romano
+      const numero = sinPref.replace(/^l(\s|$)/, "I$1").trim();
       hits.push({ pos: m.index, tipo: "capitulo", numero, nombre: null });
     } else if (/^Secci[oó]n/i.test(linea)) {
-      const sinPrefijo = linea.replace(/^Secci[oó]n\s*/i, "").trim();
-      hits.push({ pos: m.index, tipo: "seccion", numero: sinPrefijo, nombre: null });
+      hits.push({ pos: m.index, tipo: "seccion", numero: linea.replace(/^Secci[oó]n\s*/i,"").trim(), nombre: null });
     }
   }
 
-  // Resolver nombres en línea siguiente — en texto plano es la siguiente línea
-  // no vacía que no sea otro encabezado ni un artículo
+  // Resolver nombres en línea siguiente
   for (let i = 0; i < hits.length; i++) {
     if (hits[i].nombre !== null) continue;
-    const limPos = hits[i + 1]?.pos ?? hits[i].pos + 400;
-    // Avanzar hasta el fin de la línea del encabezado de capítulo/título
-    // En texto plano: "CAPÍTULO I\n\nNOMBRE\n\nArtículo..."
-    // Necesitamos saltar la línea del encabezado completa para llegar al nombre
-    const finLineaEncabezado = texto.indexOf("\n", hits[i].pos);
-    const inicioNombre = finLineaEncabezado >= 0 ? finLineaEncabezado + 1 : hits[i].pos + 20;
-    const despues = texto.slice(inicioNombre, limPos);
-    // Buscar siguiente línea no vacía
-    const lineas = despues.split("\n").map(l => l.trim()).filter(l => l.length > 2);
+    const finLinea  = texto.indexOf("\n", hits[i].pos);
+    const inicioNom = finLinea >= 0 ? finLinea + 1 : hits[i].pos + 20;
+    const limPos    = hits[i + 1]?.pos ?? hits[i].pos + 400;
+    const despues   = texto.slice(inicioNom, limPos);
+    const lineas    = despues.split("\n").map(l => l.trim()).filter(l => l.length > 2);
     if (lineas.length > 0) {
-      const candidato = lineas[0].replace(/\xa0/g, "").trim();
-      // Es nombre si: no empieza como artículo, capítulo, título, o transitorio
+      const cand = lineas[0].replace(/\xa0/g, "").trim();
       if (
-        candidato.length >= 4 &&
-        candidato.length <= 120 &&
-        !/^(?:T[ÍI]TULO|Cap[ií]tulo|CAP[ÍI]TULO|Secci[oó]n|Art[ií]culo|ARTÍCULO|TRANSITORI)/i.test(candidato)
+        cand.length >= 4 && cand.length <= 120 &&
+        !/^(?:T[ÍI]TULO|Cap[ií]tulo|CAP[ÍI]TULO|Secci[oó]n|Art[ií]culo|ARTÍCULO|TRANSITORI)/i.test(cand)
       ) {
-        hits[i].nombre = candidato;
+        hits[i].nombre = cand;
       }
     }
   }
@@ -159,38 +152,82 @@ function detectarEstructura(texto) {
   return hits;
 }
 
-function parsearArticulos(textoCompleto) {
-  // Normalizar saltos de línea y espacios no separables (  bloquea regex)
-  const texto = textoCompleto
-    .replace(/\r\n/g, "\n")
-    .replace(/\r/g, "\n")
-    .replace(/\xa0/g, " ");  // espacio no separable → espacio normal
+// ── Parser Federal ────────────────────────────────────────────────────
+// Artículos: "ARTÍCULO N.-" o "Artículo N.-" — texto en misma línea
+// Transitorios: "PRIMERO.-" al inicio de línea (sin "Artículo")
+function parsearFederal(texto, posSepTrans, posSepReforma) {
 
-  // Pre-limpiar notas de reforma sueltas del texto completo ANTES de cualquier uso
-  // Esto evita que "Artículo reformado POG..." aparezca como bloque desconocido
-  const RE_NOTA_PREVIA = /^(?:Art[ií]culo\s+)?(?:reformado|adicionado|derogado|párrafo\s+reformado|fracción\s+\S+\s+(?:reformada|derogada))[^\n]*/gim;
-  const textoProcesado = texto.replace(RE_NOTA_PREVIA, "").replace(/\n{3,}/g, "\n\n");
+  // Notas DOF — limpiar del texto antes de parsear
+  const RE_NOTA_DOF = /^(?:Párrafo|Fracción|Artículo|Inciso)\s+(?:reformado|adicionado|derogado)[^\n]*DOF[^\n]*/gim;
+  const RE_DOF_SOLO = /^DOF\s+\d{2}-\d{2}-\d{4}[^\n]*/gm;
+  let textoProcesado = texto
+    .replace(RE_NOTA_DOF, "")
+    .replace(RE_DOF_SOLO, "")
+    .replace(/\n{3,}/g, "\n\n");
 
-  // Paso 1 — separadores de sección documental
-  let posSepOrig    = Infinity;
-  let posSepReforma = Infinity;
-  const mOrig = RE_SEP_TRANSITORIO.exec(textoProcesado);
-  if (mOrig) posSepOrig = mOrig.index;
-  const mRef  = RE_SEP_REFORMA.exec(textoProcesado);
-  if (mRef)  posSepReforma = mRef.index;
+  // Separadores de sección ya calculados sobre texto original
 
-  // Paso 2 — estructura jerárquica (Título / Capítulo / Sección)
-  const estructura = detectarEstructura(textoProcesado);
-
-  // Paso 3 — encabezados de artículo
+  // Regex artículos federales:
+  // Grupo 1: número arábigo (con Bis/Ter)
+  // Grupo 2: Único
+  // Grupo 3: ordinal (PRIMERO, Primero, primero)
+  // Grupo 4: ordinal solo al inicio de línea para transitorios sin "Artículo"
   const reArt = new RegExp(
-    // Artículo + número/ordinal — lookahead de fin de línea SOLO para números arábigos
-    // Los ordinales (PRIMERO, primero, Primero) van seguidos de "." o ".-" no de "\n"
+    "^(?:ARTÍCULO|Artículo|ARTICULO)\\s+" +
+      "(?:" +
+        "(\\d+(?:\\s*(?:Bis|Ter|[A-Z])(?=\\s*\\.-|\\s*\\.\\s*-|\\s*$))?)" +  // número con .-
+        "|([ÚU]nico)" +
+        "|(" + ORDINALES_PAT + ")" +
+      ")" +
+      "\\s*\\.?-?\\s*" +
+    "|" +
+    "^(" + ORDINALES_PAT + ")\\s*\\.?-\\s*",  // PRIMERO.- solo al inicio de línea
+    "gim"
+  );
+
+  const hits = [];
+  let m;
+  reArt.lastIndex = 0;
+  while ((m = reArt.exec(textoProcesado)) !== null) {
+    const rawNum = (m[1] || m[2] || m[3] || m[4] || "").trim();
+    if (!rawNum) continue;
+
+    // Descartar referencias internas ("conforme al artículo 5.-")
+    const ctx = textoProcesado.slice(Math.max(0, m.index - 40), m.index + 5);
+    if (/(?:el|al|del|en\s+el)\s*$/i.test(ctx)) continue;
+
+    let seccion = "ley";
+    if (m.index >= posSepReforma)       seccion = "reforma";
+    else if (m.index >= posSepTrans)    seccion = "transitorio";
+    const esOrdinal = ORDINALES_ES.some(o => rawNum.toLowerCase() === o.toLowerCase());
+    if (esOrdinal && seccion === "ley") seccion = "transitorio";
+
+    hits.push({ pos: m.index, numero: rawNum.replace(/\s+/g," "), seccion, matchLen: m[0].length });
+  }
+
+  return { hits, textoProcesado };
+}
+
+// ── Parser Estatal ────────────────────────────────────────────────────
+// Artículos: "Artículo N\n\ntexto en línea siguiente"
+// Transitorios: "ARTÍCULO PRIMERO." / "Artículo primero.-" / "T R A N S I T O R I O S"
+function parsearEstatal(texto, posSepTrans, posSepReforma) {
+
+  // Notas POG — limpiar del texto antes de parsear
+  const RE_NOTA_POG  = /\*?\s*(?:Art[ií]culo\s+)?(?:P[áa]rrafo\s+)?(?:reformado|adicionado|derogado|fracción\s+\S+\s+(?:reformada|derogada))(?:\s+POG|\s+por|\s+mediante)[^\n*]*\*?/gi;
+  const RE_NOTA_LINE = /^(?:Art[ií]culo\s+)?(?:reformado|adicionado|derogado|párrafo\s+reformado|fracción\s+\S+\s+(?:reformada|derogada))[^\n]*/gim;
+  let textoProcesado = texto
+    .replace(RE_NOTA_POG, "")
+    .replace(RE_NOTA_LINE, "")
+    .replace(/\n{3,}/g, "\n\n");
+
+  const reArt = new RegExp(
     "(?:Art[ií]culo|ART[ÍI]CULO|ARTICULO)\\s+" +
       "(?:" +
-        "(\\d+(?:\\s*(?:Bis|Ter|[A-Z])(?=[\\s]*(?:\\n|$|-)))?)(?=[\\s]*(?:\\n|[-.]?\\s*\\n|$))" +  // números → requiere fin de línea
-        "|([ÚU]nico)" +                   // Único
-        "|(" + ORDINALES_PAT + ")" +      // ordinales → sin lookahead (van seguidos de ".")
+        "(\\d+(?:\\s*(?:Bis|Ter|[A-Z])(?=[\\s]*(?:\\n|$|-)))?)" +
+        "(?=[\\s]*(?:\\n|[-.]?\\s*\\n|$))" +
+        "|([ÚU]nico)" +
+        "|(" + ORDINALES_PAT + ")" +
       ")" +
       "\\s*[-.]?[-.]?\\s*" +
     "|" +
@@ -200,46 +237,75 @@ function parsearArticulos(textoCompleto) {
 
   const hits = [];
   let m;
+  reArt.lastIndex = 0;
   while ((m = reArt.exec(textoProcesado)) !== null) {
-    const pos    = m.index;
-    // Grupos: 1=número arábigo, 2=Único, 3=ordinal con Artículo, 4=ordinal solo al inicio
     const rawNum = (m[1] || m[2] || m[3] || m[4] || "").trim();
     if (!rawNum) continue;
-
-    const ctx = textoProcesado.slice(Math.max(0, pos - 50), pos + m[0].length + 30);
-    if (RE_FALSO.some(r => r.test(ctx))) continue;
+    const ctx = textoProcesado.slice(Math.max(0, m.index - 50), m.index + m[0].length + 30);
+    if (/artículo\s+\d+\s+de\s+(?:la\s+)?(?:esta|presente|la\s+const)/i.test(ctx)) continue;
+    if (/(?:conforme\s+al?|según\s+el?|ver)\s+artículo/i.test(ctx)) continue;
 
     let seccion = "ley";
-    if (pos >= posSepReforma)   seccion = "reforma";
-    else if (pos >= posSepOrig) seccion = "transitorio";
-
-    const esOrdinal = ORDINALES.some(o => rawNum.toLowerCase() === o);
+    if (m.index >= posSepReforma)       seccion = "reforma";
+    else if (m.index >= posSepTrans)    seccion = "transitorio";
+    const esOrdinal = ORDINALES_ES.some(o => rawNum.toLowerCase() === o.toLowerCase());
     if (esOrdinal && seccion === "ley") seccion = "transitorio";
 
-    const numero = rawNum.trim().replace(/\s+/g, " ");
-
-    // Determinar contexto jerárquico — buscar el último hit de estructura antes de este artículo
-    let tituloActual = "", tituloNombreActual = "";
-    let capituloActual = "", capituloNombreActual = "";
-    let seccionNombreActual = "";
-
-    for (const e of estructura) {
-      if (e.pos > pos) break;
-      if (e.tipo === "titulo")   { tituloActual = e.numero; tituloNombreActual = e.nombre || ""; }
-      if (e.tipo === "capitulo") { capituloActual = e.numero; capituloNombreActual = e.nombre || ""; }
-      if (e.tipo === "seccion")  { seccionNombreActual = e.numero; }
-      // Resetear sección cuando cambia capítulo
-      if (e.tipo === "capitulo") seccionNombreActual = "";
-    }
-
-    hits.push({ pos, numero, seccion, matchLen: m[0].length,
-      titulo: tituloActual, tituloNombre: tituloNombreActual,
-      capitulo: capituloActual, capituloNombre: capituloNombreActual,
-      seccionNombre: seccionNombreActual
-    });
+    hits.push({ pos: m.index, numero: rawNum.replace(/\s+/g," "), seccion, matchLen: m[0].length });
   }
 
-  // Paso 4 — construir fragmentos
+  return { hits, textoProcesado };
+}
+
+// ── Función principal ─────────────────────────────────────────────────
+function parsearArticulos(textoCompleto, ambito) {
+  // Normalizar
+  const texto = textoCompleto
+    .replace(/\r\n/g, "\n")
+    .replace(/\r/g, "\n")
+    .replace(/\xa0/g, " ")
+    .replace(/^[ \t]+$/gm, "");
+
+  // Detectar perfil — primero por ámbito explícito, luego auto-detección
+  const ambitoNorm = (ambito || "").toLowerCase();
+  const perfil = ambitoNorm === "federal" ? "federal"
+    : ambitoNorm === "estatal" ? "estatal"
+    : detectarPerfil(texto);
+
+  // Separadores de sección (sobre texto normalizado, antes de limpiar notas)
+  const RE_SEP = perfil === "federal" ? RE_SEP_TRANS_FEDERAL : RE_SEP_TRANS_ESTATAL;
+  let posSepTrans   = Infinity;
+  let posSepReforma = Infinity;
+  const mT = RE_SEP.exec(texto);
+  if (mT) posSepTrans = mT.index;
+  const mR = RE_SEP_REFORMA.exec(texto);
+  if (mR) posSepReforma = mR.index;
+
+  // Parsear según perfil
+  const { hits: hitsRaw, textoProcesado } = perfil === "federal"
+    ? parsearFederal(texto, posSepTrans, posSepReforma)
+    : parsearEstatal(texto, posSepTrans, posSepReforma);
+
+  // En leyes federales, "ARTÍCULO ÚNICO.-" al inicio es el decreto de promulgación
+  // Se descarta si viene ANTES del primer artículo numérico
+  let hits = hitsRaw;
+  if (perfil === "federal") {
+    const primerNumerico = hitsRaw.findIndex(h => /^\d/.test(h.numero));
+    if (primerNumerico > 0) {
+      // Descartar todos los hits anteriores al primer artículo numérico
+      // que sean ordinales (ÚNICO, PRIMERO...) — son del decreto, no de la ley
+      const previos = hitsRaw.slice(0, primerNumerico);
+      const soloOrdinales = previos.every(h => !/^\d/.test(h.numero));
+      if (soloOrdinales) {
+        hits = hitsRaw.slice(primerNumerico);
+      }
+    }
+  }
+
+  // Estructura jerárquica
+  const estructura = detectarEstructura(textoProcesado);
+
+  // Construir artículos
   const articulos   = [];
   const sospechosos = [];
   const textoPrevio = hits.length > 0 ? textoProcesado.slice(0, hits[0].pos).trim() : textoProcesado;
@@ -247,108 +313,87 @@ function parsearArticulos(textoCompleto) {
   for (let i = 0; i < hits.length; i++) {
     const inicio = hits[i].pos;
     const fin    = i + 1 < hits.length ? hits[i + 1].pos : textoProcesado.length;
-    let bloque   = textoProcesado.slice(inicio, fin).trim();
+    const bloque = textoProcesado.slice(inicio, fin).trim();
 
-    // Limpiar notas de reforma
-    const notasReforma = [];
+    // Extraer notas de reforma del bloque individual (las que quedaron)
+    const RE_NOTA_RESTO = /^(?:Párrafo|Fracción|Artículo|Inciso)\s+(?:reformado|adicionado|derogado)[^\n]*/gim;
+    const notasReforma  = [];
     let nb;
-    const reNotaCopy = new RegExp(RE_NOTA_REFORMA.source, "gi");
-    while ((nb = reNotaCopy.exec(bloque)) !== null) {
-      notasReforma.push(nb[0].replace(/\*/g, "").trim());
-    }
-    // Limpiar notas de reforma — con o sin asteriscos, incluyendo líneas completas
-    // Ej: "*Reformado POG 20-06-2018*"  o  "Artículo reformado POG 20-06-2018"
-    const RE_NOTA_LINEA = /^(?:Art[ií]culo\s+)?(?:reformado|adicionado|derogado|párrafo\s+reformado)[^\n]*/gim;
-    const textoLimpio = bloque
-      .replace(RE_NOTA_REFORMA, "")
-      .replace(RE_NOTA_LINEA, "")
-      .replace(/\n{3,}/g, "\n\n")
-      .trim();
+    while ((nb = RE_NOTA_RESTO.exec(bloque)) !== null) notasReforma.push(nb[0].trim());
+    const textoLimpio = bloque.replace(RE_NOTA_RESTO, "").replace(/\n{3,}/g,"\n\n").trim();
 
-    // Detectar epígrafe
-    const lineas = textoLimpio.split("\n").filter(l => l.trim());
-    let epigrafe = "";
-    if (lineas.length > 1) {
-      const cand = lineas[1].trim().replace(/^\*+|\*+$/g, "");
+    // Epígrafe — en federal puede estar en la primera línea después del encabezado
+    const lineas   = textoLimpio.split("\n").filter(l => l.trim());
+    let epigrafe   = "";
+    if (perfil === "federal" && lineas.length > 1) {
+      const cand = lineas[1].trim().replace(/^\*+|\*+$/g,"");
+      if (cand.length > 3 && cand.length < 80 && !cand.endsWith(".") &&
+          !/^(?:reformado|adicionado|derogado)/i.test(cand)) epigrafe = cand;
+    } else if (perfil === "estatal" && lineas.length > 1) {
+      const cand = lineas[1].trim().replace(/^\*+|\*+$/g,"");
       if (cand.length > 3 && cand.length < 100 && !cand.endsWith(".") &&
-          !/^(?:reformado|adicionado|derogado)/i.test(cand)) {
-        epigrafe = cand;
-      }
+          !/^(?:reformado|adicionado|derogado)/i.test(cand)) epigrafe = cand;
     }
 
-    // Sospechoso — solo artículos de sección "ley" con texto muy corto
-    const sinEncabezado = lineas.slice(1).join(" ").trim();
-    const esSospechoso  = hits[i].seccion === "ley" &&
-      sinEncabezado.length < 25 &&
-      !/(se deroga|se abroga|reservado|derogado)/i.test(sinEncabezado);
+    // Sospechoso — solo artículos de ley con texto muy corto
+    const sinEnc = lineas.slice(1).join(" ").trim();
+    const esSosp = hits[i].seccion === "ley" && sinEnc.length < 25 &&
+      !/(se deroga|se abroga|reservado|derogado)/i.test(sinEnc);
+    if (esSosp) sospechosos.push({ numero: hits[i].numero, seccion: hits[i].seccion, texto: textoLimpio.slice(0,150) });
 
-    if (esSospechoso) {
-      sospechosos.push({
-        numero: hits[i].numero, seccion: hits[i].seccion,
-        capitulo: hits[i].capitulo, capituloNombre: hits[i].capituloNombre,
-        texto: textoLimpio.slice(0, 150), razon: "Artículo de ley con texto muy corto"
-      });
+    // Contexto jerárquico
+    let tit="", titN="", cap="", capN="", secN="";
+    for (const e of estructura) {
+      if (e.pos > hits[i].pos) break;
+      if (e.tipo==="titulo")   { tit=e.numero; titN=e.nombre||""; }
+      if (e.tipo==="capitulo") { cap=e.numero; capN=e.nombre||""; secN=""; }
+      if (e.tipo==="seccion")  { secN=e.numero; }
     }
 
     articulos.push({
-      numero:         hits[i].numero,
-      epigrafe,
-      seccion:        hits[i].seccion,
-      titulo:         hits[i].titulo,
-      tituloNombre:   hits[i].tituloNombre,
-      capitulo:       hits[i].capitulo,
-      capituloNombre: hits[i].capituloNombre,
-      seccionNombre:  hits[i].seccionNombre,
-      texto:          textoLimpio,
-      notasReforma,
-      palabrasClave:  extraerPalabrasClave(textoLimpio),
-      sospechoso:     esSospechoso,
-      indice:         i + 1
+      numero: hits[i].numero, epigrafe, seccion: hits[i].seccion,
+      perfil,
+      titulo: tit, tituloNombre: titN,
+      capitulo: cap, capituloNombre: capN, seccionNombre: secN,
+      texto: textoLimpio, notasReforma,
+      palabrasClave: extraerPalabrasClave(textoLimpio),
+      sospechoso: esSosp, indice: i + 1
     });
   }
 
-  // Paso 5 — bloques desconocidos
+  // Bloques desconocidos
   const desconocidos = [];
   const reParece     = /^\s*(?:art[ií]culo|art\.)\s+[^\n]{3,}/im;
   for (let i = 0; i < hits.length - 1; i++) {
-    const entre = textoProcesado.slice(hits[i].pos + hits[i].matchLen, hits[i + 1].pos);
+    const entre = textoProcesado.slice(hits[i].pos + hits[i].matchLen, hits[i+1].pos);
     if (reParece.test(entre)) {
-      const matchD = reParece.exec(entre);
-      desconocidos.push({
-        despuesDe: hits[i].numero,
-        fragmento: (matchD ? matchD[0] : entre).trim().slice(0, 300)
-      });
+      const mD = reParece.exec(entre);
+      desconocidos.push({ despuesDe: hits[i].numero, fragmento: (mD?mD[0]:entre).trim().slice(0,300) });
     }
   }
 
-  // Paso 6 — reporte
-  const porSeccion = { ley: 0, transitorio: 0, reforma: 0 };
+  // Reporte
+  const porSeccion = { ley:0, transitorio:0, reforma:0 };
   articulos.forEach(a => porSeccion[a.seccion]++);
-
-  // Resumen de capítulos para el reporte
-  const capitulosDetectados = [...new Set(
-    articulos.filter(a => a.capitulo).map(a =>
-      `${a.titulo ? a.titulo + " — " : ""}${a.capitulo}${a.capituloNombre ? ": " + a.capituloNombre : ""}`
-    )
-  )];
-
-  const confianza = articulos.length === 0 ? "nula"
-    : desconocidos.length > 0              ? "baja"
-    : sospechosos.length > 0               ? "media"
+  const caps = [...new Set(articulos.filter(a=>a.capitulo).map(a=>
+    `${a.titulo ? a.titulo+" — " : ""}${a.capitulo}${a.capituloNombre ? ": "+a.capituloNombre : ""}`
+  ))];
+  const confianza = articulos.length===0 ? "nula"
+    : desconocidos.length>0 ? "baja"
+    : sospechosos.length>0  ? "media"
     : "alta";
 
-  const reporte = {
-    total: articulos.length,
-    porSeccion,
-    capitulosDetectados,
-    sospechosos,
-    desconocidos,
-    textoPrevioDescartado:   textoPrevio.length > 0,
-    caracteresTextoPrevio:   textoPrevio.length,
-    confianza
+  return {
+    articulos,
+    reporte: {
+      total: articulos.length, perfil, porSeccion,
+      capitulosDetectados: caps,
+      sospechosos, desconocidos,
+      textoPrevioDescartado: textoPrevio.length > 0,
+      caracteresTextoPrevio: textoPrevio.length,
+      confianza
+    }
   };
-
-  return { articulos, reporte };
 }
 
 const STOPWORDS = new Set([
@@ -363,156 +408,102 @@ const STOPWORDS = new Set([
 function extraerPalabrasClave(texto) {
   return [...new Set(
     texto.toLowerCase()
-      .replace(/[^\wáéíóúüñ\s]/gi, " ")
+      .replace(/[^\wáéíóúüñ\s]/gi," ")
       .split(/\s+/)
       .filter(p => p.length > 3 && !STOPWORDS.has(p))
-  )].slice(0, 40);
+  )].slice(0,40);
 }
 
-// ── Reporte de confianza en HTML ─────────────────────────────────────
+// ── Reporte de confianza HTML ─────────────────────────────────────────
 function renderReporteConfianza(reporte, nombreNorma) {
   const iconoConf  = { alta:"✅", media:"⚠️", baja:"🔴", nula:"❌" }[reporte.confianza];
   const colorConf  = { alta:"#2D6A4F", media:"#c9a227", baja:"#E76F51", nula:"#9B2226" }[reporte.confianza];
+  const perfilBadge = reporte.perfil === "federal"
+    ? `<span style="background:#185FA522;color:#185FA5;border:1px solid #185FA544;border-radius:10px;padding:0.1rem 0.5rem;font-size:0.72rem;font-weight:600">🇲🇽 Federal (DOF)</span>`
+    : `<span style="background:#7B2FBE22;color:#7B2FBE;border:1px solid #7B2FBE44;border-radius:10px;padding:0.1rem 0.5rem;font-size:0.72rem;font-weight:600">🏙️ Estatal (POG)</span>`;
 
   let html = `<div style="margin-top:0.5rem;border:1px solid var(--border);border-radius:8px;overflow:hidden;font-size:0.8rem">`;
-
   html += `<div style="padding:0.45rem 0.8rem;background:${colorConf}22;display:flex;align-items:center;justify-content:space-between;flex-wrap:wrap;gap:0.4rem">
-    <span style="font-weight:600;color:${colorConf}">${iconoConf} Confianza ${reporte.confianza} — ${reporte.total} artículos detectados</span>
+    <span style="font-weight:600;color:${colorConf}">${iconoConf} Confianza ${reporte.confianza} — ${reporte.total} artículos ${perfilBadge}</span>
     <button id="btn-descargar-reporte" style="background:none;border:1px solid var(--border);color:var(--text2);border-radius:6px;padding:0.2rem 0.6rem;font-size:0.75rem;cursor:pointer;font-family:inherit">📥 Descargar reporte</button>
   </div>`;
-
   html += `<div style="padding:0.45rem 0.8rem;display:flex;gap:1.2rem;flex-wrap:wrap;border-bottom:1px solid var(--border);color:var(--text2)">
     <span>📋 Ley: <strong style="color:var(--text)">${reporte.porSeccion.ley}</strong></span>
     <span>⏱ Transitorios: <strong style="color:var(--text)">${reporte.porSeccion.transitorio}</strong></span>
     <span>📝 Reformas: <strong style="color:var(--text)">${reporte.porSeccion.reforma}</strong></span>
     ${reporte.capitulosDetectados.length > 0 ? `<span>📂 Capítulos: <strong style="color:var(--text)">${reporte.capitulosDetectados.length}</strong></span>` : ""}
   </div>`;
-
   if (reporte.textoPrevioDescartado && reporte.caracteresTextoPrevio > 200) {
     html += `<div style="padding:0.4rem 0.8rem;border-bottom:1px solid var(--border);color:var(--text2)">
-      ℹ️ ${reporte.caracteresTextoPrevio.toLocaleString()} caracteres descartados antes del primer artículo (encabezados, exposición de motivos)
+      ℹ️ ${reporte.caracteresTextoPrevio.toLocaleString()} caracteres descartados (encabezados, decreto, exposición de motivos)
     </div>`;
   }
-
   if (reporte.sospechosos.length > 0) {
     html += `<div style="padding:0.4rem 0.8rem;border-bottom:1px solid var(--border)">
-      <div style="color:#c9a227;font-weight:600;margin-bottom:0.25rem">⚠️ ${reporte.sospechosos.length} artículo(s) de ley con texto muy corto:</div>
-      <div style="color:var(--text2);line-height:1.6">
-        ${reporte.sospechosos.map(s =>
-          `• Art. ${s.numero}${s.capitulo ? " [" + s.capitulo + "]" : ""}: <em style="color:var(--text3)">${s.texto.slice(0,100) || "(vacío)"}</em>`
-        ).join("<br>")}
-      </div>
+      <div style="color:#c9a227;font-weight:600;margin-bottom:0.25rem">⚠️ ${reporte.sospechosos.length} artículo(s) con texto muy corto</div>
+      <div style="color:var(--text2);line-height:1.6">${reporte.sospechosos.map(s=>`• Art. ${s.numero}: <em style="color:var(--text3)">${s.texto.slice(0,100)||"(vacío)"}</em>`).join("<br>")}</div>
     </div>`;
   }
-
   if (reporte.desconocidos.length > 0) {
     html += `<div style="padding:0.4rem 0.8rem">
-      <div style="color:#E76F51;font-weight:600;margin-bottom:0.25rem">🔴 ${reporte.desconocidos.length} bloque(s) con patrón no reconocido:</div>
-      <div style="color:var(--text2);line-height:1.6;font-size:0.75rem">
-        ${reporte.desconocidos.map(d =>
-          `• Después del Art. ${d.despuesDe}:<br><em style="color:var(--text3)">"${d.fragmento.slice(0,150)}..."</em>`
-        ).join("<br><br>")}
-      </div>
-      <div style="color:var(--text3);font-size:0.75rem;margin-top:0.35rem">
-        💡 Descarga el reporte y compártelo para ajustar el parser.
-      </div>
+      <div style="color:#E76F51;font-weight:600;margin-bottom:0.25rem">🔴 ${reporte.desconocidos.length} bloque(s) no reconocido(s)</div>
+      <div style="color:var(--text2);line-height:1.6;font-size:0.75rem">${reporte.desconocidos.map(d=>`• Después del Art. ${d.despuesDe}:<br><em style="color:var(--text3)">"${d.fragmento.slice(0,120)}..."</em>`).join("<br><br>")}</div>
+      <div style="color:var(--text3);font-size:0.75rem;margin-top:0.3rem">💡 Descarga el reporte y compártelo para ajustar el parser.</div>
     </div>`;
   }
-
   html += `</div>`;
   return html;
 }
 
-// ── Generar y descargar reporte .txt ─────────────────────────────────
-function descargarReporte(reporte, nombreNorma, totalChars) {
-  const fecha = new Date().toLocaleString("es-MX", {
-    day:"2-digit", month:"short", year:"numeric",
-    hour:"2-digit", minute:"2-digit"
-  });
-
-  const linea = (c, n) => c.repeat(n);
-  const sep   = linea("═", 60);
-  const sep2  = linea("─", 60);
-
-  let txt = "";
-  txt += sep + "\n";
-  txt += "LUMEN — REPORTE DE PROCESAMIENTO DE LEY\n";
-  txt += sep + "\n\n";
-  txt += `Ley:          ${nombreNorma || "Sin nombre"}\n`;
+// ── Reporte descargable .txt ──────────────────────────────────────────
+function descargarReporte(reporte, nombreNorma) {
+  const fecha = new Date().toLocaleString("es-MX",{day:"2-digit",month:"short",year:"numeric",hour:"2-digit",minute:"2-digit"});
+  const sep = "═".repeat(60), sep2 = "─".repeat(60);
+  let txt = `${sep}\nLUMEN — REPORTE DE PROCESAMIENTO DE LEY\n${sep}\n\n`;
+  txt += `Ley:          ${nombreNorma||"Sin nombre"}\n`;
   txt += `Fecha:        ${fecha}\n`;
+  txt += `Perfil:       ${reporte.perfil === "federal" ? "FEDERAL (DOF)" : "ESTATAL (POG)"}\n`;
   txt += `Confianza:    ${reporte.confianza.toUpperCase()}\n`;
   txt += `Total arts.:  ${reporte.total}\n\n`;
-
-  txt += sep2 + "\n";
-  txt += "DESGLOSE POR SECCIÓN\n";
-  txt += sep2 + "\n";
+  txt += `${sep2}\nDESGLOSE POR SECCIÓN\n${sep2}\n`;
   txt += `  Artículos de ley:    ${reporte.porSeccion.ley}\n`;
   txt += `  Transitorios orig.:  ${reporte.porSeccion.transitorio}\n`;
   txt += `  Transitorios reform: ${reporte.porSeccion.reforma}\n`;
   txt += `  Capítulos detectados: ${reporte.capitulosDetectados.length}\n\n`;
-
   if (reporte.capitulosDetectados.length > 0) {
-    txt += sep2 + "\n";
-    txt += "CAPÍTULOS DETECTADOS\n";
-    txt += sep2 + "\n";
-    reporte.capitulosDetectados.forEach((c, i) => {
-      txt += `  ${String(i+1).padStart(2,"0")}. ${c}\n`;
-    });
+    txt += `${sep2}\nCAPÍTULOS DETECTADOS\n${sep2}\n`;
+    reporte.capitulosDetectados.forEach((c,i) => txt += `  ${String(i+1).padStart(2,"0")}. ${c}\n`);
     txt += "\n";
   }
-
   if (reporte.textoPrevioDescartado) {
-    txt += sep2 + "\n";
-    txt += "TEXTO DESCARTADO\n";
-    txt += sep2 + "\n";
+    txt += `${sep2}\nTEXTO DESCARTADO\n${sep2}\n`;
     txt += `  ${reporte.caracteresTextoPrevio.toLocaleString()} caracteres antes del primer artículo\n`;
     txt += `  (encabezados, decreto legislativo, exposición de motivos)\n\n`;
   }
-
   if (reporte.sospechosos.length > 0) {
-    txt += sep2 + "\n";
-    txt += `ARTÍCULOS SOSPECHOSOS (${reporte.sospechosos.length})\n`;
-    txt += "Artículos de ley con texto muy corto o vacío.\n";
-    txt += sep2 + "\n";
+    txt += `${sep2}\nARTÍCULOS SOSPECHOSOS (${reporte.sospechosos.length})\n${sep2}\n`;
     reporte.sospechosos.forEach(s => {
-      txt += `  Art. ${s.numero}`;
-      if (s.capitulo) txt += ` [${s.capitulo}${s.capituloNombre ? " — " + s.capituloNombre : ""}]`;
-      txt += `\n  Texto: "${s.texto.slice(0, 200)}"\n\n`;
+      txt += `  Art. ${s.numero} [${s.seccion}]\n  Texto: "${s.texto.slice(0,200)}"\n\n`;
     });
   }
-
   if (reporte.desconocidos.length > 0) {
-    txt += sep2 + "\n";
-    txt += `BLOQUES NO RECONOCIDOS (${reporte.desconocidos.length})\n`;
-    txt += "Posibles artículos perdidos — fragmentos con patrón desconocido.\n";
-    txt += sep2 + "\n";
-    reporte.desconocidos.forEach((d, i) => {
-      txt += `\n  [${i+1}] Después del Artículo ${d.despuesDe}:\n`;
-      txt += `  ─────────────────────────────────────\n`;
-      // Dividir en líneas de 56 chars para legibilidad
-      const frag = d.fragmento;
-      for (let i = 0; i < frag.length; i += 56) {
-        txt += `  ${frag.slice(i, i+56)}\n`;
-      }
+    txt += `${sep2}\nBLOQUES NO RECONOCIDOS (${reporte.desconocidos.length})\nPosibles artículos perdidos — fragmentos con patrón desconocido.\n${sep2}\n`;
+    reporte.desconocidos.forEach((d,i) => {
+      txt += `\n  [${i+1}] Después del Artículo ${d.despuesDe}:\n  ${"─".repeat(37)}\n`;
+      for (let j=0; j<d.fragmento.length; j+=56) txt += `  ${d.fragmento.slice(j,j+56)}\n`;
     });
     txt += "\n";
   }
-
-  txt += sep + "\n";
-  txt += "FIN DEL REPORTE\n";
-  txt += `Generado por Lumen — SEDUVOT Zacatecas\n`;
-  txt += sep + "\n";
-
-  // Descargar como archivo .txt
-  const blob  = new Blob([txt], { type: "text/plain;charset=utf-8" });
-  const url   = URL.createObjectURL(blob);
-  const a     = document.createElement("a");
-  const nombre = (nombreNorma || "ley").replace(/[^a-zA-Z0-9áéíóúüñÁÉÍÓÚÜÑ\s]/g, "").trim().slice(0, 40);
-  a.href     = url;
-  a.download = `Lumen_Reporte_${nombre}_${new Date().toISOString().slice(0,10)}.txt`;
+  txt += `${sep}\nFIN DEL REPORTE\nGenerado por Lumen — SEDUVOT Zacatecas\n${sep}\n`;
+  const blob = new Blob([txt], {type:"text/plain;charset=utf-8"});
+  const url  = URL.createObjectURL(blob);
+  const a    = document.createElement("a");
+  a.href = url;
+  a.download = `Lumen_Reporte_${(nombreNorma||"ley").replace(/[^a-zA-Z0-9áéíóúüñÁÉÍÓÚÜÑ\s]/g,"").trim().slice(0,40)}_${new Date().toISOString().slice(0,10)}.txt`;
   a.click();
   URL.revokeObjectURL(url);
 }
+
 
 
 onAuthStateChanged(auth, (user) => {
@@ -950,6 +941,9 @@ onAuthStateChanged(auth, (user) => {
 
     if (tieneVinc) renderVinculacionesEnDetalle(norma);
 
+    // Guardar ámbito para que el parser seleccione perfil correcto
+    _ambitoNormaActual = norma.ambito || "";
+
     // Botones de texto de ley
     if (norma.tieneTexto) {
       document.getElementById("btn-explorar-articulos")?.addEventListener("click", () => {
@@ -1033,7 +1027,8 @@ onAuthStateChanged(auth, (user) => {
         if (proceso) proceso.textContent = "⏳ Analizando y dividiendo por artículos...";
 
         // Parsear artículos — devuelve { articulos, reporte }
-        const { articulos, reporte } = parsearArticulos(textoCompleto);
+        // Pasar ámbito de la norma para seleccionar perfil correcto (federal/estatal)
+        const { articulos, reporte } = parsearArticulos(textoCompleto, _ambitoNormaActual);
 
         if (articulos.length === 0) {
           if (proceso) proceso.innerHTML =
@@ -1154,6 +1149,7 @@ onAuthStateChanged(auth, (user) => {
   let _exploNorma      = null;
   let _exploArticulos  = [];
   let _exploFiltrados  = [];
+  let _ambitoNormaActual = ""; // ámbito de la norma activa — para seleccionar perfil parser
 
   async function abrirExplorador(norma) {
     _exploNorma = norma;

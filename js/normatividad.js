@@ -336,7 +336,16 @@ function parsearArticulos(textoCompleto, ambito) {
     }
 
     // Sospechoso — solo artículos de ley con texto muy corto
-    const sinEnc = lineas.slice(1).join(" ").trim();
+    // En federal: texto en misma línea que encabezado → medir lineas[0] sin el encabezado
+    // En estatal: texto en línea siguiente → medir lineas.slice(1)
+    let sinEnc;
+    if (perfil === "federal") {
+      // Quitar "ARTÍCULO N.-" del inicio de la primera línea para medir el texto real
+      const primeraLinea = (lineas[0] || "").replace(/^(?:ARTÍCULO|Artículo)\s+[^\s]+\s*\.?-?\s*/, "").trim();
+      sinEnc = [primeraLinea, ...lineas.slice(1)].join(" ").trim();
+    } else {
+      sinEnc = lineas.slice(1).join(" ").trim();
+    }
     const esSosp = hits[i].seccion === "ley" && sinEnc.length < 25 &&
       !/(se deroga|se abroga|reservado|derogado)/i.test(sinEnc);
     if (esSosp) sospechosos.push({ numero: hits[i].numero, seccion: hits[i].seccion, texto: textoLimpio.slice(0,150) });

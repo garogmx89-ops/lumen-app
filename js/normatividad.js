@@ -1238,31 +1238,92 @@ onAuthStateChanged(auth, (user) => {
     }
   }
 
+  // ── Formatear texto de artículo: fracciones e incisos como lista visual ──
+  // Detecta: I. II. III. (fracciones romanas) y a) b) c) (incisos)
+  // Las líneas separadas por \n\n que empiezan con estos patrones se renderizan
+  // con sangría y separación, no como párrafo continuo.
+  function formatearTextoArticulo(texto, termino) {
+    if (!texto) return "";
+
+    // Escapar HTML básico
+    function escHtml(t) {
+      return t.replace(/&/g,"&amp;").replace(/</g,"&lt;").replace(/>/g,"&gt;");
+    }
+
+    // Resaltar término buscado
+    function resaltar(t) {
+      if (!termino) return escHtml(t);
+      const reg = new RegExp("(" + termino.replace(/[.*+?^${}()|[\\]\\]/g,"\\$&") + ")", "gi");
+      return escHtml(t).replace(reg, '<mark style="background:var(--accent);color:white;border-radius:2px;padding:0 2px">$1</mark>');
+    }
+
+    // Patrón de fracción: línea que empieza con número romano o letra+paréntesis
+    const RE_FRACCION  = /^((?:[IVXLivxl]+)\.\s)/;
+    const RE_INCISO    = /^([a-zA-Z]\)\s)/;
+    const RE_PARRAFO   = /^([A-ZÁÉÍÓÚ][^.]{0,60}:\s*$)/; // título de párrafo corto
+
+    const bloques = texto.split(/\n\n+/);
+    let html = "";
+
+    for (let i = 0; i < bloques.length; i++) {
+      const b = bloques[i].trim();
+      if (!b) continue;
+
+      if (RE_FRACCION.test(b)) {
+        const match = RE_FRACCION.exec(b);
+        const num   = match[1].trim();
+        const resto = b.slice(match[0].length);
+        html += `<div style="display:flex;gap:0.5rem;margin-top:0.35rem;padding-left:0.5rem;border-left:2px solid var(--border)">
+          <span style="flex-shrink:0;font-size:0.78rem;font-weight:600;color:var(--accent);min-width:1.8rem">${num}</span>
+          <span style="font-size:0.82rem;color:var(--text);line-height:1.6">${resaltar(resto)}</span>
+        </div>`;
+      } else if (RE_INCISO.test(b)) {
+        const match = RE_INCISO.exec(b);
+        const letra = match[1].trim();
+        const resto = b.slice(match[0].length);
+        html += `<div style="display:flex;gap:0.5rem;margin-top:0.25rem;padding-left:1.5rem">
+          <span style="flex-shrink:0;font-size:0.78rem;font-weight:600;color:var(--text2);min-width:1.4rem">${letra}</span>
+          <span style="font-size:0.82rem;color:var(--text);line-height:1.6">${resaltar(resto)}</span>
+        </div>`;
+      } else {
+        // Párrafo normal — primer bloque es el encabezado del artículo
+        const esPrimero = i === 0;
+        html += `<div style="font-size:0.82rem;color:var(--text);line-height:1.6;${esPrimero ? "" : "margin-top:0.4rem"}">${resaltar(b)}</div>`;
+      }
+    }
+    return html;
+  }
+
   function renderArticulo(a, termino, badgeSecFn) {
-    const textoMostrar = termino
-      ? (() => {
-          const regex = new RegExp("(" + termino.replace(/[.*+?^${}()|[\]\\]/g, "\\$&") + ")", "gi");
-          return a.texto.replace(regex, '<mark style="background:var(--accent);color:white;border-radius:2px;padding:0 2px">$1</mark>');
-        })()
-      : a.texto.slice(0, 300) + (a.texto.length > 300 ? "..." : "");
+    // Con búsqueda: mostrar texto completo con resaltado
+    // Sin búsqueda: mostrar hasta el primer corte natural (párrafo inicial + fracciones si las hay)
+    const tieneFramento = !termino && a.texto.length > 400;
+
+    // Texto a mostrar — con búsqueda: completo; sin: solo primeros 2 bloques
+    const textoRender = termino
+      ? a.texto
+      : tieneFramento
+        ? a.texto.split(/\n\n+/).slice(0, 3).join("\n\n") + "..."
+        : a.texto;
+
+    const cuerpoHtml = formatearTextoArticulo(textoRender, termino);
 
     const notasHtml = (a.notasReforma && a.notasReforma.length > 0)
-      ? `<div style="margin-top:0.3rem;font-size:0.72rem;color:var(--text3);font-style:italic">🔄 ${a.notasReforma.join(" · ")}</div>`
+      ? `<div style="margin-top:0.4rem;font-size:0.72rem;color:var(--text3);font-style:italic;padding-left:0.5rem">🔄 ${a.notasReforma.join(" · ")}</div>`
       : "";
 
     return `<div class="reunion-card" style="cursor:default">
-      <div style="display:flex;align-items:center;gap:0.4rem;flex-wrap:wrap;margin-bottom:0.3rem">
-        <span style="font-size:0.78rem;font-weight:700;color:var(--accent)">Artículo ${a.numero}</span>
+      <div style="display:flex;align-items:center;gap:0.4rem;flex-wrap:wrap;margin-bottom:0.5rem">
+        <span style="font-size:0.82rem;font-weight:700;color:var(--accent)">Artículo ${a.numero}</span>
         ${badgeSecFn(a.seccion)}
-        ${a.epigrafe ? `<span style="font-size:0.72rem;color:var(--text2);font-style:italic">${a.epigrafe}</span>` : ""}
+        ${a.epigrafe ? `<span style="font-size:0.75rem;color:var(--text2);font-style:italic">${a.epigrafe}</span>` : ""}
       </div>
-      <div style="font-size:0.82rem;color:var(--text);line-height:1.6" class="explo-art-texto"
-        data-completo="${encodeURIComponent(a.texto)}" data-expandido="false">
-        ${textoMostrar}
+      <div class="explo-art-cuerpo" data-completo="${encodeURIComponent(a.texto)}" data-expandido="false">
+        ${cuerpoHtml}
       </div>
       ${notasHtml}
-      ${!termino && a.texto.length > 300
-        ? `<button class="explo-btn-expandir" style="margin-top:0.3rem;background:none;border:none;color:var(--accent);font-size:0.78rem;cursor:pointer;padding:0;font-family:inherit">Ver texto completo ▾</button>`
+      ${tieneFramento
+        ? `<button class="explo-btn-expandir" style="margin-top:0.4rem;background:none;border:none;color:var(--accent);font-size:0.78rem;cursor:pointer;padding:0;font-family:inherit">Ver artículo completo ▾</button>`
         : ""}
     </div>`;
   }
@@ -1352,11 +1413,16 @@ onAuthStateChanged(auth, (user) => {
           if (g.seccionNombre) {
             linea2 += (linea2 ? " · " : "") + "Sección " + g.seccionNombre;
           }
-          separador = `<div style="margin:0.8rem 0 0.4rem;padding:0.4rem 0.75rem;
-            background:var(--bg2);border-left:3px solid var(--accent);border-radius:0 6px 6px 0">
-            ${linea1 ? `<div style="font-size:0.7rem;color:var(--text3);font-weight:600;text-transform:uppercase;letter-spacing:0.04em">${linea1}</div>` : ""}
-            <div style="font-size:0.82rem;font-weight:600;color:var(--text)">${linea2 || "Sin capítulo"}</div>
-            <div style="font-size:0.72rem;color:var(--text2);margin-top:0.1rem">${g.articulos.length} artículo${g.articulos.length !== 1 ? "s" : ""}</div>
+          separador = `<div style="margin:1rem 0 0.3rem;background:var(--bg2);
+            border:1px solid var(--border);border-radius:8px;overflow:hidden">
+            <div style="padding:0.6rem 0.85rem">
+              ${linea1 ? `<div style="font-size:0.68rem;font-weight:600;color:var(--text3);text-transform:uppercase;letter-spacing:0.06em;margin-bottom:0.15rem">${linea1}</div>` : ""}
+              <div style="font-size:0.88rem;font-weight:600;color:var(--text);line-height:1.3">${linea2 || "Sin capítulo"}</div>
+            </div>
+            <div style="padding:0.25rem 0.85rem 0.35rem;background:var(--accent);opacity:0.08;display:none"></div>
+            <div style="padding:0.25rem 0.85rem;border-top:1px solid var(--border);font-size:0.72rem;color:var(--text3)">
+              ${g.articulos.length} artículo${g.articulos.length !== 1 ? "s" : ""}
+            </div>
           </div>`;
         }
         html += separador;
@@ -1371,15 +1437,23 @@ onAuthStateChanged(auth, (user) => {
     // Expandir/contraer artículos largos
     contenedor.querySelectorAll(".explo-btn-expandir").forEach(btn => {
       btn.addEventListener("click", () => {
-        const textoEl = btn.previousElementSibling;
-        const expandido = textoEl.dataset.expandido === "true";
+        const cuerpoEl = btn.previousElementSibling.classList.contains("explo-art-cuerpo")
+          ? btn.previousElementSibling
+          : btn.parentElement.querySelector(".explo-art-cuerpo");
+        if (!cuerpoEl) return;
+        const expandido = cuerpoEl.dataset.expandido === "true";
         if (expandido) {
-          textoEl.textContent = decodeURIComponent(textoEl.dataset.completo).slice(0, 300) + "...";
-          textoEl.dataset.expandido = "false";
-          btn.textContent = "Ver texto completo ▾";
+          // Contraer — mostrar solo primeros 3 bloques
+          const textoCompleto = decodeURIComponent(cuerpoEl.dataset.completo);
+          const fragmento = textoCompleto.split(/\n\n+/).slice(0, 3).join("\n\n") + "...";
+          cuerpoEl.innerHTML = formatearTextoArticulo(fragmento, "");
+          cuerpoEl.dataset.expandido = "false";
+          btn.textContent = "Ver artículo completo ▾";
         } else {
-          textoEl.textContent = decodeURIComponent(textoEl.dataset.completo);
-          textoEl.dataset.expandido = "true";
+          // Expandir — mostrar completo con fracciones formateadas
+          const textoCompleto = decodeURIComponent(cuerpoEl.dataset.completo);
+          cuerpoEl.innerHTML = formatearTextoArticulo(textoCompleto, "");
+          cuerpoEl.dataset.expandido = "true";
           btn.textContent = "Contraer ▴";
         }
       });

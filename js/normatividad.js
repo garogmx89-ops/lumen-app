@@ -412,7 +412,20 @@ function parsearArticulos(textoCompleto, ambito) {
       sospechosos, desconocidos,
       textoPrevioDescartado: textoPrevio.length > 0,
       caracteresTextoPrevio: textoPrevio.length,
-      preambulo: textoPrevio.trim(),   // Exposición de motivos, decreto, encabezados DOF
+      // Limpiar del preámbulo los encabezados estructurales (TÍTULO, CAPÍTULO, nombres)
+      // que en texto plano aparecen entre el decreto y el primer artículo
+      preambulo: (() => {
+        const RE_ENCAB = /^(?:T[ÍI]TULO|TITULO|CAP[ÍI]TULO|CAPITULO|Cap[ií]tulo|Secci[oó]n)\s+[^\n]+$/gm;
+        return textoPrevio.trim()
+          .split('\n')
+          .filter(linea => {
+            const t = linea.trim();
+            return t.length > 0 && !RE_ENCAB.test(t);
+          })
+          .join('\n')
+          .replace(/\n{3,}/g, '\n\n')
+          .trim();
+      })(),
       confianza
     }
   };
@@ -1590,10 +1603,9 @@ onAuthStateChanged(auth, (user) => {
       const grupoId  = btn.dataset.grupo;
       const grupoDiv = document.getElementById(grupoId);
       const chevron  = btn.querySelector(".explo-cap-chevron");
-      // Por defecto: primer grupo expandido, resto colapsados
-      const isFirst  = btn === contenedor.querySelector(".explo-cap-toggle");
-      if (!isFirst && grupoDiv) { grupoDiv.style.display = "none"; if (chevron) chevron.style.transform = "rotate(-90deg)"; }
-      else if (grupoDiv) { grupoDiv.style.display = "flex"; }
+      // Todos los capítulos colapsados por defecto
+      if (grupoDiv) { grupoDiv.style.display = "none"; }
+      if (chevron) chevron.style.transform = "rotate(-90deg)";
 
       btn.addEventListener("click", () => {
         const abierto = grupoDiv.style.display !== "none";

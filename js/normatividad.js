@@ -1070,20 +1070,6 @@ onAuthStateChanged(auth, (user) => {
           `• Art. ${a.numero} [${a.seccion}]${a.epigrafe ? " — " + a.epigrafe : ""}: ${a.texto.slice(0, 80)}...`
         ).join("<br>");
 
-        // Guardar preámbulo en Firestore como documento especial
-        if (reporte.preambulo && reporte.preambulo.length > 50) {
-          try {
-            const preambRef = doc(db, "usuarios", user.uid, "normatividad", normaId, "articulos", "_preambulo");
-            await setDoc(preambRef, {
-              numero: "Preámbulo",
-              seccion: "preambulo",
-              texto: reporte.preambulo,
-              indice: 0,
-              epigrafe: "Exposición de motivos, decreto legislativo y encabezados"
-            });
-          } catch(e) { console.warn("No se pudo guardar preámbulo:", e); }
-        }
-
         if (proceso) proceso.innerHTML =
           renderReporteConfianza(reporte, nombreNorma) +
           `<div style="margin-top:0.5rem;font-size:0.78rem;color:var(--text3);line-height:1.6">
@@ -1094,7 +1080,7 @@ onAuthStateChanged(auth, (user) => {
           </button>`;
 
         document.getElementById("btn-confirmar-guardar")?.addEventListener("click", async () => {
-          await guardarArticulos(normaId, articulos, proceso);
+          await guardarArticulos(normaId, articulos, proceso, reporte);
         });
 
         document.getElementById("btn-descargar-reporte")?.addEventListener("click", () => {
@@ -1110,7 +1096,7 @@ onAuthStateChanged(auth, (user) => {
 
   // ── Guardar artículos en Firestore (subcolección) ─────────────────
   // Usa batches de 400 artículos para no superar el límite de Firestore (500 ops/batch)
-  async function guardarArticulos(normaId, articulos, proceso) {
+  async function guardarArticulos(normaId, articulos, proceso, reporte) {
     const btn = document.getElementById("btn-confirmar-guardar");
     if (btn) btn.disabled = true;
     if (proceso) proceso.innerHTML = `⏳ Guardando artículos en Lumen... <span id="prog-guardar">0 / ${articulos.length}</span>`;
@@ -1131,6 +1117,21 @@ onAuthStateChanged(auth, (user) => {
         });
         if (ops > 0) delBatches.push(batchActual);
         for (const b of delBatches) await b.commit();
+      }
+
+
+      // Guardar preámbulo si existe (DESPUÉS de borrar los anteriores, ANTES de los nuevos)
+      if (reporte?.preambulo && reporte.preambulo.length > 50) {
+        try {
+          const preambRef = doc(db, "usuarios", user.uid, "normatividad", normaId, "articulos", "_preambulo");
+          await setDoc(preambRef, {
+            numero: "Preámbulo",
+            seccion: "preambulo",
+            texto: reporte.preambulo,
+            indice: 0,
+            epigrafe: "Exposición de motivos, decreto legislativo y encabezados"
+          });
+        } catch(e) { console.warn("No se pudo guardar preámbulo:", e); }
       }
 
       // Guardar nuevos artículos en batches de 400

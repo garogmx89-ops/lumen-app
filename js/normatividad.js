@@ -1667,3 +1667,333 @@ onAuthStateChanged(auth, (user) => {
       if (btn) { btn.disabled = false; btn.textContent = "Guardar"; }
     }
   }
+
+  function cerrarExplorador() {
+    const panel = document.getElementById("norma-explorador-panel");
+    if (panel) panel.style.display = "none";
+    document.querySelector("#panel-normatividad .reunion-form-card").style.display  = "";
+    document.querySelector("#panel-normatividad .norma-filtros").style.display      = "";
+    const bw = document.querySelector("#panel-normatividad .norma-busqueda-wrap");
+    if (bw) bw.style.display = "";
+    document.querySelector("#panel-normatividad .reuniones-lista").style.display    = "";
+    _exploNorma = null; _exploArticulos = []; _exploFiltrados = [];
+  }
+
+  // \u2500\u2500 Vinculaciones en detalle (sin cambios) \u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500
+  function renderVinculacionesEnDetalle(norma) {
+    const contenedor = document.getElementById("detalle-vinc-contenido");
+    if (!contenedor) return;
+    let html = "";
+
+    if (norma.padreId) {
+      const padre = todasLasNormas.find(n => n.id === norma.padreId);
+      const nombrePadre = padre ? padre.nombre : "Norma no encontrada";
+      const colorPadre  = padre ? (colorTipo[padre.tipo] || "#555") : "#555";
+      html += `<div style="margin-bottom:0.6rem">
+        <div style="font-size:0.75rem;color:var(--text2);margin-bottom:0.3rem;font-weight:600">\u2191 DERIVA DE</div>
+        <button class="chip-vinc" data-vinc-id="${norma.padreId}"
+          style="display:inline-flex;align-items:center;gap:0.4rem;background:${colorPadre}22;color:var(--text);border:1px solid ${colorPadre}66;border-radius:20px;padding:0.3rem 0.8rem;font-size:0.8rem;cursor:pointer;font-family:inherit;">
+          ${padre && padre.tipo ? `<span style="background:${colorPadre};color:white;border-radius:10px;padding:0.1rem 0.5rem;font-size:0.7rem">${padre.tipo}</span>` : ""}
+          ${nombrePadre}
+        </button></div>`;
+    }
+
+    const hijos = todasLasNormas.filter(n => n.padreId === norma.id);
+    if (hijos.length > 0) {
+      html += `<div style="margin-bottom:0.6rem">
+        <div style="font-size:0.75rem;color:var(--text2);margin-bottom:0.3rem;font-weight:600">\u2193 NORMAS HIJAS (${hijos.length})</div>
+        <div style="display:flex;flex-wrap:wrap;gap:0.4rem">`;
+      hijos.forEach(h => {
+        const cH = colorTipo[h.tipo] || "#555";
+        html += `<button class="chip-vinc" data-vinc-id="${h.id}"
+          style="display:inline-flex;align-items:center;gap:0.4rem;background:${cH}22;color:var(--text);border:1px solid ${cH}66;border-radius:20px;padding:0.3rem 0.8rem;font-size:0.8rem;cursor:pointer;font-family:inherit;">
+          ${h.tipo ? `<span style="background:${cH};color:white;border-radius:10px;padding:0.1rem 0.5rem;font-size:0.7rem">${h.tipo}</span>` : ""}
+          ${h.nombre}</button>`;
+      });
+      html += `</div></div>`;
+    }
+
+    const rel = norma.relacionadas || [];
+    if (rel.length > 0) {
+      html += `<div><div style="font-size:0.75rem;color:var(--text2);margin-bottom:0.3rem;font-weight:600">\u2194 RELACIONADAS (${rel.length})</div>
+        <div style="display:flex;flex-wrap:wrap;gap:0.4rem">`;
+      rel.forEach(r => {
+        const nR = todasLasNormas.find(n => n.id === r.id);
+        const cR = nR ? (colorTipo[nR.tipo] || "#555") : "#555";
+        html += `<button class="chip-vinc" data-vinc-id="${r.id}"
+          style="display:inline-flex;align-items:center;gap:0.4rem;background:var(--bg3,#1e1e2e);color:var(--text);border:1px solid var(--border);border-radius:20px;padding:0.3rem 0.8rem;font-size:0.8rem;cursor:pointer;font-family:inherit;">
+          ${nR && nR.tipo ? `<span style="background:${cR};color:white;border-radius:10px;padding:0.1rem 0.5rem;font-size:0.7rem">${nR.tipo}</span>` : ""}
+          ${nR ? nR.nombre : r.nombre}</button>`;
+      });
+      html += `</div></div>`;
+    }
+
+    contenedor.innerHTML = html || '<span style="color:var(--text2);font-size:0.82rem">Sin vinculaciones.</span>';
+
+    contenedor.querySelectorAll(".chip-vinc").forEach(btn => {
+      btn.addEventListener("click", () => {
+        document.getElementById("detalle-norma-modal").style.display = "none";
+        const dest = todasLasNormas.find(n => n.id === btn.dataset.vincId);
+        if (dest) setTimeout(() => mostrarDetalle(dest), 120);
+      });
+    });
+  }
+
+  // \u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550
+  // EXPORTAR \u2014 Excel y PDF (sin cambios funcionales)
+  // \u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550
+  function fechaHoy_() {
+    const h = new Date();
+    return h.getFullYear()+"-"+String(h.getMonth()+1).padStart(2,"0")+"-"+String(h.getDate()).padStart(2,"0");
+  }
+  function fmtFecha_(f) {
+    if (!f) return "";
+    const d = new Date(f);
+    return !isNaN(d) ? d.toLocaleDateString("es-MX",{day:"2-digit",month:"short",year:"numeric"}) : f;
+  }
+  function pdfHeader_(doc, titulo) {
+    doc.setFillColor(74,74,138); doc.rect(0,0,210,22,"F");
+    doc.setTextColor(255,255,255);
+    doc.setFontSize(13); doc.setFont("helvetica","bold");
+    doc.text("LUMEN \u2014 SEDUVOT Zacatecas", 20, 10);
+    doc.setFontSize(8); doc.setFont("helvetica","normal");
+    doc.text(titulo + " \u00b7 " + fechaHoy_(), 20, 17);
+    return 30;
+  }
+  function pdfSeccion_(doc, titulo, texto, y, mL, cW) {
+    if (!texto) return y;
+    if (y + 15 > 280) { doc.addPage(); y = 20; }
+    doc.setFillColor(245,245,250); doc.rect(mL, y-3, cW, 6, "F");
+    doc.setTextColor(74,74,138); doc.setFontSize(9); doc.setFont("helvetica","bold");
+    doc.text(titulo, mL+2, y+1); y += 7;
+    doc.setTextColor(50,50,50); doc.setFontSize(9); doc.setFont("helvetica","normal");
+    const lines = doc.splitTextToSize(texto, cW);
+    if (y + lines.length*5 > 280) { doc.addPage(); y = 20; }
+    doc.text(lines, mL, y);
+    return y + lines.length*5 + 4;
+  }
+  function pdfFooter_(doc) {
+    const n = doc.getNumberOfPages();
+    for (let i=1;i<=n;i++) {
+      doc.setPage(i); doc.setFontSize(7); doc.setTextColor(150,150,150);
+      doc.text("Lumen \u00b7 SEDUVOT Zacatecas \u00b7 Pag "+i+" de "+n, 20, 290);
+    }
+  }
+
+  function exportarExcel_normatividad() {
+    if (!todasLasNormas.length) { alert("No hay normas para exportar."); return; }
+    function gen() {
+      const filas = todasLasNormas.map(n => ({
+        "Nombre": n.nombre||"", "Tipo": n.tipo||"",
+        "Publicacion": n.fecha ? fmtFecha_(n.fecha) : "",
+        "Ultima reforma": n.fechaReforma ? fmtFecha_(n.fechaReforma) : "",
+        "Resumen": n.resumen||"", "Anotaciones": n.anotaciones||"",
+        "Norma padre": n.padreId ? (todasLasNormas.find(p=>p.id===n.padreId)||{}).nombre||n.padreId : "",
+        "Relacionadas": (n.relacionadas||[]).map(r=>r.nombre).join("; "),
+        "Articulos cargados": n.tieneTexto ? n.totalArticulos : "No",
+        "PDF": n.pdfUrl||""
+      }));
+      const ws = window.XLSX.utils.json_to_sheet(filas);
+      ws["!cols"] = [{wch:45},{wch:14},{wch:20},{wch:20},{wch:50},{wch:40},{wch:35},{wch:50},{wch:18},{wch:50}];
+      const wb = window.XLSX.utils.book_new();
+      window.XLSX.utils.book_append_sheet(wb, ws, "Normatividad");
+      window.XLSX.writeFile(wb, "Lumen_Normatividad_"+fechaHoy_()+".xlsx");
+    }
+    if (window.XLSX) gen();
+    else { const s = document.createElement("script"); s.src="https://cdnjs.cloudflare.com/ajax/libs/xlsx/0.18.5/xlsx.full.min.js"; s.onload=gen; document.head.appendChild(s); }
+  }
+
+  function exportarPDF_normatividad() {
+    if (!todasLasNormas.length) { alert("No hay normas para exportar."); return; }
+    function gen() {
+      const { jsPDF } = window.jspdf;
+      const doc = new jsPDF({unit:"mm",format:"a4"});
+      const mL=20, cW=170; let y = pdfHeader_(doc,"Catalogo de Normatividad");
+      todasLasNormas.forEach((n,i) => {
+        if (y+20>280){doc.addPage();y=20;}
+        doc.setDrawColor(200,200,200); doc.line(mL,y,190,y); y+=5;
+        doc.setTextColor(74,74,138); doc.setFontSize(11); doc.setFont("helvetica","bold");
+        const tl = doc.splitTextToSize((i+1)+". "+(n.nombre||"Sin nombre"), cW);
+        doc.text(tl,mL,y); y+=tl.length*6;
+        if (n.tipo){doc.setTextColor(100,100,100);doc.setFontSize(8);doc.setFont("helvetica","normal");doc.text("Tipo: "+n.tipo,mL,y);y+=5;}
+        if (n.fecha){doc.text("Publicacion: "+fmtFecha_(n.fecha)+(n.fechaReforma?" | Ultima reforma: "+fmtFecha_(n.fechaReforma):""),mL,y);y+=5;}
+        if (n.resumen){y=pdfSeccion_(doc,"Resumen",n.resumen,y,mL,cW);}
+        if (n.anotaciones){y=pdfSeccion_(doc,"Notas",n.anotaciones,y,mL,cW);}
+        y+=3;
+      });
+      pdfFooter_(doc);
+      doc.save("Lumen_Normatividad_"+fechaHoy_()+".pdf");
+    }
+    if (window.jspdf) gen();
+    else { const s = document.createElement("script"); s.src="https://cdnjs.cloudflare.com/ajax/libs/jspdf/2.5.1/jspdf.umd.min.js"; s.onload=gen; document.head.appendChild(s); }
+  }
+
+  // \u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550
+  // VISOR PDF CON ANOTACIONES (sin cambios)
+  // \u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550
+  let _visorPdfDoc = null, _visorPagActual = 1, _visorNormaId = null, _visorRenderTask = null;
+
+  async function abrirVisor(normaId, pdfUrl, nombre) {
+    if (!pdfUrl) { alert("Esta norma no tiene PDF adjunto."); return; }
+    _visorNormaId = normaId; _visorPagActual = 1; _visorPdfDoc = null;
+
+    document.querySelector("#panel-normatividad .reunion-form-card").style.display = "none";
+    document.querySelector("#panel-normatividad .norma-filtros").style.display     = "none";
+    document.querySelector("#panel-normatividad .reuniones-lista").style.display   = "none";
+    document.getElementById("norma-visor-panel").style.display = "block";
+    document.getElementById("visor-norma-titulo").textContent = nombre || "Documento";
+    document.getElementById("visor-loading").style.display    = "block";
+    document.getElementById("visor-canvas").style.display     = "none";
+    document.getElementById("visor-notas-lista").innerHTML    = "";
+    document.getElementById("visor-nota-texto").value         = "";
+
+    const btnCerrar = document.getElementById("visor-btn-cerrar");
+    const btnCN = btnCerrar.cloneNode(true); btnCerrar.parentNode.replaceChild(btnCN, btnCerrar);
+    btnCN.addEventListener("click", cerrarVisor);
+
+    if (!window.pdfjsLib) {
+      await cargarScript("https://cdnjs.cloudflare.com/ajax/libs/pdf.js/3.11.174/pdf.min.js");
+      window.pdfjsLib.GlobalWorkerOptions.workerSrc = "https://cdnjs.cloudflare.com/ajax/libs/pdf.js/3.11.174/pdf.worker.min.js";
+    }
+    try {
+      _visorPdfDoc = await window.pdfjsLib.getDocument({ url: pdfUrl, withCredentials: false }).promise;
+      document.getElementById("visor-loading").style.display = "none";
+      document.getElementById("visor-canvas").style.display  = "block";
+      await renderPagina(_visorPagActual);
+      actualizarNavegacion();
+      cargarNotasPagina(_visorPagActual);
+      cargarEstadoRelevante(_visorPagActual);
+    } catch (err) {
+      document.getElementById("visor-loading").textContent = "Error al cargar el PDF.";
+    }
+
+    const btnPrev = document.getElementById("visor-btn-prev");
+    const btnNext = document.getElementById("visor-btn-next");
+    const btnPN = btnPrev.cloneNode(true); btnPrev.parentNode.replaceChild(btnPN, btnPrev);
+    const btnNN = btnNext.cloneNode(true); btnNext.parentNode.replaceChild(btnNN, btnNext);
+    btnPN.addEventListener("click", async () => { if (_visorPagActual<=1) return; _visorPagActual--; await renderPagina(_visorPagActual); actualizarNavegacion(); cargarNotasPagina(_visorPagActual); cargarEstadoRelevante(_visorPagActual); });
+    btnNN.addEventListener("click", async () => { if (!_visorPdfDoc||_visorPagActual>=_visorPdfDoc.numPages) return; _visorPagActual++; await renderPagina(_visorPagActual); actualizarNavegacion(); cargarNotasPagina(_visorPagActual); cargarEstadoRelevante(_visorPagActual); });
+
+    const btnNota = document.getElementById("visor-btn-guardar-nota");
+    const btnNN2 = btnNota.cloneNode(true); btnNota.parentNode.replaceChild(btnNN2, btnNota);
+    btnNN2.addEventListener("click", () => guardarNota());
+    const btnRel = document.getElementById("visor-btn-relevante");
+    const btnRN = btnRel.cloneNode(true); btnRel.parentNode.replaceChild(btnRN, btnRel);
+    btnRN.addEventListener("click", () => toggleRelevante());
+  }
+
+  async function renderPagina(numPag) {
+    if (!_visorPdfDoc) return;
+    if (_visorRenderTask) _visorRenderTask.cancel();
+    const pagina = await _visorPdfDoc.getPage(numPag);
+    const canvas = document.getElementById("visor-canvas");
+    const ctx    = canvas.getContext("2d");
+    const ancho  = canvas.parentElement.clientWidth || 600;
+    const vp0    = pagina.getViewport({ scale: 1 });
+    const escala = Math.min((ancho - 20) / vp0.width, 1.8);
+    const vp     = pagina.getViewport({ scale: escala });
+    canvas.width = vp.width; canvas.height = vp.height;
+    _visorRenderTask = pagina.render({ canvasContext: ctx, viewport: vp });
+    await _visorRenderTask.promise;
+    _visorRenderTask = null;
+  }
+
+  function actualizarNavegacion() {
+    const total = _visorPdfDoc ? _visorPdfDoc.numPages : 1;
+    document.getElementById("visor-pagina-info").textContent = "Pag " + _visorPagActual + " / " + total;
+    document.getElementById("visor-pag-badge").textContent   = "Pag " + _visorPagActual;
+    document.getElementById("visor-btn-prev").disabled = _visorPagActual <= 1;
+    document.getElementById("visor-btn-next").disabled = _visorPagActual >= total;
+  }
+
+  async function guardarNota() {
+    const texto = document.getElementById("visor-nota-texto").value.trim();
+    if (!texto) { alert("Escribe una nota antes de guardar."); return; }
+    const docId   = _visorNormaId + "_pag" + _visorPagActual;
+    const notaRef = doc(db, "usuarios", user.uid, "anotaciones", docId);
+    let notas = [];
+    try {
+      const snap = await getDocs(query(collection(db, "usuarios", user.uid, "anotaciones")));
+      const ds   = snap.docs.find(d => d.id === docId);
+      if (ds) notas = ds.data().notas || [];
+    } catch(e) {}
+    notas.push({ texto, fecha: new Date().toISOString(), pagina: _visorPagActual });
+    await setDoc(notaRef, { normaId: _visorNormaId, pagina: _visorPagActual, notas, actualizadoEn: serverTimestamp() });
+    document.getElementById("visor-nota-texto").value = "";
+    cargarNotasPagina(_visorPagActual);
+  }
+
+  async function cargarNotasPagina(numPag) {
+    const lista = document.getElementById("visor-notas-lista"); if (!lista) return;
+    const docId = _visorNormaId + "_pag" + numPag;
+    try {
+      const snap = await getDocs(query(collection(db, "usuarios", user.uid, "anotaciones")));
+      const ds   = snap.docs.find(d => d.id === docId);
+      const notas = ds ? (ds.data().notas || []) : [];
+      if (!notas.length) { lista.innerHTML = '<p style="color:var(--text2);font-size:0.8rem;margin-top:0.5rem">Sin notas en esta p\u00e1gina</p>'; return; }
+      lista.innerHTML = notas.slice().reverse().map((n,i) => `
+        <div class="visor-nota-item">
+          <div class="visor-nota-fecha">${new Date(n.fecha).toLocaleDateString("es-MX",{day:"2-digit",month:"short",year:"numeric"})}</div>
+          <div class="visor-nota-texto-display">${n.texto}</div>
+          <button class="visor-nota-eliminar" data-index="${notas.length-1-i}">\u2715</button>
+        </div>`).join("");
+      lista.querySelectorAll(".visor-nota-eliminar").forEach(btn => {
+        btn.addEventListener("click", async () => {
+          const idx = Number(btn.dataset.index); notas.splice(idx,1);
+          const nr = doc(db, "usuarios", user.uid, "anotaciones", docId);
+          await setDoc(nr, { normaId: _visorNormaId, pagina: numPag, notas, actualizadoEn: serverTimestamp() });
+          cargarNotasPagina(numPag);
+        });
+      });
+    } catch(e) {}
+  }
+
+  async function toggleRelevante() {
+    const docId  = _visorNormaId + "_rel_pag" + _visorPagActual;
+    const relRef = doc(db, "usuarios", user.uid, "anotaciones", docId);
+    const btnRel = document.getElementById("visor-btn-relevante");
+    try {
+      const snap = await getDocs(query(collection(db, "usuarios", user.uid, "anotaciones")));
+      const ds   = snap.docs.find(d => d.id === docId);
+      const esR  = ds ? (ds.data().relevante === true) : false;
+      if (esR) {
+        await setDoc(relRef, { normaId: _visorNormaId, pagina: _visorPagActual, relevante: false });
+        btnRel.textContent = "\u2b50 Relevante"; btnRel.style.background = ""; btnRel.style.color = "";
+      } else {
+        await setDoc(relRef, { normaId: _visorNormaId, pagina: _visorPagActual, relevante: true, actualizadoEn: serverTimestamp() });
+        btnRel.textContent = "\u2b50 Marcada"; btnRel.style.background = "var(--accent)"; btnRel.style.color = "white";
+      }
+    } catch(e) {}
+  }
+
+  async function cargarEstadoRelevante(numPag) {
+    const docId  = _visorNormaId + "_rel_pag" + numPag;
+    const btnRel = document.getElementById("visor-btn-relevante"); if (!btnRel) return;
+    try {
+      const snap = await getDocs(query(collection(db, "usuarios", user.uid, "anotaciones")));
+      const ds   = snap.docs.find(d => d.id === docId);
+      const esR  = ds ? (ds.data().relevante === true) : false;
+      if (esR) { btnRel.textContent = "\u2b50 Marcada"; btnRel.style.background = "var(--accent)"; btnRel.style.color = "white"; }
+      else { btnRel.textContent = "\u2b50 Relevante"; btnRel.style.background = ""; btnRel.style.color = ""; }
+    } catch(e) {}
+  }
+
+  function cerrarVisor() {
+    document.getElementById("norma-visor-panel").style.display = "none";
+    document.querySelector("#panel-normatividad .reunion-form-card").style.display = "";
+    document.querySelector("#panel-normatividad .norma-filtros").style.display     = "";
+    document.querySelector("#panel-normatividad .reuniones-lista").style.display   = "";
+    if (_visorRenderTask) { _visorRenderTask.cancel(); _visorRenderTask = null; }
+    _visorPdfDoc = null;
+  }
+
+  function cargarScript(src) {
+    return new Promise((resolve, reject) => {
+      if (document.querySelector(`script[src="${src}"]`)) { resolve(); return; }
+      const s = document.createElement("script");
+      s.src = src; s.onload = resolve; s.onerror = reject;
+      document.head.appendChild(s);
+    });
+  }
+
+}); // fin onAuthStateChanged

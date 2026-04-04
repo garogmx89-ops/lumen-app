@@ -413,6 +413,7 @@ function parsearArticulos(textoCompleto, ambito) {
       textoPrevioDescartado: textoPrevio.length > 0,
       caracteresTextoPrevio: textoPrevio.length,
       preambulo: textoPrevio.trim(),   // Exposición de motivos, decreto, encabezados DOF
+      confianza
     }
   };
 }
@@ -1072,7 +1073,7 @@ onAuthStateChanged(auth, (user) => {
         // Guardar preámbulo en Firestore como documento especial
         if (reporte.preambulo && reporte.preambulo.length > 50) {
           try {
-            const preambRef = doc(db, "usuarios", user.uid, "normatividad", normaId, "articulos", "__preambulo__");
+            const preambRef = doc(db, "usuarios", user.uid, "normatividad", normaId, "articulos", "_preambulo");
             await setDoc(preambRef, {
               numero: "Preámbulo",
               seccion: "preambulo",
@@ -1265,8 +1266,8 @@ onAuthStateChanged(auth, (user) => {
       const snap = await getDocs(query(articulosRef, orderBy("indice", "asc")));
       // Separar preámbulo del resto de artículos
       const todosLsDocs = snap.docs.map(d => ({ id: d.id, ...d.data() }));
-      const preambulo   = todosLsDocs.find(d => d.id === "__preambulo__");
-      _exploArticulos   = todosLsDocs.filter(d => d.id !== "__preambulo__");
+      const preambulo   = todosLsDocs.find(d => d.id === "_preambulo");
+      _exploArticulos   = todosLsDocs.filter(d => d.id !== "_preambulo");
       _exploFiltrados   = _exploArticulos;
 
       // Cargar notas y relevantes guardados en cada artículo

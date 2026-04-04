@@ -325,13 +325,18 @@ function parsearArticulos(textoCompleto, ambito) {
     // Epígrafe — en federal puede estar en la primera línea después del encabezado
     const lineas   = textoLimpio.split("\n").filter(l => l.trim());
     let epigrafe   = "";
+    // Epígrafe: la segunda línea del bloque si es corta y descriptiva
+    // NO capturar si es una fracción (I., II., a)) o inciso
+    const RE_ES_FRACCION = /^\s*(?:[IVXLivxl]+\.|[a-zA-Z]\))/;
     if (perfil === "federal" && lineas.length > 1) {
       const cand = lineas[1].trim().replace(/^\*+|\*+$/g,"");
       if (cand.length > 3 && cand.length < 80 && !cand.endsWith(".") &&
+          !RE_ES_FRACCION.test(cand) &&
           !/^(?:reformado|adicionado|derogado)/i.test(cand)) epigrafe = cand;
     } else if (perfil === "estatal" && lineas.length > 1) {
       const cand = lineas[1].trim().replace(/^\*+|\*+$/g,"");
       if (cand.length > 3 && cand.length < 100 && !cand.endsWith(".") &&
+          !RE_ES_FRACCION.test(cand) &&
           !/^(?:reformado|adicionado|derogado)/i.test(cand)) epigrafe = cand;
     }
 
@@ -1257,10 +1262,11 @@ onAuthStateChanged(auth, (user) => {
       return escHtml(t).replace(reg, '<mark style="background:var(--accent);color:white;border-radius:2px;padding:0 2px">$1</mark>');
     }
 
-    // Patrón de fracción: línea que empieza con número romano o letra+paréntesis
-    const RE_FRACCION  = /^((?:[IVXLivxl]+)\.\s)/;
-    const RE_INCISO    = /^([a-zA-Z]\)\s)/;
-    const RE_PARRAFO   = /^([A-ZÁÉÍÓÚ][^.]{0,60}:\s*$)/; // título de párrafo corto
+    // Patrón de fracción: línea que empieza con número romano (con posible sangría) o letra+paréntesis
+    const RE_FRACCION  = /^\s*((?:[IVXLivxl]+)\.\s)/;
+    const RE_INCISO    = /^\s*([a-zA-Z]\)\s)/;
+    // Encabezados estructurales que NO deben mostrarse dentro del artículo
+    const RE_ENCABEZADO = /^(?:T[ÍI]TULO|TITULO|CAP[ÍI]TULO|CAPITULO)\s+\S|^(?:Cap[ií]tulo|Secci[oó]n)\s+/i;
 
     const bloques = texto.split(/\n\n+/);
     let html = "";
@@ -1269,10 +1275,18 @@ onAuthStateChanged(auth, (user) => {
       const b = bloques[i].trim();
       if (!b) continue;
 
+      // Saltar encabezados de capítulo/título que aparecen al final del bloque
+      // (en texto plano quedan entre el último artículo y el siguiente capítulo)
+      if (RE_ENCABEZADO.test(b)) continue;
+      // Saltar nombres de capítulo cortos en mayúsculas o título case (ej "De los lineamientos")
+      // que siguen a un encabezado de capítulo — solo si están al final del texto
+      const esNombreCapitulo = i > 0 && RE_ENCABEZADO.test(bloques[i-1]?.trim() || "");
+      if (esNombreCapitulo) continue;
+
       if (RE_FRACCION.test(b)) {
         const match = RE_FRACCION.exec(b);
         const num   = match[1].trim();
-        const resto = b.slice(match[0].length);
+        const resto = b.slice(match[0].length).trim();
         html += `<div style="display:flex;gap:0.5rem;margin-top:0.35rem;padding-left:0.5rem;border-left:2px solid var(--border)">
           <span style="flex-shrink:0;font-size:0.78rem;font-weight:600;color:var(--accent);min-width:1.8rem">${num}</span>
           <span style="font-size:0.82rem;color:var(--text);line-height:1.6">${resaltar(resto)}</span>

@@ -71,12 +71,19 @@ async function subirPdfAFirebaseStorage(archivo, userId) {
 // ══════════════════════════════════════════════════════════════════════
 
 const ORDINALES_ES = [
+  // Simples — minúsculas
   "primero","segundo","tercero","cuarto","quinto","sexto","séptimo","sétimo","octavo",
   "noveno","décimo","undécimo","duodécimo","decimotercero","decimocuarto","decimoquinto","único",
+  // Simples — MAYÚSCULAS
   "PRIMERO","SEGUNDO","TERCERO","CUARTO","QUINTO","SEXTO","SÉPTIMO","SÉTIMO","OCTAVO",
   "NOVENO","DÉCIMO","UNDÉCIMO","DUODÉCIMO","DECIMOTERCERO","DECIMOCUARTO","DECIMOQUINTO","Único",
-  "Primero","Segundo","Tercero","Cuarto","Quinto","Sexto","Séptimo","Séti mo","Octavo",
-  "Noveno","Décimo","Undécimo","Duodécimo","Decimotercero","Decimocuarto","Decimoquinto"
+  // Simples — Título
+  "Primero","Segundo","Tercero","Cuarto","Quinto","Sexto","Séptimo","Sétimo","Octavo",
+  "Noveno","Décimo","Undécimo","Duodécimo","Decimotercero","Decimocuarto","Decimoquinto",
+  // Compuestos Décimo + simple (Decimoprimero, etc.)
+  "DécimoPrimero","DécimoSegundo","DécimoTercero","DécimoCuarto","DécimoQuinto","DécimoSexto","DécimoSéptimo","DécimoOctavo","DécimoNoveno",
+  // Compuestos Vigésimo/Trigésimo/Cuadragésimo + simple (usados en transitorios de decretos)
+  "Vigésimo Primero","Vigésimo Segundo","Vigésimo Tercero","Vigésimo Cuarto","Vigésimo Quinto","Vigésimo Sexto","Vigésimo Séptimo","Vigésimo Octavo","Vigésimo Noveno","Trigésimo Primero","Trigésimo Segundo","Trigésimo Tercero","Trigésimo Cuarto","Trigésimo Quinto","Trigésimo Sexto","Trigésimo Séptimo","Trigésimo Octavo","Trigésimo Noveno","Cuadragésimo Primero","Cuadragésimo Segundo","Cuadragésimo Tercero","Cuadragésimo Cuarto","Cuadragésimo Quinto","Cuadragésimo Sexto","Cuadragésimo Séptimo","Cuadragésimo Octavo","Cuadragésimo Noveno","Quincuagésimo Primero","Quincuagésimo Segundo","Quincuagésimo Tercero","Quincuagésimo Cuarto","Quincuagésimo Quinto","Quincuagésimo Sexto","Quincuagésimo Séptimo","Quincuagésimo Octavo","Quincuagésimo Noveno"
 ];
 const ORDINALES_PAT = ORDINALES_ES.join("|");
 
@@ -405,7 +412,7 @@ function parsearArticulos(textoCompleto, ambito) {
       sospechosos, desconocidos,
       textoPrevioDescartado: textoPrevio.length > 0,
       caracteresTextoPrevio: textoPrevio.length,
-      confianza
+      preambulo: textoPrevio.trim(),   // Exposición de motivos, decreto, encabezados DOF
     }
   };
 }
@@ -1062,6 +1069,20 @@ onAuthStateChanged(auth, (user) => {
           `• Art. ${a.numero} [${a.seccion}]${a.epigrafe ? " — " + a.epigrafe : ""}: ${a.texto.slice(0, 80)}...`
         ).join("<br>");
 
+        // Guardar preámbulo en Firestore como documento especial
+        if (reporte.preambulo && reporte.preambulo.length > 50) {
+          try {
+            const preambRef = doc(db, "usuarios", user.uid, "normatividad", normaId, "articulos", "__preambulo__");
+            await setDoc(preambRef, {
+              numero: "Preámbulo",
+              seccion: "preambulo",
+              texto: reporte.preambulo,
+              indice: 0,
+              epigrafe: "Exposición de motivos, decreto legislativo y encabezados"
+            });
+          } catch(e) { console.warn("No se pudo guardar preámbulo:", e); }
+        }
+
         if (proceso) proceso.innerHTML =
           renderReporteConfianza(reporte, nombreNorma) +
           `<div style="margin-top:0.5rem;font-size:0.78rem;color:var(--text3);line-height:1.6">
@@ -1241,8 +1262,11 @@ onAuthStateChanged(auth, (user) => {
     try {
       const articulosRef = collection(db, "usuarios", user.uid, "normatividad", norma.id, "articulos");
       const snap = await getDocs(query(articulosRef, orderBy("indice", "asc")));
-      _exploArticulos = snap.docs.map(d => ({ id: d.id, ...d.data() }));
-      _exploFiltrados = _exploArticulos;
+      // Separar preámbulo del resto de artículos
+      const todosLsDocs = snap.docs.map(d => ({ id: d.id, ...d.data() }));
+      const preambulo   = todosLsDocs.find(d => d.id === "__preambulo__");
+      _exploArticulos   = todosLsDocs.filter(d => d.id !== "__preambulo__");
+      _exploFiltrados   = _exploArticulos;
 
       // Cargar notas y relevantes guardados en cada artículo
       _exploNotas      = {};
@@ -1251,6 +1275,36 @@ onAuthStateChanged(auth, (user) => {
         if (a.nota)      _exploNotas[a.id]      = a.nota;
         if (a.relevante) _exploRelevantes.add(a.id);
       });
+
+      // Mostrar preámbulo colapsado si existe
+      const listaEl = document.getElementById("explo-lista");
+      if (preambulo && preambulo.texto && listaEl) {
+        const preambId = "explo-preambulo-body";
+        const preambHtml = `<div style="margin-bottom:0.6rem">
+          <button id="btn-toggle-preambulo" style="width:100%;background:var(--bg2);border:1px solid var(--border);
+            border-radius:8px;cursor:pointer;font-family:inherit;text-align:left;padding:0.55rem 0.85rem;
+            display:flex;justify-content:space-between;align-items:center">
+            <div>
+              <div style="font-size:0.68rem;font-weight:600;color:var(--text3);text-transform:uppercase;letter-spacing:0.06em">Contexto del documento</div>
+              <div style="font-size:0.85rem;font-weight:600;color:var(--text)">📜 Preámbulo — Exposición de motivos y decreto legislativo</div>
+            </div>
+            <span id="preambulo-chevron" style="font-size:0.75rem;color:var(--text3);transform:rotate(-90deg);transition:transform 0.2s">▼</span>
+          </button>
+          <div id="${preambId}" style="display:none;margin-top:0.3rem;padding:0.75rem 0.9rem;
+            background:var(--bg2);border:1px solid var(--border);border-radius:8px;
+            font-size:0.82rem;color:var(--text2);line-height:1.7;white-space:pre-wrap">
+            ${preambulo.texto.replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;')}
+          </div>
+        </div>`;
+        listaEl.insertAdjacentHTML("afterbegin", preambHtml);
+        document.getElementById("btn-toggle-preambulo")?.addEventListener("click", () => {
+          const body = document.getElementById(preambId);
+          const chev = document.getElementById("preambulo-chevron");
+          const open = body.style.display !== "none";
+          body.style.display = open ? "none" : "block";
+          if (chev) chev.style.transform = open ? "rotate(-90deg)" : "rotate(0deg)";
+        });
+      }
 
       const nRel  = _exploRelevantes.size;
       const nNota = Object.keys(_exploNotas).length;

@@ -1193,6 +1193,7 @@ onAuthStateChanged(auth, (user) => {
   let _ambitoNormaActual = ""; // ámbito de la norma activa — para seleccionar perfil parser
   let _exploNotas      = {};   // { artId: "texto de nota" }
   let _exploRelevantes = new Set(); // Set de artIds marcados como relevantes
+  let _exploPreambulo  = null;  // Texto del preámbulo del documento
 
   async function abrirExplorador(norma) {
     _exploNorma = norma;
@@ -1276,35 +1277,8 @@ onAuthStateChanged(auth, (user) => {
         if (a.relevante) _exploRelevantes.add(a.id);
       });
 
-      // Mostrar preámbulo colapsado si existe
-      const listaEl = document.getElementById("explo-lista");
-      if (preambulo && preambulo.texto && listaEl) {
-        const preambId = "explo-preambulo-body";
-        const preambHtml = `<div style="margin-bottom:0.6rem">
-          <button id="btn-toggle-preambulo" style="width:100%;background:var(--bg2);border:1px solid var(--border);
-            border-radius:8px;cursor:pointer;font-family:inherit;text-align:left;padding:0.55rem 0.85rem;
-            display:flex;justify-content:space-between;align-items:center">
-            <div>
-              <div style="font-size:0.68rem;font-weight:600;color:var(--text3);text-transform:uppercase;letter-spacing:0.06em">Contexto del documento</div>
-              <div style="font-size:0.85rem;font-weight:600;color:var(--text)">📜 Preámbulo — Exposición de motivos y decreto legislativo</div>
-            </div>
-            <span id="preambulo-chevron" style="font-size:0.75rem;color:var(--text3);transform:rotate(-90deg);transition:transform 0.2s">▼</span>
-          </button>
-          <div id="${preambId}" style="display:none;margin-top:0.3rem;padding:0.75rem 0.9rem;
-            background:var(--bg2);border:1px solid var(--border);border-radius:8px;
-            font-size:0.82rem;color:var(--text2);line-height:1.7;white-space:pre-wrap">
-            ${preambulo.texto.replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;')}
-          </div>
-        </div>`;
-        listaEl.insertAdjacentHTML("afterbegin", preambHtml);
-        document.getElementById("btn-toggle-preambulo")?.addEventListener("click", () => {
-          const body = document.getElementById(preambId);
-          const chev = document.getElementById("preambulo-chevron");
-          const open = body.style.display !== "none";
-          body.style.display = open ? "none" : "block";
-          if (chev) chev.style.transform = open ? "rotate(-90deg)" : "rotate(0deg)";
-        });
-      }
+      // Guardar preámbulo en variable de módulo — se renderizará dentro de renderArticulos
+      _exploPreambulo = (preambulo && preambulo.texto) ? preambulo.texto : null;
 
       const nRel  = _exploRelevantes.size;
       const nNota = Object.keys(_exploNotas).length;
@@ -1580,6 +1554,35 @@ onAuthStateChanged(auth, (user) => {
 
     contenedor.innerHTML = html;
 
+    // ── Insertar preámbulo al inicio si existe — DESPUÉS de innerHTML para no sobreescribirse ──
+    if (_exploPreambulo && !termino) {
+      const preambId  = "explo-preambulo-body";
+      const preambHtml = `<div style="margin-bottom:0.6rem" id="explo-preambulo-wrap">
+        <button id="btn-toggle-preambulo" style="width:100%;background:var(--bg2);border:1px solid var(--border);
+          border-radius:8px;cursor:pointer;font-family:inherit;text-align:left;padding:0.55rem 0.85rem;
+          display:flex;justify-content:space-between;align-items:center">
+          <div>
+            <div style="font-size:0.68rem;font-weight:600;color:var(--text3);text-transform:uppercase;letter-spacing:0.06em">Contexto del documento</div>
+            <div style="font-size:0.85rem;font-weight:600;color:var(--text)">📜 Preámbulo — Decreto legislativo y encabezados</div>
+          </div>
+          <span id="preambulo-chevron" style="font-size:0.75rem;color:var(--text3);transform:rotate(-90deg);transition:transform 0.2s">▼</span>
+        </button>
+        <div id="${preambId}" style="display:none;margin-top:0.3rem;padding:0.75rem 0.9rem;
+          background:var(--bg2);border:1px solid var(--border);border-radius:8px;
+          font-size:0.82rem;color:var(--text2);line-height:1.7;white-space:pre-wrap">
+          ${_exploPreambulo.replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;')}
+        </div>
+      </div>`;
+      contenedor.insertAdjacentHTML("afterbegin", preambHtml);
+      document.getElementById("btn-toggle-preambulo")?.addEventListener("click", () => {
+        const body = document.getElementById(preambId);
+        const chev = document.getElementById("preambulo-chevron");
+        const open = body.style.display !== "none";
+        body.style.display = open ? "none" : "block";
+        if (chev) chev.style.transform = open ? "rotate(-90deg)" : "rotate(0deg)";
+      });
+    }
+
     // ── Toggle colapsar/expandir capítulos ──
     contenedor.querySelectorAll(".explo-cap-toggle").forEach(btn => {
       const grupoId  = btn.dataset.grupo;
@@ -1730,7 +1733,7 @@ onAuthStateChanged(auth, (user) => {
     const bw = document.querySelector("#panel-normatividad .norma-busqueda-wrap");
     if (bw) bw.style.display = "";
     document.querySelector("#panel-normatividad .reuniones-lista").style.display    = "";
-    _exploNorma = null; _exploArticulos = []; _exploFiltrados = [];
+    _exploNorma = null; _exploArticulos = []; _exploFiltrados = []; _exploPreambulo = null;
   }
 
   // \u2500\u2500 Vinculaciones en detalle (sin cambios) \u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500

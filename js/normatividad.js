@@ -900,11 +900,17 @@ onAuthStateChanged(auth, (user) => {
       : "";
 
     // ── Sección de texto de ley ──────────────────────────────────────
+    const cntRel  = (_exploNorma?.id === norma.id) ? _exploRelevantes.size : 0;
+    const cntNota = (_exploNorma?.id === norma.id) ? Object.keys(_exploNotas).length : 0;
     const textoSeccion = norma.tieneTexto
       ? `<div class="detalle-seccion">
           <div style="display:flex;justify-content:space-between;align-items:center">
             <div class="detalle-seccion-titulo">📖 Texto de ley</div>
-            <span style="font-size:0.75rem;color:var(--text2)">${norma.totalArticulos || "?"} artículos cargados</span>
+            <div style="display:flex;gap:0.5rem;align-items:center;font-size:0.75rem;color:var(--text2)">
+              ${cntRel > 0 ? `<span style="color:var(--accent)">⭐ ${cntRel} relevantes</span>` : ""}
+              ${cntNota > 0 ? `<span>📝 ${cntNota} notas</span>` : ""}
+              <span>${norma.totalArticulos || "?"} artículos</span>
+            </div>
           </div>
           <div style="margin-top:0.5rem;display:flex;gap:0.5rem;flex-wrap:wrap">
             <button id="btn-explorar-articulos" style="background:var(--accent);color:white;border:none;border-radius:8px;padding:0.4rem 1rem;font-size:0.82rem;cursor:pointer;font-family:inherit;font-weight:600;">
@@ -1164,6 +1170,8 @@ onAuthStateChanged(auth, (user) => {
   let _exploArticulos  = [];
   let _exploFiltrados  = [];
   let _ambitoNormaActual = ""; // ámbito de la norma activa — para seleccionar perfil parser
+  let _exploNotas      = {};   // { artId: "texto de nota" }
+  let _exploRelevantes = new Set(); // Set de artIds marcados como relevantes
 
   async function abrirExplorador(norma) {
     _exploNorma = norma;
@@ -1235,7 +1243,18 @@ onAuthStateChanged(auth, (user) => {
       const snap = await getDocs(query(articulosRef, orderBy("indice", "asc")));
       _exploArticulos = snap.docs.map(d => ({ id: d.id, ...d.data() }));
       _exploFiltrados = _exploArticulos;
-      if (contEl) contEl.textContent = `${_exploArticulos.length} artículos`;
+
+      // Cargar notas y relevantes guardados en cada artículo
+      _exploNotas      = {};
+      _exploRelevantes = new Set();
+      _exploArticulos.forEach(a => {
+        if (a.nota)      _exploNotas[a.id]      = a.nota;
+        if (a.relevante) _exploRelevantes.add(a.id);
+      });
+
+      const nRel  = _exploRelevantes.size;
+      const nNota = Object.keys(_exploNotas).length;
+      if (contEl) contEl.textContent = `${_exploArticulos.length} artículos${nRel > 0 ? " · ⭐ " + nRel : ""}${nNota > 0 ? " · 📝 " + nNota : ""}`;
       renderArticulos(_exploArticulos);
     } catch (err) {
       console.error("Error cargando artículos:", err);
@@ -1309,11 +1328,7 @@ onAuthStateChanged(auth, (user) => {
   }
 
   function renderArticulo(a, termino, badgeSecFn) {
-    // Con búsqueda: mostrar texto completo con resaltado
-    // Sin búsqueda: mostrar hasta el primer corte natural (párrafo inicial + fracciones si las hay)
     const tieneFramento = !termino && a.texto.length > 400;
-
-    // Texto a mostrar — con búsqueda: completo; sin: solo primeros 2 bloques
     const textoRender = termino
       ? a.texto
       : tieneFramento
@@ -1326,11 +1341,63 @@ onAuthStateChanged(auth, (user) => {
       ? `<div style="margin-top:0.4rem;font-size:0.72rem;color:var(--text3);font-style:italic;padding-left:0.5rem">🔄 ${a.notasReforma.join(" · ")}</div>`
       : "";
 
-    return `<div class="reunion-card" style="cursor:default">
+    const esRelevante = _exploRelevantes.has(a.id);
+    const notaTexto   = _exploNotas[a.id] || "";
+
+    // Panel de nota (visible si ya tiene nota o se activa)
+    const notaPanel = notaTexto
+      ? `<div class="explo-nota-panel" id="nota-panel-${a.id}" style="margin-top:0.5rem;padding:0.5rem 0.6rem;
+          background:var(--bg2);border:1px solid var(--border);border-radius:8px;">
+          <div style="font-size:0.7rem;font-weight:600;color:var(--text2);margin-bottom:0.3rem">📝 Mi nota</div>
+          <textarea class="explo-nota-input" data-art-id="${a.id}"
+            style="width:100%;min-height:60px;background:var(--bg);border:1px solid var(--border);
+            border-radius:6px;padding:0.4rem 0.5rem;font-size:0.8rem;color:var(--text);
+            font-family:inherit;resize:vertical;line-height:1.5">${notaTexto}</textarea>
+          <div style="display:flex;justify-content:flex-end;gap:0.4rem;margin-top:0.3rem">
+            <button class="explo-nota-guardar" data-art-id="${a.id}" data-norma-id="${_exploNorma?.id}"
+              style="background:var(--accent);color:white;border:none;border-radius:6px;
+              padding:0.25rem 0.7rem;font-size:0.75rem;cursor:pointer;font-family:inherit">Guardar</button>
+            <button class="explo-nota-borrar" data-art-id="${a.id}" data-norma-id="${_exploNorma?.id}"
+              style="background:none;border:1px solid var(--border);color:var(--text2);border-radius:6px;
+              padding:0.25rem 0.7rem;font-size:0.75rem;cursor:pointer;font-family:inherit">Borrar</button>
+          </div>
+        </div>`
+      : `<div class="explo-nota-panel" id="nota-panel-${a.id}" style="display:none;margin-top:0.5rem;padding:0.5rem 0.6rem;
+          background:var(--bg2);border:1px solid var(--border);border-radius:8px;">
+          <div style="font-size:0.7rem;font-weight:600;color:var(--text2);margin-bottom:0.3rem">📝 Mi nota</div>
+          <textarea class="explo-nota-input" data-art-id="${a.id}"
+            style="width:100%;min-height:60px;background:var(--bg);border:1px solid var(--border);
+            border-radius:6px;padding:0.4rem 0.5rem;font-size:0.8rem;color:var(--text);
+            font-family:inherit;resize:vertical;line-height:1.5" placeholder="Escribe tu nota sobre este artículo..."></textarea>
+          <div style="display:flex;justify-content:flex-end;gap:0.4rem;margin-top:0.3rem">
+            <button class="explo-nota-guardar" data-art-id="${a.id}" data-norma-id="${_exploNorma?.id}"
+              style="background:var(--accent);color:white;border:none;border-radius:6px;
+              padding:0.25rem 0.7rem;font-size:0.75rem;cursor:pointer;font-family:inherit">Guardar</button>
+            <button class="explo-nota-borrar" data-art-id="${a.id}" data-norma-id="${_exploNorma?.id}"
+              style="background:none;border:1px solid var(--border);color:var(--text2);border-radius:6px;
+              padding:0.25rem 0.7rem;font-size:0.75rem;cursor:pointer;font-family:inherit">Borrar</button>
+          </div>
+        </div>`;
+
+    return `<div class="reunion-card" style="cursor:default" id="art-card-${a.id}">
       <div style="display:flex;align-items:center;gap:0.4rem;flex-wrap:wrap;margin-bottom:0.5rem">
         <span style="font-size:0.82rem;font-weight:700;color:var(--accent)">Artículo ${a.numero}</span>
         ${badgeSecFn(a.seccion)}
         ${a.epigrafe ? `<span style="font-size:0.75rem;color:var(--text2);font-style:italic">${a.epigrafe}</span>` : ""}
+        <div style="margin-left:auto;display:flex;gap:0.3rem">
+          <button class="explo-btn-relevante" data-art-id="${a.id}" data-norma-id="${_exploNorma?.id}"
+            title="${esRelevante ? "Quitar de relevantes" : "Marcar como relevante"}"
+            style="background:none;border:1px solid ${esRelevante ? "var(--accent)" : "var(--border)"};
+            border-radius:6px;padding:0.15rem 0.4rem;font-size:0.8rem;cursor:pointer;
+            color:${esRelevante ? "var(--accent)" : "var(--text3)"};font-family:inherit;
+            transition:all 0.15s">⭐</button>
+          <button class="explo-btn-nota" data-art-id="${a.id}"
+            title="${notaTexto ? "Ver/editar nota" : "Agregar nota"}"
+            style="background:none;border:1px solid ${notaTexto ? "var(--accent)" : "var(--border)"};
+            border-radius:6px;padding:0.15rem 0.4rem;font-size:0.8rem;cursor:pointer;
+            color:${notaTexto ? "var(--accent)" : "var(--text3)"};font-family:inherit;
+            transition:all 0.15s">📝</button>
+        </div>
       </div>
       <div class="explo-art-cuerpo" data-completo="${encodeURIComponent(a.texto)}" data-expandido="false">
         ${cuerpoHtml}
@@ -1339,8 +1406,10 @@ onAuthStateChanged(auth, (user) => {
       ${tieneFramento
         ? `<button class="explo-btn-expandir" style="margin-top:0.4rem;background:none;border:none;color:var(--accent);font-size:0.78rem;cursor:pointer;padding:0;font-family:inherit">Ver artículo completo ▾</button>`
         : ""}
+      ${notaPanel}
     </div>`;
   }
+
 
 
   function filtrarArticulos(termino, seccion = "todos") {
@@ -1370,6 +1439,15 @@ onAuthStateChanged(auth, (user) => {
     renderArticulos(base, termino);
   }
 
+  // Badge de sección — función compartida por renderArticulos y renderArticulo
+  function badgeSec(sec) {
+    return ({
+      ley:         '<span style="background:#7B2FBE22;color:#7B2FBE;border:1px solid #7B2FBE44;border-radius:10px;padding:0.1rem 0.4rem;font-size:0.68rem;font-weight:600">📋 Ley</span>',
+      transitorio: '<span style="background:#0077B622;color:#0077B6;border:1px solid #0077B644;border-radius:10px;padding:0.1rem 0.4rem;font-size:0.68rem;font-weight:600">⏱ Transitorio</span>',
+      reforma:     '<span style="background:#2D6A4F22;color:#2D6A4F;border:1px solid #2D6A4F44;border-radius:10px;padding:0.1rem 0.4rem;font-size:0.68rem;font-weight:600">📝 Reforma</span>'
+    })[sec] || "";
+  }
+
   function renderArticulos(lista, termino = "") {
     const contenedor = document.getElementById("explo-lista");
     if (!contenedor) return;
@@ -1379,29 +1457,25 @@ onAuthStateChanged(auth, (user) => {
       return;
     }
 
-    function resaltar(texto, termino) {
-      if (!termino) return texto;
-      const regex = new RegExp("(" + termino.replace(/[.*+?^${}()|[\]\\]/g, "\\$&") + ")", "gi");
-      return texto.replace(regex, '<mark style="background:var(--accent);color:white;border-radius:2px;padding:0 2px">$1</mark>');
-    }
-
-    const badgeSec = (sec) => ({
-      ley:         '<span style="background:#7B2FBE22;color:#7B2FBE;border:1px solid #7B2FBE44;border-radius:10px;padding:0.1rem 0.4rem;font-size:0.68rem;font-weight:600">📋 Ley</span>',
-      transitorio: '<span style="background:#0077B622;color:#0077B6;border:1px solid #0077B644;border-radius:10px;padding:0.1rem 0.4rem;font-size:0.68rem;font-weight:600">⏱ Transitorio</span>',
-      reforma:     '<span style="background:#2D6A4F22;color:#2D6A4F;border:1px solid #2D6A4F44;border-radius:10px;padding:0.1rem 0.4rem;font-size:0.68rem;font-weight:600">📝 Reforma</span>'
-    })[sec] || "";
-
-    // Agrupar por capítulo — solo cuando hay capítulos y no hay búsqueda activa
-    // Con búsqueda activa mostramos lista plana para no fragmentar los resultados
     const agruparPorCapitulo = !termino && lista.some(a => a.capitulo);
-
     let html = "";
 
+    // ── Sección de artículos relevantes (siempre al tope, fuera de capítulos) ──
+    const relevantesEnLista = lista.filter(a => _exploRelevantes.has(a.id));
+    if (relevantesEnLista.length > 0 && !termino) {
+      html += `<div style="margin-bottom:0.5rem">
+        <div style="font-size:0.72rem;font-weight:600;color:var(--accent);text-transform:uppercase;
+          letter-spacing:0.06em;padding:0.3rem 0;border-bottom:1px solid var(--border);margin-bottom:0.4rem">
+          ⭐ Artículos relevantes (${relevantesEnLista.length})
+        </div>
+        ${relevantesEnLista.map(a => renderArticulo(a, termino, badgeSec)).join("")}
+      </div>`;
+    }
+
     if (agruparPorCapitulo) {
-      // Construir grupos: clave = "titulo|capitulo|seccionNombre"
+      // Construir grupos
       const grupos = [];
       let grupoActual = null;
-
       lista.forEach(a => {
         const clave = [a.titulo, a.capitulo, a.seccionNombre].join("|");
         if (!grupoActual || grupoActual.clave !== clave) {
@@ -1413,34 +1487,38 @@ onAuthStateChanged(auth, (user) => {
         grupoActual.articulos.push(a);
       });
 
-      grupos.forEach(g => {
-        // Separador de capítulo
-        let separador = "";
-        if (g.capitulo || g.titulo) {
-          let linea1 = "", linea2 = "";
-          if (g.titulo) {
-            linea1 = g.titulo + (g.tituloNombre ? " — " + g.tituloNombre : "");
-          }
-          if (g.capitulo) {
-            linea2 = g.capitulo + (g.capituloNombre ? " — " + g.capituloNombre : "");
-          }
-          if (g.seccionNombre) {
-            linea2 += (linea2 ? " · " : "") + "Sección " + g.seccionNombre;
-          }
-          separador = `<div style="margin:1rem 0 0.3rem;background:var(--bg2);
-            border:1px solid var(--border);border-radius:8px;overflow:hidden">
-            <div style="padding:0.6rem 0.85rem">
-              ${linea1 ? `<div style="font-size:0.68rem;font-weight:600;color:var(--text3);text-transform:uppercase;letter-spacing:0.06em;margin-bottom:0.15rem">${linea1}</div>` : ""}
-              <div style="font-size:0.88rem;font-weight:600;color:var(--text);line-height:1.3">${linea2 || "Sin capítulo"}</div>
+      grupos.forEach((g, gi) => {
+        const tieneRel = g.articulos.some(a => _exploRelevantes.has(a.id));
+        const tieneNota = g.articulos.some(a => _exploNotas[a.id]);
+        let linea1 = "", linea2 = "";
+        if (g.titulo) linea1 = g.titulo + (g.tituloNombre ? " — " + g.tituloNombre : "");
+        if (g.capitulo) linea2 = g.capitulo + (g.capituloNombre ? " — " + g.capituloNombre : "");
+        if (g.seccionNombre) linea2 += (linea2 ? " · " : "") + "Sección " + g.seccionNombre;
+
+        const grupoId = `explo-grupo-${gi}`;
+        const badges = (tieneRel ? '<span style="font-size:0.7rem;color:var(--accent)">⭐</span>' : "") +
+                       (tieneNota ? '<span style="font-size:0.7rem;color:var(--text2)">📝</span>' : "");
+
+        html += `<div style="margin-top:0.6rem">
+          <button class="explo-cap-toggle" data-grupo="${grupoId}"
+            style="width:100%;background:var(--bg2);border:1px solid var(--border);
+            border-radius:8px;cursor:pointer;font-family:inherit;text-align:left;padding:0">
+            <div style="padding:0.5rem 0.85rem">
+              ${linea1 ? `<div style="font-size:0.68rem;font-weight:600;color:var(--text3);text-transform:uppercase;letter-spacing:0.06em;margin-bottom:0.1rem">${linea1}</div>` : ""}
+              <div style="display:flex;justify-content:space-between;align-items:center">
+                <div style="font-size:0.88rem;font-weight:600;color:var(--text)">${linea2 || "Sin capítulo"}</div>
+                <div style="display:flex;align-items:center;gap:0.4rem">
+                  ${badges}
+                  <span style="font-size:0.72rem;color:var(--text3)">${g.articulos.length} art.</span>
+                  <span class="explo-cap-chevron" style="font-size:0.75rem;color:var(--text3);transition:transform 0.2s">▼</span>
+                </div>
+              </div>
             </div>
-            <div style="padding:0.25rem 0.85rem 0.35rem;background:var(--accent);opacity:0.08;display:none"></div>
-            <div style="padding:0.25rem 0.85rem;border-top:1px solid var(--border);font-size:0.72rem;color:var(--text3)">
-              ${g.articulos.length} artículo${g.articulos.length !== 1 ? "s" : ""}
-            </div>
-          </div>`;
-        }
-        html += separador;
-        html += g.articulos.map(a => renderArticulo(a, termino, badgeSec)).join("");
+          </button>
+          <div id="${grupoId}" style="display:none;margin-top:0.3rem;display:flex;flex-direction:column;gap:0.4rem">
+            ${g.articulos.map(a => renderArticulo(a, termino, badgeSec)).join("")}
+          </div>
+        </div>`;
       });
     } else {
       html = lista.map(a => renderArticulo(a, termino, badgeSec)).join("");
@@ -1448,365 +1526,144 @@ onAuthStateChanged(auth, (user) => {
 
     contenedor.innerHTML = html;
 
-    // Expandir/contraer artículos largos
+    // ── Toggle colapsar/expandir capítulos ──
+    contenedor.querySelectorAll(".explo-cap-toggle").forEach(btn => {
+      const grupoId  = btn.dataset.grupo;
+      const grupoDiv = document.getElementById(grupoId);
+      const chevron  = btn.querySelector(".explo-cap-chevron");
+      // Por defecto: primer grupo expandido, resto colapsados
+      const isFirst  = btn === contenedor.querySelector(".explo-cap-toggle");
+      if (!isFirst && grupoDiv) { grupoDiv.style.display = "none"; if (chevron) chevron.style.transform = "rotate(-90deg)"; }
+      else if (grupoDiv) { grupoDiv.style.display = "flex"; }
+
+      btn.addEventListener("click", () => {
+        const abierto = grupoDiv.style.display !== "none";
+        grupoDiv.style.display = abierto ? "none" : "flex";
+        if (chevron) chevron.style.transform = abierto ? "rotate(-90deg)" : "rotate(0deg)";
+      });
+    });
+
+    // ── Botón expandir artículo ──
     contenedor.querySelectorAll(".explo-btn-expandir").forEach(btn => {
       btn.addEventListener("click", () => {
-        const cuerpoEl = btn.previousElementSibling.classList.contains("explo-art-cuerpo")
-          ? btn.previousElementSibling
-          : btn.parentElement.querySelector(".explo-art-cuerpo");
+        const cuerpoEl = btn.parentElement.querySelector(".explo-art-cuerpo");
         if (!cuerpoEl) return;
         const expandido = cuerpoEl.dataset.expandido === "true";
         if (expandido) {
-          // Contraer — mostrar solo primeros 3 bloques
-          const textoCompleto = decodeURIComponent(cuerpoEl.dataset.completo);
-          const fragmento = textoCompleto.split(/\n\n+/).slice(0, 3).join("\n\n") + "...";
-          cuerpoEl.innerHTML = formatearTextoArticulo(fragmento, "");
+          const frag = decodeURIComponent(cuerpoEl.dataset.completo).split(/\n\n+/).slice(0, 3).join("\n\n") + "...";
+          cuerpoEl.innerHTML = formatearTextoArticulo(frag, "");
           cuerpoEl.dataset.expandido = "false";
           btn.textContent = "Ver artículo completo ▾";
         } else {
-          // Expandir — mostrar completo con fracciones formateadas
-          const textoCompleto = decodeURIComponent(cuerpoEl.dataset.completo);
-          cuerpoEl.innerHTML = formatearTextoArticulo(textoCompleto, "");
+          cuerpoEl.innerHTML = formatearTextoArticulo(decodeURIComponent(cuerpoEl.dataset.completo), "");
           cuerpoEl.dataset.expandido = "true";
           btn.textContent = "Contraer ▴";
         }
       });
     });
-  }
 
-  function cerrarExplorador() {
-    const panel = document.getElementById("norma-explorador-panel");
-    if (panel) panel.style.display = "none";
-    document.querySelector("#panel-normatividad .reunion-form-card").style.display  = "";
-    document.querySelector("#panel-normatividad .norma-filtros").style.display      = "";
-    const bw = document.querySelector("#panel-normatividad .norma-busqueda-wrap");
-    if (bw) bw.style.display = "";
-    document.querySelector("#panel-normatividad .reuniones-lista").style.display    = "";
-    _exploNorma = null; _exploArticulos = []; _exploFiltrados = [];
-  }
-
-  // ── Vinculaciones en detalle (sin cambios) ───────────────────────
-  function renderVinculacionesEnDetalle(norma) {
-    const contenedor = document.getElementById("detalle-vinc-contenido");
-    if (!contenedor) return;
-    let html = "";
-
-    if (norma.padreId) {
-      const padre = todasLasNormas.find(n => n.id === norma.padreId);
-      const nombrePadre = padre ? padre.nombre : "Norma no encontrada";
-      const colorPadre  = padre ? (colorTipo[padre.tipo] || "#555") : "#555";
-      html += `<div style="margin-bottom:0.6rem">
-        <div style="font-size:0.75rem;color:var(--text2);margin-bottom:0.3rem;font-weight:600">↑ DERIVA DE</div>
-        <button class="chip-vinc" data-vinc-id="${norma.padreId}"
-          style="display:inline-flex;align-items:center;gap:0.4rem;background:${colorPadre}22;color:var(--text);border:1px solid ${colorPadre}66;border-radius:20px;padding:0.3rem 0.8rem;font-size:0.8rem;cursor:pointer;font-family:inherit;">
-          ${padre && padre.tipo ? `<span style="background:${colorPadre};color:white;border-radius:10px;padding:0.1rem 0.5rem;font-size:0.7rem">${padre.tipo}</span>` : ""}
-          ${nombrePadre}
-        </button></div>`;
-    }
-
-    const hijos = todasLasNormas.filter(n => n.padreId === norma.id);
-    if (hijos.length > 0) {
-      html += `<div style="margin-bottom:0.6rem">
-        <div style="font-size:0.75rem;color:var(--text2);margin-bottom:0.3rem;font-weight:600">↓ NORMAS HIJAS (${hijos.length})</div>
-        <div style="display:flex;flex-wrap:wrap;gap:0.4rem">`;
-      hijos.forEach(h => {
-        const cH = colorTipo[h.tipo] || "#555";
-        html += `<button class="chip-vinc" data-vinc-id="${h.id}"
-          style="display:inline-flex;align-items:center;gap:0.4rem;background:${cH}22;color:var(--text);border:1px solid ${cH}66;border-radius:20px;padding:0.3rem 0.8rem;font-size:0.8rem;cursor:pointer;font-family:inherit;">
-          ${h.tipo ? `<span style="background:${cH};color:white;border-radius:10px;padding:0.1rem 0.5rem;font-size:0.7rem">${h.tipo}</span>` : ""}
-          ${h.nombre}</button>`;
-      });
-      html += `</div></div>`;
-    }
-
-    const rel = norma.relacionadas || [];
-    if (rel.length > 0) {
-      html += `<div><div style="font-size:0.75rem;color:var(--text2);margin-bottom:0.3rem;font-weight:600">↔ RELACIONADAS (${rel.length})</div>
-        <div style="display:flex;flex-wrap:wrap;gap:0.4rem">`;
-      rel.forEach(r => {
-        const nR = todasLasNormas.find(n => n.id === r.id);
-        const cR = nR ? (colorTipo[nR.tipo] || "#555") : "#555";
-        html += `<button class="chip-vinc" data-vinc-id="${r.id}"
-          style="display:inline-flex;align-items:center;gap:0.4rem;background:var(--bg3,#1e1e2e);color:var(--text);border:1px solid var(--border);border-radius:20px;padding:0.3rem 0.8rem;font-size:0.8rem;cursor:pointer;font-family:inherit;">
-          ${nR && nR.tipo ? `<span style="background:${cR};color:white;border-radius:10px;padding:0.1rem 0.5rem;font-size:0.7rem">${nR.tipo}</span>` : ""}
-          ${nR ? nR.nombre : r.nombre}</button>`;
-      });
-      html += `</div></div>`;
-    }
-
-    contenedor.innerHTML = html || '<span style="color:var(--text2);font-size:0.82rem">Sin vinculaciones.</span>';
-
-    contenedor.querySelectorAll(".chip-vinc").forEach(btn => {
-      btn.addEventListener("click", () => {
-        document.getElementById("detalle-norma-modal").style.display = "none";
-        const dest = todasLasNormas.find(n => n.id === btn.dataset.vincId);
-        if (dest) setTimeout(() => mostrarDetalle(dest), 120);
-      });
+    // ── Botones de nota y relevante ──
+    contenedor.querySelectorAll(".explo-btn-relevante").forEach(btn => {
+      btn.addEventListener("click", () => toggleRelevante_art(btn.dataset.artId, btn.dataset.normaId));
+    });
+    contenedor.querySelectorAll(".explo-btn-nota").forEach(btn => {
+      btn.addEventListener("click", () => toggleNota_art(btn.dataset.artId));
     });
   }
 
-  // ══════════════════════════════════════════════════════════════════
-  // EXPORTAR — Excel y PDF (sin cambios funcionales)
-  // ══════════════════════════════════════════════════════════════════
-  function fechaHoy_() {
-    const h = new Date();
-    return h.getFullYear()+"-"+String(h.getMonth()+1).padStart(2,"0")+"-"+String(h.getDate()).padStart(2,"0");
-  }
-  function fmtFecha_(f) {
-    if (!f) return "";
-    const d = new Date(f);
-    return !isNaN(d) ? d.toLocaleDateString("es-MX",{day:"2-digit",month:"short",year:"numeric"}) : f;
-  }
-  function pdfHeader_(doc, titulo) {
-    doc.setFillColor(74,74,138); doc.rect(0,0,210,22,"F");
-    doc.setTextColor(255,255,255);
-    doc.setFontSize(13); doc.setFont("helvetica","bold");
-    doc.text("LUMEN — SEDUVOT Zacatecas", 20, 10);
-    doc.setFontSize(8); doc.setFont("helvetica","normal");
-    doc.text(titulo + " · " + fechaHoy_(), 20, 17);
-    return 30;
-  }
-  function pdfSeccion_(doc, titulo, texto, y, mL, cW) {
-    if (!texto) return y;
-    if (y + 15 > 280) { doc.addPage(); y = 20; }
-    doc.setFillColor(245,245,250); doc.rect(mL, y-3, cW, 6, "F");
-    doc.setTextColor(74,74,138); doc.setFontSize(9); doc.setFont("helvetica","bold");
-    doc.text(titulo, mL+2, y+1); y += 7;
-    doc.setTextColor(50,50,50); doc.setFontSize(9); doc.setFont("helvetica","normal");
-    const lines = doc.splitTextToSize(texto, cW);
-    if (y + lines.length*5 > 280) { doc.addPage(); y = 20; }
-    doc.text(lines, mL, y);
-    return y + lines.length*5 + 4;
-  }
-  function pdfFooter_(doc) {
-    const n = doc.getNumberOfPages();
-    for (let i=1;i<=n;i++) {
-      doc.setPage(i); doc.setFontSize(7); doc.setTextColor(150,150,150);
-      doc.text("Lumen · SEDUVOT Zacatecas · Pag "+i+" de "+n, 20, 290);
-    }
-  }
+  // ── Toggle relevante de artículo ─────────────────────────────────────
+  async function toggleRelevante_art(artId, normaId) {
+    const esRel = _exploRelevantes.has(artId);
+    const artRef = doc(db, "usuarios", user.uid, "normatividad", normaId, "articulos", artId);
 
-  function exportarExcel_normatividad() {
-    if (!todasLasNormas.length) { alert("No hay normas para exportar."); return; }
-    function gen() {
-      const filas = todasLasNormas.map(n => ({
-        "Nombre": n.nombre||"", "Tipo": n.tipo||"",
-        "Publicacion": n.fecha ? fmtFecha_(n.fecha) : "",
-        "Ultima reforma": n.fechaReforma ? fmtFecha_(n.fechaReforma) : "",
-        "Resumen": n.resumen||"", "Anotaciones": n.anotaciones||"",
-        "Norma padre": n.padreId ? (todasLasNormas.find(p=>p.id===n.padreId)||{}).nombre||n.padreId : "",
-        "Relacionadas": (n.relacionadas||[]).map(r=>r.nombre).join("; "),
-        "Articulos cargados": n.tieneTexto ? n.totalArticulos : "No",
-        "PDF": n.pdfUrl||""
-      }));
-      const ws = window.XLSX.utils.json_to_sheet(filas);
-      ws["!cols"] = [{wch:45},{wch:14},{wch:20},{wch:20},{wch:50},{wch:40},{wch:35},{wch:50},{wch:18},{wch:50}];
-      const wb = window.XLSX.utils.book_new();
-      window.XLSX.utils.book_append_sheet(wb, ws, "Normatividad");
-      window.XLSX.writeFile(wb, "Lumen_Normatividad_"+fechaHoy_()+".xlsx");
-    }
-    if (window.XLSX) gen();
-    else { const s = document.createElement("script"); s.src="https://cdnjs.cloudflare.com/ajax/libs/xlsx/0.18.5/xlsx.full.min.js"; s.onload=gen; document.head.appendChild(s); }
-  }
-
-  function exportarPDF_normatividad() {
-    if (!todasLasNormas.length) { alert("No hay normas para exportar."); return; }
-    function gen() {
-      const { jsPDF } = window.jspdf;
-      const doc = new jsPDF({unit:"mm",format:"a4"});
-      const mL=20, cW=170; let y = pdfHeader_(doc,"Catalogo de Normatividad");
-      todasLasNormas.forEach((n,i) => {
-        if (y+20>280){doc.addPage();y=20;}
-        doc.setDrawColor(200,200,200); doc.line(mL,y,190,y); y+=5;
-        doc.setTextColor(74,74,138); doc.setFontSize(11); doc.setFont("helvetica","bold");
-        const tl = doc.splitTextToSize((i+1)+". "+(n.nombre||"Sin nombre"), cW);
-        doc.text(tl,mL,y); y+=tl.length*6;
-        if (n.tipo){doc.setTextColor(100,100,100);doc.setFontSize(8);doc.setFont("helvetica","normal");doc.text("Tipo: "+n.tipo,mL,y);y+=5;}
-        if (n.fecha){doc.text("Publicacion: "+fmtFecha_(n.fecha)+(n.fechaReforma?" | Ultima reforma: "+fmtFecha_(n.fechaReforma):""),mL,y);y+=5;}
-        if (n.resumen){y=pdfSeccion_(doc,"Resumen",n.resumen,y,mL,cW);}
-        if (n.anotaciones){y=pdfSeccion_(doc,"Notas",n.anotaciones,y,mL,cW);}
-        y+=3;
-      });
-      pdfFooter_(doc);
-      doc.save("Lumen_Normatividad_"+fechaHoy_()+".pdf");
-    }
-    if (window.jspdf) gen();
-    else { const s = document.createElement("script"); s.src="https://cdnjs.cloudflare.com/ajax/libs/jspdf/2.5.1/jspdf.umd.min.js"; s.onload=gen; document.head.appendChild(s); }
-  }
-
-  // ══════════════════════════════════════════════════════════════════
-  // VISOR PDF CON ANOTACIONES (sin cambios)
-  // ══════════════════════════════════════════════════════════════════
-  let _visorPdfDoc = null, _visorPagActual = 1, _visorNormaId = null, _visorRenderTask = null;
-
-  async function abrirVisor(normaId, pdfUrl, nombre) {
-    if (!pdfUrl) { alert("Esta norma no tiene PDF adjunto."); return; }
-    _visorNormaId = normaId; _visorPagActual = 1; _visorPdfDoc = null;
-
-    document.querySelector("#panel-normatividad .reunion-form-card").style.display = "none";
-    document.querySelector("#panel-normatividad .norma-filtros").style.display     = "none";
-    document.querySelector("#panel-normatividad .reuniones-lista").style.display   = "none";
-    document.getElementById("norma-visor-panel").style.display = "block";
-    document.getElementById("visor-norma-titulo").textContent = nombre || "Documento";
-    document.getElementById("visor-loading").style.display    = "block";
-    document.getElementById("visor-canvas").style.display     = "none";
-    document.getElementById("visor-notas-lista").innerHTML    = "";
-    document.getElementById("visor-nota-texto").value         = "";
-
-    const btnCerrar = document.getElementById("visor-btn-cerrar");
-    const btnCN = btnCerrar.cloneNode(true); btnCerrar.parentNode.replaceChild(btnCN, btnCerrar);
-    btnCN.addEventListener("click", cerrarVisor);
-
-    if (!window.pdfjsLib) {
-      await cargarScript("https://cdnjs.cloudflare.com/ajax/libs/pdf.js/3.11.174/pdf.min.js");
-      window.pdfjsLib.GlobalWorkerOptions.workerSrc = "https://cdnjs.cloudflare.com/ajax/libs/pdf.js/3.11.174/pdf.worker.min.js";
-    }
     try {
-      _visorPdfDoc = await window.pdfjsLib.getDocument({ url: pdfUrl, withCredentials: false }).promise;
-      document.getElementById("visor-loading").style.display = "none";
-      document.getElementById("visor-canvas").style.display  = "block";
-      await renderPagina(_visorPagActual);
-      actualizarNavegacion();
-      cargarNotasPagina(_visorPagActual);
-      cargarEstadoRelevante(_visorPagActual);
-    } catch (err) {
-      document.getElementById("visor-loading").textContent = "Error al cargar el PDF.";
+      await updateDoc(artRef, { relevante: !esRel });
+      if (esRel) _exploRelevantes.delete(artId);
+      else        _exploRelevantes.add(artId);
+
+      // Actualizar el artículo en _exploArticulos
+      const idx = _exploArticulos.findIndex(a => a.id === artId);
+      if (idx !== -1) _exploArticulos[idx].relevante = !esRel;
+
+      // Re-render sin perder scroll
+      const termino   = document.getElementById("explo-busqueda")?.value.trim() || "";
+      const seccion   = document.querySelector(".explo-filtro-sec.filtro-activo")?.dataset.sec || "todos";
+      filtrarArticulos(termino, seccion);
+
+      // Actualizar contador
+      const contEl = document.getElementById("explo-contador");
+      const nRel   = _exploRelevantes.size;
+      const nNota  = Object.keys(_exploNotas).length;
+      if (contEl) contEl.textContent = `${_exploArticulos.length} artículos${nRel > 0 ? " · ⭐ " + nRel : ""}${nNota > 0 ? " · 📝 " + nNota : ""}`;
+    } catch(e) {
+      console.error("Error toggling relevante:", e);
     }
-
-    const btnPrev = document.getElementById("visor-btn-prev");
-    const btnNext = document.getElementById("visor-btn-next");
-    const btnPN = btnPrev.cloneNode(true); btnPrev.parentNode.replaceChild(btnPN, btnPrev);
-    const btnNN = btnNext.cloneNode(true); btnNext.parentNode.replaceChild(btnNN, btnNext);
-    btnPN.addEventListener("click", async () => { if (_visorPagActual<=1) return; _visorPagActual--; await renderPagina(_visorPagActual); actualizarNavegacion(); cargarNotasPagina(_visorPagActual); cargarEstadoRelevante(_visorPagActual); });
-    btnNN.addEventListener("click", async () => { if (!_visorPdfDoc||_visorPagActual>=_visorPdfDoc.numPages) return; _visorPagActual++; await renderPagina(_visorPagActual); actualizarNavegacion(); cargarNotasPagina(_visorPagActual); cargarEstadoRelevante(_visorPagActual); });
-
-    const btnNota = document.getElementById("visor-btn-guardar-nota");
-    const btnNN2 = btnNota.cloneNode(true); btnNota.parentNode.replaceChild(btnNN2, btnNota);
-    btnNN2.addEventListener("click", () => guardarNota());
-    const btnRel = document.getElementById("visor-btn-relevante");
-    const btnRN = btnRel.cloneNode(true); btnRel.parentNode.replaceChild(btnRN, btnRel);
-    btnRN.addEventListener("click", () => toggleRelevante());
   }
 
-  async function renderPagina(numPag) {
-    if (!_visorPdfDoc) return;
-    if (_visorRenderTask) _visorRenderTask.cancel();
-    const pagina = await _visorPdfDoc.getPage(numPag);
-    const canvas = document.getElementById("visor-canvas");
-    const ctx    = canvas.getContext("2d");
-    const ancho  = canvas.parentElement.clientWidth || 600;
-    const vp0    = pagina.getViewport({ scale: 1 });
-    const escala = Math.min((ancho - 20) / vp0.width, 1.8);
-    const vp     = pagina.getViewport({ scale: escala });
-    canvas.width = vp.width; canvas.height = vp.height;
-    _visorRenderTask = pagina.render({ canvasContext: ctx, viewport: vp });
-    await _visorRenderTask.promise;
-    _visorRenderTask = null;
-  }
-
-  function actualizarNavegacion() {
-    const total = _visorPdfDoc ? _visorPdfDoc.numPages : 1;
-    document.getElementById("visor-pagina-info").textContent = "Pag " + _visorPagActual + " / " + total;
-    document.getElementById("visor-pag-badge").textContent   = "Pag " + _visorPagActual;
-    document.getElementById("visor-btn-prev").disabled = _visorPagActual <= 1;
-    document.getElementById("visor-btn-next").disabled = _visorPagActual >= total;
-  }
-
-  async function guardarNota() {
-    const texto = document.getElementById("visor-nota-texto").value.trim();
-    if (!texto) { alert("Escribe una nota antes de guardar."); return; }
-    const docId   = _visorNormaId + "_pag" + _visorPagActual;
-    const notaRef = doc(db, "usuarios", user.uid, "anotaciones", docId);
-    let notas = [];
-    try {
-      const snap = await getDocs(query(collection(db, "usuarios", user.uid, "anotaciones")));
-      const ds   = snap.docs.find(d => d.id === docId);
-      if (ds) notas = ds.data().notas || [];
-    } catch(e) {}
-    notas.push({ texto, fecha: new Date().toISOString(), pagina: _visorPagActual });
-    await setDoc(notaRef, { normaId: _visorNormaId, pagina: _visorPagActual, notas, actualizadoEn: serverTimestamp() });
-    document.getElementById("visor-nota-texto").value = "";
-    cargarNotasPagina(_visorPagActual);
-  }
-
-  async function cargarNotasPagina(numPag) {
-    const lista = document.getElementById("visor-notas-lista"); if (!lista) return;
-    const docId = _visorNormaId + "_pag" + numPag;
-    try {
-      const snap = await getDocs(query(collection(db, "usuarios", user.uid, "anotaciones")));
-      const ds   = snap.docs.find(d => d.id === docId);
-      const notas = ds ? (ds.data().notas || []) : [];
-      if (!notas.length) { lista.innerHTML = '<p style="color:var(--text2);font-size:0.8rem;margin-top:0.5rem">Sin notas en esta página</p>'; return; }
-      lista.innerHTML = notas.slice().reverse().map((n,i) => `
-        <div class="visor-nota-item">
-          <div class="visor-nota-fecha">${new Date(n.fecha).toLocaleDateString("es-MX",{day:"2-digit",month:"short",year:"numeric"})}</div>
-          <div class="visor-nota-texto-display">${n.texto}</div>
-          <button class="visor-nota-eliminar" data-index="${notas.length-1-i}">✕</button>
-        </div>`).join("");
-      lista.querySelectorAll(".visor-nota-eliminar").forEach(btn => {
-        btn.addEventListener("click", async () => {
-          const idx = Number(btn.dataset.index); notas.splice(idx,1);
-          const nr = doc(db, "usuarios", user.uid, "anotaciones", docId);
-          await setDoc(nr, { normaId: _visorNormaId, pagina: numPag, notas, actualizadoEn: serverTimestamp() });
-          cargarNotasPagina(numPag);
+  // ── Toggle panel de nota ──────────────────────────────────────────────
+  function toggleNota_art(artId) {
+    const panel = document.getElementById(`nota-panel-${artId}`);
+    if (!panel) return;
+    const visible = panel.style.display !== "none";
+    panel.style.display = visible ? "none" : "block";
+    if (!visible) {
+      panel.querySelector("textarea")?.focus();
+      // Registrar listeners de guardar/borrar si no están
+      if (!panel.dataset.listenersOk) {
+        panel.dataset.listenersOk = "1";
+        panel.querySelector(".explo-nota-guardar")?.addEventListener("click", async (e) => {
+          await guardarNota_art(artId, e.target.dataset.normaId);
         });
-      });
-    } catch(e) {}
-  }
-
-  async function toggleRelevante() {
-    const docId  = _visorNormaId + "_rel_pag" + _visorPagActual;
-    const relRef = doc(db, "usuarios", user.uid, "anotaciones", docId);
-    const btnRel = document.getElementById("visor-btn-relevante");
-    try {
-      const snap = await getDocs(query(collection(db, "usuarios", user.uid, "anotaciones")));
-      const ds   = snap.docs.find(d => d.id === docId);
-      const esR  = ds ? (ds.data().relevante === true) : false;
-      if (esR) {
-        await setDoc(relRef, { normaId: _visorNormaId, pagina: _visorPagActual, relevante: false });
-        btnRel.textContent = "⭐ Relevante"; btnRel.style.background = ""; btnRel.style.color = "";
-      } else {
-        await setDoc(relRef, { normaId: _visorNormaId, pagina: _visorPagActual, relevante: true, actualizadoEn: serverTimestamp() });
-        btnRel.textContent = "⭐ Marcada"; btnRel.style.background = "var(--accent)"; btnRel.style.color = "white";
+        panel.querySelector(".explo-nota-borrar")?.addEventListener("click", async (e) => {
+          await guardarNota_art(artId, e.target.dataset.normaId, true);
+        });
       }
-    } catch(e) {}
+    }
   }
 
-  async function cargarEstadoRelevante(numPag) {
-    const docId  = _visorNormaId + "_rel_pag" + numPag;
-    const btnRel = document.getElementById("visor-btn-relevante"); if (!btnRel) return;
+  // ── Guardar o borrar nota de artículo ─────────────────────────────────
+  async function guardarNota_art(artId, normaId, borrar = false) {
+    const panel   = document.getElementById(`nota-panel-${artId}`);
+    const textarea = panel?.querySelector("textarea");
+    const texto   = borrar ? "" : (textarea?.value.trim() || "");
+    const artRef  = doc(db, "usuarios", user.uid, "normatividad", normaId, "articulos", artId);
+
+    const btn = panel?.querySelector(".explo-nota-guardar");
+    if (btn) { btn.disabled = true; btn.textContent = "Guardando..."; }
+
     try {
-      const snap = await getDocs(query(collection(db, "usuarios", user.uid, "anotaciones")));
-      const ds   = snap.docs.find(d => d.id === docId);
-      const esR  = ds ? (ds.data().relevante === true) : false;
-      if (esR) { btnRel.textContent = "⭐ Marcada"; btnRel.style.background = "var(--accent)"; btnRel.style.color = "white"; }
-      else { btnRel.textContent = "⭐ Relevante"; btnRel.style.background = ""; btnRel.style.color = ""; }
-    } catch(e) {}
+      await updateDoc(artRef, {
+        nota: texto,
+        notaActualizadaEn: texto ? serverTimestamp() : null
+      });
+
+      // Actualizar estado local
+      if (texto) { _exploNotas[artId] = texto; }
+      else        { delete _exploNotas[artId]; if (textarea) textarea.value = ""; }
+
+      const idx = _exploArticulos.findIndex(a => a.id === artId);
+      if (idx !== -1) _exploArticulos[idx].nota = texto;
+
+      // Feedback visual en el botón del artículo
+      const btnNota = document.querySelector(`#art-card-${artId} .explo-btn-nota`);
+      if (btnNota) {
+        btnNota.style.borderColor = texto ? "var(--accent)" : "var(--border)";
+        btnNota.style.color       = texto ? "var(--accent)" : "var(--text3)";
+        btnNota.title = texto ? "Ver/editar nota" : "Agregar nota";
+      }
+
+      if (borrar && panel) panel.style.display = "none";
+
+      // Actualizar contador
+      const contEl = document.getElementById("explo-contador");
+      const nRel   = _exploRelevantes.size;
+      const nNota  = Object.keys(_exploNotas).length;
+      if (contEl) contEl.textContent = `${_exploArticulos.length} artículos${nRel > 0 ? " · ⭐ " + nRel : ""}${nNota > 0 ? " · 📝 " + nNota : ""}`;
+
+    } catch(e) {
+      console.error("Error guardando nota:", e);
+      alert("Error al guardar la nota. Intenta de nuevo.");
+    } finally {
+      if (btn) { btn.disabled = false; btn.textContent = "Guardar"; }
+    }
   }
-
-  function cerrarVisor() {
-    document.getElementById("norma-visor-panel").style.display = "none";
-    document.querySelector("#panel-normatividad .reunion-form-card").style.display = "";
-    document.querySelector("#panel-normatividad .norma-filtros").style.display     = "";
-    document.querySelector("#panel-normatividad .reuniones-lista").style.display   = "";
-    if (_visorRenderTask) { _visorRenderTask.cancel(); _visorRenderTask = null; }
-    _visorPdfDoc = null;
-  }
-
-  function cargarScript(src) {
-    return new Promise((resolve, reject) => {
-      if (document.querySelector(`script[src="${src}"]`)) { resolve(); return; }
-      const s = document.createElement("script");
-      s.src = src; s.onload = resolve; s.onerror = reject;
-      document.head.appendChild(s);
-    });
-  }
-
-}); // fin onAuthStateChanged
-
-function formatearFecha(fechaStr) {
-  if (!fechaStr) return "";
-  const [year, month, day] = fechaStr.split("-");
-  return new Date(Number(year), Number(month) - 1, Number(day))
-    .toLocaleDateString("es-MX", { day: "2-digit", month: "short", year: "numeric" });
-}

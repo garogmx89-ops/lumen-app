@@ -629,7 +629,7 @@ onAuthStateChanged(auth, (user) => {
   // ── Limpiar formulario ────────────────────────────────────────────
   function limpiarFormulario() {
     ["norma-nombre","norma-tipo","norma-ambito","norma-fecha",
-     "norma-fecha-reforma","norma-resumen","norma-anotaciones","norma-pdf"]
+     "norma-fecha-reforma","norma-resumen","norma-anotaciones","norma-url","norma-pdf"]
       .forEach(id => { const el = document.getElementById(id); if (el) el.value = ""; });
 
     padreIdActual = null; relacionadasActual = [];
@@ -661,6 +661,7 @@ onAuthStateChanged(auth, (user) => {
     document.getElementById("norma-fecha-reforma").value = norma.fechaReforma  || "";
     document.getElementById("norma-resumen").value       = norma.resumen       || "";
     document.getElementById("norma-anotaciones").value   = norma.anotaciones   || "";
+    document.getElementById("norma-url").value           = norma.urlFuente      || "";
     document.getElementById("norma-pdf").value           = "";
 
     padreIdActual      = norma.padreId     || null;
@@ -700,6 +701,7 @@ onAuthStateChanged(auth, (user) => {
       const fechaReforma = document.getElementById("norma-fecha-reforma").value;
       const resumen      = document.getElementById("norma-resumen").value.trim();
       const anotaciones  = document.getElementById("norma-anotaciones").value.trim();
+      const urlFuente    = document.getElementById("norma-url").value.trim();
       const archivoPdf   = document.getElementById("norma-pdf").files[0];
 
       if (!nombre) { alert("El nombre del documento es obligatorio."); return; }
@@ -715,7 +717,7 @@ onAuthStateChanged(auth, (user) => {
         }
 
         const datos = {
-          nombre, tipo, ambito, fecha, fechaReforma, resumen, anotaciones,
+          nombre, tipo, ambito, fecha, fechaReforma, resumen, anotaciones, urlFuente,
           pdfUrl: pdfUrl || null,
           padreId: padreIdActual || null,
           relacionadas: relacionadasActual.map(r => ({ id: r.id, nombre: r.nombre }))
@@ -804,7 +806,7 @@ onAuthStateChanged(auth, (user) => {
       if (filtroAmbito !== "todos" && n.ambito !== filtroAmbito) return false;
       if (busquedaTexto) {
         const q2 = busquedaTexto.toLowerCase();
-        if (![n.nombre, n.tipo, n.ambito, n.resumen, n.anotaciones].filter(Boolean).some(v => v.toLowerCase().includes(q2))) return false;
+        if (![n.nombre, n.tipo, n.ambito, n.resumen, n.anotaciones, n.urlFuente].filter(Boolean).some(v => v.toLowerCase().includes(q2))) return false;
       }
       return true;
     });
@@ -858,6 +860,7 @@ onAuthStateChanged(auth, (user) => {
           ${relevanteBadge ? `<div style="margin-top:0.3rem">${relevanteBadge}</div>` : ""}
           ${n.resumen ? `<div class="reunion-card-acuerdos"><strong>Resumen:</strong> ${n.resumen}</div>` : ""}
           ${n.anotaciones ? `<div class="reunion-card-acuerdos"><strong>Notas:</strong> ${n.anotaciones}</div>` : ""}
+          ${n.urlFuente ? `<div style="margin-top:0.3rem"><a href="${n.urlFuente}" target="_blank" rel="noopener" style="font-size:0.78rem;color:var(--accent);text-decoration:none;display:inline-flex;align-items:center;gap:0.3rem">🔗 Ver en DOF/POG</a></div>` : ""}
           ${n.pdfUrl ? `<div class="norma-pdf-link"><button class="btn-ver-pdf btn-abrir-visor" data-id="${n.id}" data-url="${n.pdfUrl}" data-nombre="${n.nombre}">📄 Ver y anotar PDF</button></div>` : ""}
         </div>`;
     }).join("");
@@ -970,6 +973,7 @@ onAuthStateChanged(auth, (user) => {
         ${fechas}
         ${norma.resumen ? `<div class="detalle-seccion"><div class="detalle-seccion-titulo">📝 Resumen</div><div class="detalle-seccion-texto">${norma.resumen}</div></div>` : ""}
         ${norma.anotaciones ? `<div class="detalle-seccion"><div class="detalle-seccion-titulo">🖊️ Notas de aplicación</div><div class="detalle-seccion-texto">${norma.anotaciones}</div></div>` : ""}
+        ${norma.urlFuente ? `<div class="detalle-seccion"><div class="detalle-seccion-titulo">🔗 Fuente oficial</div><div class="detalle-seccion-texto"><a href="${norma.urlFuente}" target="_blank" rel="noopener" style="color:var(--accent);word-break:break-all">${norma.urlFuente}</a></div></div>` : ""}
         ${vincPlaceholder}
         ${textoSeccion}
       </div>
@@ -2021,7 +2025,7 @@ onAuthStateChanged(auth, (user) => {
         "Nombre": n.nombre||"", "Tipo": n.tipo||"",
         "Publicacion": n.fecha ? fmtFecha_(n.fecha) : "",
         "Ultima reforma": n.fechaReforma ? fmtFecha_(n.fechaReforma) : "",
-        "Resumen": n.resumen||"", "Anotaciones": n.anotaciones||"",
+        "Resumen": n.resumen||"", "Anotaciones": n.anotaciones||"", "URL Fuente": n.urlFuente||"",
         "Norma padre": n.padreId ? (todasLasNormas.find(p=>p.id===n.padreId)||{}).nombre||n.padreId : "",
         "Relacionadas": (n.relacionadas||[]).map(r=>r.nombre).join("; "),
         "Articulos cargados": n.tieneTexto ? n.totalArticulos : "No",

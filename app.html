@@ -469,6 +469,352 @@
 
         </div>
 
+
+<!-- ENTIDADES -->
+        <div class="panel" id="panel-entidades">
+
+          <!-- Formulario para crear entidad -->
+          <div class="reunion-form-card">
+            <h2 class="panel-title">Nueva Dependencia</h2>
+
+            <div class="form-row">
+              <div class="form-group">
+                <label for="entidad-nombre">Nombre</label>
+                <input type="text" id="entidad-nombre" placeholder="Ej. Secretaría de Desarrollo Urbano">
+              </div>
+              <div class="form-group form-group--corto">
+                <label for="entidad-siglas">Siglas</label>
+                <input type="text" id="entidad-siglas" placeholder="Ej. SEDUVOT">
+              </div>
+            </div>
+
+            <div class="form-group">
+              <label for="entidad-tipo">Tipo</label>
+              <select id="entidad-tipo">
+                <option value="">— Seleccionar tipo —</option>
+                <option value="Dependencia Centralizada">Dependencia Centralizada</option>
+                <option value="Organismo Público Descentralizado">Organismo Público Descentralizado</option>
+              </select>
+            </div>
+
+            <div class="form-group">
+              <label for="entidad-ambito">Ámbito</label>
+              <select id="entidad-ambito">
+                <option value="">— Seleccionar ámbito —</option>
+                <option value="Federal">Federal</option>
+                <option value="Estatal">Estatal</option>
+                <option value="Municipal">Municipal</option>
+              </select>
+            </div>
+
+            <div class="form-row">
+              <div class="form-group">
+                <label for="entidad-telefono">Teléfono</label>
+                <input type="text" id="entidad-telefono" placeholder="Ej. 492 123 4567">
+              </div>
+              <div class="form-group form-group--corto">
+                <label for="entidad-extension">Extensión</label>
+                <input type="text" id="entidad-extension" placeholder="Ej. 305">
+              </div>
+            </div>
+
+            <div class="form-group">
+              <label for="entidad-titular">Titular / Responsable</label>
+              <input type="text" id="entidad-titular" placeholder="Ej. Lic. María García">
+            </div>
+
+            <div class="form-group">
+              <label for="entidad-atribuciones">Atribuciones o funciones</label>
+              <textarea id="entidad-atribuciones" rows="3" placeholder="Ej. Coordinar la política de vivienda, validar padrones, emitir dictámenes técnicos"></textarea>
+            </div>
+
+            <!-- Directorio de contactos -->
+            <div class="form-group">
+              <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:0.5rem">
+                <label style="margin:0">Directorio de contactos</label>
+                <button type="button" id="btn-agregar-contacto" style="background:none;border:1px solid var(--border);color:var(--text2);border-radius:6px;padding:0.2rem 0.7rem;font-size:0.78rem;cursor:pointer;font-family:inherit">+ Agregar</button>
+              </div>
+              <div id="directorio-lista" style="display:flex;flex-direction:column;gap:0.4rem;"></div>
+            </div>
+
+            <button class="btn-primary" id="btn-guardar-entidad">Guardar entidad</button>
+            <button class="btn-secondary" id="btn-cancelar-entidad" style="display:none;">Cancelar edición</button>
+          </div>
+
+          <!-- Lista de entidades guardadas -->
+          <div class="reuniones-lista">
+            <div style="display:flex;justify-content:space-between;align-items:center;flex-wrap:wrap;gap:0.5rem;margin-bottom:0.75rem;">
+              <h2 class="panel-title" style="margin-bottom:0">Dependencias registradas</h2>
+              <div id="entidades-export-bar" style="display:flex;gap:0.5rem;flex-wrap:wrap;"></div>
+            </div>
+            <div id="entidades-contenido">
+              <p class="lista-vacia">No hay entidades registradas aún.</p>
+            </div>
+          </div>
+
+        </div>
+
+<!-- NORMATIVIDAD -->
+        <div class="panel" id="panel-normatividad">
+
+          <!-- Formulario para registrar norma -->
+          <div class="reunion-form-card">
+            <h2 class="panel-title">Nueva Norma</h2>
+
+            <div class="form-group">
+              <label for="norma-nombre">Nombre del documento</label>
+              <input type="text" id="norma-nombre" placeholder="Ej. Ley General de Asentamientos Humanos">
+            </div>
+
+            <div class="form-row">
+              <div class="form-group">
+                <label for="norma-tipo">Tipo</label>
+                <select id="norma-tipo">
+                  <option value="">— Seleccionar tipo —</option>
+                  <option value="Ley">Ley</option>
+                  <option value="Reglamento">Reglamento</option>
+                  <option value="Lineamiento">Lineamiento</option>
+                  <option value="Reglas de Operación">Reglas de Operación</option>
+                  <option value="Acuerdo">Acuerdo</option>
+                </select>
+              </div>
+              <div class="form-group">
+                <label for="norma-ambito">Ambito</label>
+                <select id="norma-ambito">
+                  <option value="">— Seleccionar ambito —</option>
+                  <option value="Federal">Federal</option>
+                  <option value="Estatal">Estatal</option>
+                  <option value="Municipal">Municipal</option>
+                </select>
+              </div>
+            <div class="form-group">
+              <label for="norma-fecha">Fecha de publicación original</label>
+              <input type="date" id="norma-fecha">
+            </div>
+            <div class="form-group">
+              <label for="norma-fecha-reforma">Última reforma o actualización</label>
+              <input type="date" id="norma-fecha-reforma">
+            </div>
+            </div>
+
+            <div class="form-group">
+              <label for="norma-resumen">Resumen o descripción</label>
+              <textarea id="norma-resumen" rows="2" placeholder="Ej. Regula el ordenamiento territorial y los usos de suelo a nivel nacional"></textarea>
+            </div>
+
+            <div class="form-group">
+              <label for="norma-anotaciones">Anotaciones / notas de aplicación</label>
+              <textarea id="norma-anotaciones" rows="3" placeholder="Ej. Aplica para validar dictámenes de cambio de uso de suelo en zonas urbanas"></textarea>
+            </div>
+
+            <div class="form-group">
+              <label for="norma-pdf">Documento PDF <span style="color:var(--text2);font-weight:400;">(opcional)</span></label>
+              <input type="file" id="norma-pdf" accept=".pdf">
+            <div id="norma-pdf-actual" style="display:none;" class="norma-pdf-actual">
+             📎 <span id="norma-pdf-nombre"></span>
+             <button type="button" id="btn-quitar-pdf" class="btn-quitar-pdf">✕ Quitar</button>
+          </div>
+            <div id="norma-pdf-subiendo" style="display:none;" class="norma-pdf-subiendo">
+              ⏳ Subiendo PDF...
+  </div>
+</div>
+
+<!-- Jerarquía: norma padre -->
+<div class="form-group" id="campo-norma-padre">
+  <label for="norma-padre-select">Deriva de (norma padre)</label>
+  <select id="norma-padre-select" class="participantes-select">
+    <option value="">— Sin norma padre —</option>
+  </select>
+  <div id="norma-padre-seleccionada" style="margin-top:0.4rem;"></div>
+</div>
+
+<!-- Normas relacionadas/complementarias -->
+<div class="form-group" id="campo-normas-relacionadas">
+  <label>Normas relacionadas o complementarias</label>
+  <div class="participantes-selector">
+    <div id="norma-relacionadas-seleccionadas" class="participantes-seleccionados"></div>
+    <select id="norma-relacionada-select" class="participantes-select">
+      <option value="">— Agregar norma relacionada —</option>
+    </select>
+  </div>
+</div>
+
+<button class="btn-primary" id="btn-guardar-norma">Guardar norma</button>
+<button class="btn-secondary" id="btn-cancelar-norma" style="display:none;">Cancelar edición</button>
+          </div>
+
+          <!-- Buscador local -->
+          <div class="norma-busqueda-wrap">
+            <svg viewBox="0 0 20 20" fill="none" class="search-icon" style="width:15px;height:15px;color:var(--text2);flex-shrink:0">
+              <circle cx="8.5" cy="8.5" r="5" stroke="currentColor" stroke-width="1.5"/>
+              <line x1="12.5" y1="12.5" x2="17" y2="17" stroke="currentColor" stroke-width="1.5" stroke-linecap="round"/>
+            </svg>
+            <input type="text" id="norma-busqueda" placeholder="Buscar en normatividad..." autocomplete="off">
+          </div>
+
+          <!-- Filtro por tipo -->
+          <div class="norma-filtros">
+            <button class="filtro-btn filtro-activo" data-filtro="todos">Todos</button>
+            <button class="filtro-btn" data-filtro="Ley">Ley</button>
+            <button class="filtro-btn" data-filtro="Reglamento">Reglamento</button>
+            <button class="filtro-btn" data-filtro="Lineamiento">Lineamiento</button>
+            <button class="filtro-btn" data-filtro="Reglas de Operación">Reglas Op.</button>
+            <button class="filtro-btn" data-filtro="Acuerdo">Acuerdo</button>
+          </div>
+
+          <!-- Filtro por ambito -->
+          <div class="norma-filtros" style="margin-top:-0.5rem">
+            <button class="filtro-btn norma-filtro-ambito filtro-activo" data-ambito="todos">Todo ambito</button>
+            <button class="filtro-btn norma-filtro-ambito" data-ambito="Federal">Federal</button>
+            <button class="filtro-btn norma-filtro-ambito" data-ambito="Estatal">Estatal</button>
+            <button class="filtro-btn norma-filtro-ambito" data-ambito="Municipal">Municipal</button>
+          </div>
+
+          <!-- Lista de normas -->
+          <div class="reuniones-lista">
+            <div style="display:flex;justify-content:space-between;align-items:center;flex-wrap:wrap;gap:0.5rem;margin-bottom:0.75rem;">
+              <h2 class="panel-title" style="margin-bottom:0">Normas registradas</h2>
+              <div id="normatividad-export-bar" style="display:flex;gap:0.5rem;flex-wrap:wrap;"></div>
+            </div>
+            <div id="normatividad-contenido">
+              <p class="lista-vacia">No hay normas registradas aún.</p>
+            </div>
+          </div>
+
+          <!-- ── Visor PDF con anotaciones ─────────────────────────── -->
+          <div id="norma-visor-panel" style="display:none;">
+            <div class="visor-header">
+              <div class="visor-header-info">
+                <button id="visor-btn-cerrar" class="visor-btn-cerrar" title="Cerrar visor">← Volver</button>
+                <span id="visor-norma-titulo" class="visor-titulo-texto"></span>
+              </div>
+              <div class="visor-header-controles">
+                <button id="visor-btn-prev" class="visor-nav-btn">‹</button>
+                <span id="visor-pagina-info" class="visor-pagina-info">Pág 1 / 1</span>
+                <button id="visor-btn-next" class="visor-nav-btn">›</button>
+                <button id="visor-btn-relevante" class="visor-btn-relevante" title="Marcar página como relevante para SEDUVOT">⭐ Relevante</button>
+              </div>
+            </div>
+            <div class="visor-body">
+              <!-- Canvas del PDF -->
+              <div class="visor-canvas-wrap">
+                <canvas id="visor-canvas"></canvas>
+                <div id="visor-loading" class="visor-loading">Cargando PDF...</div>
+              </div>
+              <!-- Panel lateral de anotaciones -->
+              <div class="visor-sidebar">
+                <div class="visor-sidebar-header">
+                  <span>📝 Anotaciones</span>
+                  <span id="visor-pag-badge" class="visor-pag-badge">Pág 1</span>
+                </div>
+                <textarea id="visor-nota-texto" class="visor-nota-input"
+                  placeholder="Escribe una nota para esta página..."></textarea>
+                <button id="visor-btn-guardar-nota" class="btn-primary" style="margin-top:0.5rem;font-size:0.85rem">
+                  Guardar nota
+                </button>
+                <div id="visor-notas-lista" class="visor-notas-lista"></div>
+              </div>
+            </div>
+          </div>
+
+        </div>
+
+<!-- ANÁLISIS -->
+        <div class="panel" id="panel-analisis">
+
+          <!-- Formulario para registrar análisis -->
+          <div class="reunion-form-card">
+            <h2 class="panel-title">Nuevo Análisis</h2>
+
+            <div class="form-group">
+              <label for="analisis-pregunta">Pregunta institucional</label>
+              <input type="text" id="analisis-pregunta" placeholder="Ej. ¿Puede SEDUVOT emitir dictamen sin validación de COEPLA?">
+            </div>
+
+            <div class="form-row">
+  <div class="form-group">
+    <label for="analisis-estado">Estado</label>
+    <select id="analisis-estado">
+      <option value="Abierto">Abierto</option>
+      <option value="En proceso">En proceso</option>
+      <option value="Resuelto">Resuelto</option>
+    </select>
+  </div>
+</div>
+
+<div class="form-group">
+  <label>Normatividad principal vinculada</label>
+  <div class="participantes-selector">
+    <div id="analisis-normas-seleccionadas" class="participantes-seleccionados"></div>
+    <select id="analisis-norma-select" class="participantes-select">
+      <option value="">— Agregar norma del catálogo —</option>
+    </select>
+  </div>
+</div>
+
+<div class="form-group">
+  <label>Entidades relacionadas</label>
+  <div class="participantes-selector">
+    <div id="analisis-entidades-seleccionadas" class="participantes-seleccionados"></div>
+    <select id="analisis-entidad-select" class="participantes-select">
+      <option value="">— Agregar entidad —</option>
+    </select>
+  </div>
+</div>
+
+<div class="form-group">
+  <label>Procesos institucionales vinculados</label>
+  <div class="participantes-selector">
+    <div id="analisis-procesos-seleccionados" class="participantes-seleccionados"></div>
+    <select id="analisis-proceso-select" class="participantes-select">
+      <option value="">— Agregar proceso —</option>
+    </select>
+  </div>
+</div>
+
+            <div class="analisis-capas">
+              <div class="capa-label">📋 Contexto — descripción de la duda o situación</div>
+              <textarea class="capa-input" id="analisis-contexto" rows="3" placeholder="Ej. Se requiere saber si SEDUVOT puede emitir dictamen sin validación previa de COEPLA, dado que el oficio llegó con urgencia..."></textarea>
+
+              <div class="capa-label">📄 Otra normatividad de apoyo</div>
+              <textarea class="capa-input" id="analisis-norma-extra" rows="2" placeholder="Ej. Art. 45 LOAPEZ, Reglas de Operación FISE 2025 cláusula 8.3..."></textarea>
+
+              <div class="capa-label">📂 Precedente — casos anteriores</div>
+              <textarea class="capa-input" id="analisis-precedente" rows="2" placeholder="Ej. En 2023, el caso X resolvió que..."></textarea>
+
+<div class="capa-label" style="display:flex; justify-content:space-between; align-items:center;">
+                <span>🤖 IA — interpretación y fundamento</span>
+                <button type="button" id="btn-generar-ia-analisis" class="btn-briefing-ia" title="Generar interpretación con IA" style="font-size:0.82rem; opacity:0.8; padding: 2px 8px;">
+                  ✨ Generar con IA
+                </button>
+              </div>
+              <textarea class="capa-input" id="analisis-ia" rows="4" placeholder="Presiona ✨ Generar con IA para obtener la interpretación..."></textarea>
+</div>
+            <button class="btn-primary" id="btn-guardar-analisis">Guardar análisis</button>
+            <button class="btn-secondary" id="btn-cancelar-analisis" style="display:none;">Cancelar edición</button>
+          </div>
+
+          <!-- Filtro por estado -->
+          <div class="norma-filtros">
+            <button class="filtro-btn filtro-activo" data-filtro="todos">Todos</button>
+            <button class="filtro-btn" data-filtro="Abierto">Abierto</button>
+            <button class="filtro-btn" data-filtro="En proceso">En proceso</button>
+            <button class="filtro-btn" data-filtro="Resuelto">Resuelto</button>
+          </div>
+
+          <!-- Lista de análisis -->
+          <div class="reuniones-lista">
+            <div style="display:flex;justify-content:space-between;align-items:center;flex-wrap:wrap;gap:0.5rem;margin-bottom:0.75rem;">
+              <h2 class="panel-title" style="margin-bottom:0">Análisis registrados</h2>
+              <div id="analisis-export-bar" style="display:flex;gap:0.5rem;flex-wrap:wrap;"></div>
+            </div>
+            <div id="analisis-contenido">
+              <p class="lista-vacia">No hay análisis registrados aún.</p>
+            </div>
+          </div>
+
+        </div>
+
 <!-- PROCESOS -->
         <div class="panel" id="panel-procesos">
 
@@ -507,6 +853,23 @@
     placeholder="O escribe un fundamento adicional no registrado en el catálogo"
     style="margin-top:0.5rem; font-size:0.82rem;">
 </div>
+            </div>
+
+            <!-- Texto literal de la norma -->
+            <div class="form-group">
+              <label for="proceso-texto-norma">Texto de la norma <span style="font-weight:400;color:var(--text2);font-size:0.78rem">(fragmento literal — referencia fiel)</span></label>
+              <textarea id="proceso-texto-norma" rows="3" placeholder="Ej. Artículo 45.- La Secretaría deberá emitir dictamen en un plazo no mayor a 30 días hábiles..."></textarea>
+            </div>
+
+            <!-- Selector de entidades/dependencias involucradas -->
+            <div class="form-group">
+              <label>Dependencias involucradas</label>
+              <div class="participantes-selector">
+                <div id="proceso-entidades-seleccionadas" class="participantes-seleccionados"></div>
+                <select id="proceso-entidad-select" class="participantes-select">
+                  <option value="">— Agregar dependencia —</option>
+                </select>
+              </div>
             </div>
 
             <!-- Texto literal de la norma -->
@@ -568,8 +931,6 @@
           </div>
 
         </div>
-
-<!-- TERRITORIO -->
         <div class="panel" id="panel-planeacion">
 
           <!-- Formulario para registrar territorio -->
@@ -770,7 +1131,17 @@
           <circle cx="10" cy="10" r="1.5" fill="currentColor" stroke="none"/>
         </svg>
         <span class="bnav-label">Indicadores</span>
-      </div>      <div class="bnav-item" id="bn-more" onclick="openMore()">
+      </div>
+      <div class="bnav-item" id="bn-agenda" onclick="goTo('agenda')">
+        <svg viewBox="0 0 20 20" fill="none">
+          <path d="M10 3v2M10 15v2M3 10h2M15 10h2" stroke="currentColor" stroke-width="1.4"/>
+          <circle cx="10" cy="10" r="5" stroke="currentColor" stroke-width="1.4"/>
+          <circle cx="10" cy="10" r="1.2" fill="currentColor" stroke="none"/>
+        </svg>
+        <span class="bnav-label">Agenda</span>
+        <span class="bnav-dot"></span>
+      </div>
+      <div class="bnav-item" id="bn-more" onclick="openMore()">
         <svg viewBox="0 0 20 20" fill="none">
           <circle cx="5" cy="10" r="1.2" fill="currentColor" stroke="none"/>
           <circle cx="10" cy="10" r="1.2" fill="currentColor" stroke="none"/>

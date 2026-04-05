@@ -125,6 +125,10 @@ onAuthStateChanged(auth, (user) => {
     set("analisis-norma-extra", "");
     set("analisis-precedente",  "");
     set("analisis-ia",          "");
+    const _iaField = document.getElementById("analisis-ia");
+    if (_iaField) { _iaField.readOnly = false; _iaField.style.opacity = "1"; }
+    const _btnRegen = document.getElementById("btn-regenerar-ia-analisis");
+    if (_btnRegen) _btnRegen.style.display = "none";
     normasSeleccionadas    = [];
     entidadesSeleccionadas = [];
     renderNormasSeleccionadas();
@@ -209,7 +213,11 @@ onAuthStateChanged(auth, (user) => {
       if (!pregunta) { alert("Escribe primero la pregunta institucional."); return; }
 
       const campoIA = document.getElementById("analisis-ia");
-      if (campoIA) campoIA.value = "⏳ Generando interpretación...";
+      if (campoIA) {
+        campoIA.value    = "⏳ Generando interpretación...";
+        campoIA.readOnly = true;
+        campoIA.style.opacity = "0.6";
+      }
       btnGenerarIA.disabled = true;
       btnGenerarIA.textContent = "⏳ Generando...";
 
@@ -264,15 +272,51 @@ Responde únicamente con el análisis en el formato indicado. Tono institucional
           body: JSON.stringify({ prompt })
         });
         const data = await response.json();
-        if (campoIA) campoIA.value = data.briefing || "No se pudo generar la interpretación.";
+        if (campoIA) {
+          campoIA.value    = data.briefing || "No se pudo generar la interpretación.";
+          campoIA.readOnly = true;
+          campoIA.style.opacity = "1";
+        }
+        mostrarBtnRegenerarAnalisis();
       } catch (error) {
         console.error("Error al llamar a la IA:", error);
-        if (campoIA) campoIA.value = "❌ Error al conectar con la IA. Intenta de nuevo.";
+        if (campoIA) {
+          campoIA.value    = "❌ Error al conectar con la IA. Intenta de nuevo.";
+          campoIA.readOnly = false;
+          campoIA.style.opacity = "1";
+        }
       } finally {
         btnGenerarIA.disabled = false;
         btnGenerarIA.textContent = "✨ Generar con IA";
       }
     });
+  }
+
+  // ─── BOTÓN REGENERAR IA (Análisis) ───────────────────────────────────────
+  // Aparece debajo del campo IA solo cuando hay contenido generado.
+  // Al hacer clic, limpia el campo y vuelve a llamar al agente.
+  function mostrarBtnRegenerarAnalisis() {
+    let btn = document.getElementById("btn-regenerar-ia-analisis");
+    if (!btn) {
+      btn = document.createElement("button");
+      btn.id = "btn-regenerar-ia-analisis";
+      btn.type = "button";
+      btn.style.cssText = (
+        "background:none;border:1px solid var(--border);color:var(--text2);"
+        + "border-radius:8px;padding:0.35rem 0.9rem;font-size:0.78rem;"
+        + "cursor:pointer;font-family:inherit;margin-top:0.4rem;"
+      );
+      btn.textContent = "🔄 Regenerar análisis";
+      // Insertar justo después del textarea #analisis-ia
+      const campo = document.getElementById("analisis-ia");
+      if (campo && campo.parentNode) campo.parentNode.insertBefore(btn, campo.nextSibling);
+      btn.addEventListener("click", () => {
+        const campo = document.getElementById("analisis-ia");
+        if (campo) { campo.value = ""; campo.readOnly = false; campo.style.opacity = "1"; }
+        document.getElementById("btn-generar-ia-analisis")?.click();
+      });
+    }
+    btn.style.display = "inline-block";
   }
 
   // ─── FILTROS ──────────────────────────────────────────────────────────────

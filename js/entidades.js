@@ -55,6 +55,8 @@ onAuthStateChanged(auth, (user) => {
     document.getElementById("entidad-telefono").value     = "";
     document.getElementById("entidad-extension").value    = "";
     document.getElementById("entidad-titular").value      = "";
+    document.getElementById("entidad-periodo-inicio").value = "";
+    document.getElementById("entidad-periodo-fin").value    = "";
     document.getElementById("entidad-atribuciones").value = "";
 
     directorio = [];
@@ -68,14 +70,16 @@ onAuthStateChanged(auth, (user) => {
   function activarEdicion(id, datos) {
     modoEdicion = id;
 
-    document.getElementById("entidad-nombre").value       = datos.nombre       || "";
-    document.getElementById("entidad-siglas").value       = datos.siglas       || "";
-    document.getElementById("entidad-tipo").value         = datos.tipo         || "";
-    document.getElementById("entidad-ambito").value       = datos.ambito       || "";
-    document.getElementById("entidad-telefono").value     = datos.telefono     || "";
-    document.getElementById("entidad-extension").value    = datos.extension    || "";
-    document.getElementById("entidad-titular").value      = datos.titular      || "";
-    document.getElementById("entidad-atribuciones").value = datos.atribuciones || "";
+    document.getElementById("entidad-nombre").value         = datos.nombre         || "";
+    document.getElementById("entidad-siglas").value         = datos.siglas         || "";
+    document.getElementById("entidad-tipo").value           = datos.tipo           || "";
+    document.getElementById("entidad-ambito").value         = datos.ambito         || "";
+    document.getElementById("entidad-telefono").value       = datos.telefono       || "";
+    document.getElementById("entidad-extension").value      = datos.extension      || "";
+    document.getElementById("entidad-titular").value        = datos.titular        || "";
+    document.getElementById("entidad-periodo-inicio").value = datos.periodoInicio  || "";
+    document.getElementById("entidad-periodo-fin").value    = datos.periodoFin     || "";
+    document.getElementById("entidad-atribuciones").value   = datos.atribuciones  || "";
 
     directorio = Array.isArray(datos.directorio) ? datos.directorio.map(d => ({...d})) : [];
     renderDirectorio();
@@ -91,14 +95,16 @@ onAuthStateChanged(auth, (user) => {
     btnGuardar.parentNode.replaceChild(btnLimpio, btnGuardar);
 
     btnLimpio.addEventListener("click", async () => {
-      const nombre       = document.getElementById("entidad-nombre").value.trim();
-      const siglas       = document.getElementById("entidad-siglas").value.trim();
-      const tipo         = document.getElementById("entidad-tipo").value;
-      const ambito       = document.getElementById("entidad-ambito").value;
-      const telefono     = document.getElementById("entidad-telefono").value.trim();
-      const extension    = document.getElementById("entidad-extension").value.trim();
-      const titular      = document.getElementById("entidad-titular").value.trim();
-      const atribuciones = document.getElementById("entidad-atribuciones").value.trim();
+      const nombre         = document.getElementById("entidad-nombre").value.trim();
+      const siglas         = document.getElementById("entidad-siglas").value.trim();
+      const tipo           = document.getElementById("entidad-tipo").value;
+      const ambito         = document.getElementById("entidad-ambito").value;
+      const telefono       = document.getElementById("entidad-telefono").value.trim();
+      const extension      = document.getElementById("entidad-extension").value.trim();
+      const titular        = document.getElementById("entidad-titular").value.trim();
+      const periodoInicio  = document.getElementById("entidad-periodo-inicio").value;
+      const periodoFin     = document.getElementById("entidad-periodo-fin").value;
+      const atribuciones   = document.getElementById("entidad-atribuciones").value.trim();
 
       if (!nombre) {
         alert("El nombre de la entidad es obligatorio.");
@@ -108,10 +114,10 @@ onAuthStateChanged(auth, (user) => {
       try {
         if (modoEdicion) {
           const docRef = doc(db, "usuarios", user.uid, "entidades", modoEdicion);
-          await updateDoc(docRef, { nombre, siglas, tipo, ambito, telefono, extension, titular, atribuciones, directorio });
+          await updateDoc(docRef, { nombre, siglas, tipo, ambito, telefono, extension, titular, periodoInicio, periodoFin, atribuciones, directorio });
         } else {
           await addDoc(entidadesRef, {
-            nombre, siglas, tipo, ambito, telefono, extension, titular, atribuciones, directorio,
+            nombre, siglas, tipo, ambito, telefono, extension, titular, periodoInicio, periodoFin, atribuciones, directorio,
             creadoEn: serverTimestamp()
           });
         }
@@ -143,6 +149,8 @@ onAuthStateChanged(auth, (user) => {
           data-index="${i}" data-campo="unidad">
         <input type="text" class="directorio-input" placeholder="Responsable" value="${d.responsable||''}"
           data-index="${i}" data-campo="responsable">
+        <input type="text" class="directorio-input" placeholder="Cargo" value="${d.cargo||''}"
+          data-index="${i}" data-campo="cargo">
         <input type="text" class="directorio-input directorio-input--corto" placeholder="Ext." value="${d.extension||''}"
           data-index="${i}" data-campo="extension">
         <button type="button" class="directorio-btn-quitar" data-index="${i}">✕</button>
@@ -165,7 +173,7 @@ onAuthStateChanged(auth, (user) => {
   }
 
   document.getElementById("btn-agregar-contacto")?.addEventListener("click", () => {
-    directorio.push({ unidad: "", responsable: "", extension: "" });
+    directorio.push({ unidad: "", responsable: "", cargo: "", extension: "" });
     renderDirectorio();
     const lista = document.getElementById("directorio-lista");
     const inputs = lista?.querySelectorAll(".directorio-input");
@@ -390,7 +398,15 @@ onAuthStateChanged(auth, (user) => {
       + '<div style="padding:1.2rem 1.4rem;display:flex;flex-direction:column;gap:1rem;">'
       + (datos.titular ? '<div class="detalle-seccion">'
         + '<div class="detalle-seccion-titulo">👤 Titular</div>'
-        + '<div class="detalle-seccion-texto">' + datos.titular + '</div></div>' : '')
+        + '<div class="detalle-seccion-texto">' + datos.titular
+        + (() => {
+            if (!datos.periodoInicio && !datos.periodoFin) return '';
+            const fmt = (f) => { if (!f) return ''; const [y,m,d] = f.split('-'); return new Date(Number(y),Number(m)-1,Number(d)).toLocaleDateString('es-MX',{day:'2-digit',month:'short',year:'numeric'}); };
+            const inicio = datos.periodoInicio ? fmt(datos.periodoInicio) : '?';
+            const fin    = datos.periodoFin    ? fmt(datos.periodoFin)    : 'actualidad';
+            return ' <span style="font-size:0.78rem;color:var(--text2);margin-left:0.4rem">📆 ' + inicio + ' – ' + fin + '</span>';
+          })()
+        + '</div></div>' : '')
       + ((datos.telefono) ? '<div class="detalle-seccion">'
         + '<div class="detalle-seccion-titulo">📞 Contacto</div>'
         + '<div class="detalle-seccion-texto">' + datos.telefono
@@ -405,11 +421,13 @@ onAuthStateChanged(auth, (user) => {
         + '<thead><tr style="color:var(--text3)">'
         + '<th style="text-align:left;padding:3px 6px;border-bottom:1px solid var(--border)">Unidad / Área</th>'
         + '<th style="text-align:left;padding:3px 6px;border-bottom:1px solid var(--border)">Responsable</th>'
+        + '<th style="text-align:left;padding:3px 6px;border-bottom:1px solid var(--border)">Cargo</th>'
         + '<th style="text-align:left;padding:3px 6px;border-bottom:1px solid var(--border)">Ext.</th>'
         + '</tr></thead><tbody>'
         + (datos.directorio||[]).map(d =>
             '<tr><td style="padding:4px 6px;color:var(--text)">' + (d.unidad||'—') + '</td>'
             + '<td style="padding:4px 6px;color:var(--text)">' + (d.responsable||'—') + '</td>'
+            + '<td style="padding:4px 6px;color:var(--text2)">' + (d.cargo||'—') + '</td>'
             + '<td style="padding:4px 6px;color:var(--text2)">' + (d.extension||'—') + '</td></tr>'
           ).join("")
         + '</tbody></table></div>' : '')
@@ -630,10 +648,13 @@ Sé conciso y práctico. No repitas el nombre de la entidad en cada oración.`;
       const filas = todasLasEntidades.map(e => ({
         "Nombre": e.nombre||"", "Siglas": e.siglas||"", "Tipo": e.tipo||"",
         "Ambito": e.ambito||"", "Telefono": e.telefono||"", "Extension": e.extension||"",
-        "Titular": e.titular||"", "Atribuciones": e.atribuciones||""
+        "Titular": e.titular||"",
+        "Periodo inicio": e.periodoInicio||"", "Periodo fin": e.periodoFin||"",
+        "Atribuciones": e.atribuciones||"",
+        "Directorio": (e.directorio||[]).map(d => [d.unidad,d.responsable,d.cargo,d.extension].filter(Boolean).join(" · ")).join(" | ")
       }));
       const ws = window.XLSX.utils.json_to_sheet(filas);
-      ws["!cols"] = [{wch:35},{wch:12},{wch:15},{wch:25},{wch:60}];
+      ws["!cols"] = [{wch:35},{wch:12},{wch:15},{wch:25},{wch:14},{wch:14},{wch:30},{wch:60},{wch:50}];
       const wb = window.XLSX.utils.book_new();
       window.XLSX.utils.book_append_sheet(wb, ws, "Entidades");
       window.XLSX.writeFile(wb, "Lumen_Entidades_"+fechaHoy_()+".xlsx");

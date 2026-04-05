@@ -18,6 +18,7 @@ let modoEdicion      = null;
 let normasSeleccionadas    = [];
 let entidadesSeleccionadas = [];
 let procesosSeleccionados  = [];
+let agendaSeleccionada     = [];
 
 // Helper: asigna valor a un elemento si existe
 const set = (id, val) => { const el = document.getElementById(id); if (el) el.value = val; };
@@ -30,6 +31,7 @@ onAuthStateChanged(auth, (user) => {
   const normasRef     = collection(db, "usuarios", user.uid, "normatividad");
   const entidadesRef  = collection(db, "usuarios", user.uid, "entidades");
   const procesosRef   = collection(db, "usuarios", user.uid, "procesos");
+  const agendaRef     = collection(db, "usuarios", user.uid, "agenda");
 
   // ─── CARGAR CATÁLOGO DE NORMAS ────────────────────────────────────────────
   onSnapshot(query(normasRef, orderBy("creadoEn", "desc")), (snapshot) => {
@@ -133,6 +135,48 @@ onAuthStateChanged(auth, (user) => {
     });
   }
 
+  // ─── CATÁLOGO DE AGENDA ───────────────────────────────────────────────────
+  onSnapshot(query(agendaRef, orderBy("fecha", "asc")), (snap) => {
+    const sel = document.getElementById("analisis-agenda-select");
+    if (!sel) return;
+    sel.innerHTML = '<option value="">— Agregar evento de agenda —</option>';
+    snap.docs.forEach(d => {
+      const a = d.data();
+      const opt = document.createElement("option");
+      opt.value = d.id;
+      const tipo = a.tipo === "Actividad" ? "✅" : "📅";
+      opt.textContent = `${tipo} ${a.titulo || "(sin título)"}${a.fecha ? " · " + a.fecha : ""}`;
+      opt.dataset.nombre = a.titulo || d.id;
+      sel.appendChild(opt);
+    });
+  });
+
+  document.getElementById("analisis-agenda-select")?.addEventListener("change", (e) => {
+    const id     = e.target.value;
+    const nombre = e.target.options[e.target.selectedIndex].dataset.nombre;
+    if (!id) return;
+    if (agendaSeleccionada.find(x => x.id === id)) { e.target.value = ""; return; }
+    agendaSeleccionada.push({ id, nombre });
+    renderAgendaSeleccionada();
+    e.target.value = "";
+  });
+
+  function renderAgendaSeleccionada() {
+    const cont = document.getElementById("analisis-agenda-seleccionada");
+    if (!cont) return;
+    if (agendaSeleccionada.length === 0) { cont.innerHTML = ""; return; }
+    cont.innerHTML = agendaSeleccionada.map((a, i) => `
+      <span class="participante-tag">📅 ${a.nombre}
+        <button type="button" class="participante-tag-quitar" data-index="${i}">✕</button>
+      </span>`).join("");
+    cont.querySelectorAll(".participante-tag-quitar").forEach(btn => {
+      btn.addEventListener("click", () => {
+        agendaSeleccionada.splice(Number(btn.dataset.index), 1);
+        renderAgendaSeleccionada();
+      });
+    });
+  }
+
   // ─── SELECCIONAR NORMA ────────────────────────────────────────────────────
   document.getElementById("analisis-norma-select")?.addEventListener("change", (e) => {
     const nombre = e.target.value;
@@ -178,9 +222,11 @@ onAuthStateChanged(auth, (user) => {
     normasSeleccionadas    = [];
     entidadesSeleccionadas = [];
     procesosSeleccionados  = [];
+    agendaSeleccionada     = [];
     renderNormasSeleccionadas();
     renderEntidadesSeleccionadas();
     renderProcesosSeleccionados();
+    renderAgendaSeleccionada();
     const titulo = document.querySelector("#panel-analisis .reunion-form-card h2");
     if (titulo) titulo.textContent = "Nuevo Análisis";
     const btnCancelar = document.getElementById("btn-cancelar-analisis");
@@ -208,9 +254,13 @@ onAuthStateChanged(auth, (user) => {
     procesosSeleccionados = Array.isArray(analisis.procesosVinculados)
       ? analisis.procesosVinculados.map(p => ({ ...p }))
       : [];
+    agendaSeleccionada = Array.isArray(analisis.agendaVinculada)
+      ? analisis.agendaVinculada.map(a => ({ ...a }))
+      : [];
     renderNormasSeleccionadas();
     renderEntidadesSeleccionadas();
     renderProcesosSeleccionados();
+    renderAgendaSeleccionada();
     const titulo = document.querySelector("#panel-analisis .reunion-form-card h2");
     if (titulo) titulo.textContent = "Editar Análisis";
     const btnCancelar = document.getElementById("btn-cancelar-analisis");
@@ -238,7 +288,8 @@ onAuthStateChanged(auth, (user) => {
         const datos = { pregunta, estado, contexto, normaExtra, precedente, ia,
           normasVinculadas:    normasSeleccionadas,
           entidadesVinculadas: entidadesSeleccionadas,
-          procesosVinculados:  procesosSeleccionados };
+          procesosVinculados:  procesosSeleccionados,
+          agendaVinculada:     agendaSeleccionada };
         if (modoEdicion) {
           await updateDoc(doc(db, "usuarios", user.uid, "analisis", modoEdicion), datos);
         } else {
@@ -277,6 +328,7 @@ onAuthStateChanged(auth, (user) => {
       const normasTexto    = normasSeleccionadas.map(n => n.nombre).join(", ") || "No especificadas";
       const entidadesTexto = entidadesSeleccionadas.map(e => e.nombre).join(", ") || "No especificadas";
       const procesosTexto  = procesosSeleccionados.map(p => p.nombre).join(", ") || "No especificados";
+      const agendaTexto    = agendaSeleccionada.map(a => a.nombre).join(", ")    || "No especificada";
       const contextoActual    = get("analisis-contexto");
       const normaExtraActual  = get("analisis-norma-extra");
       const precedenteActual  = get("analisis-precedente");
@@ -296,6 +348,9 @@ ${entidadesTexto}
 
 PROCESOS INSTITUCIONALES VINCULADOS:
 ${procesosTexto}
+
+EVENTOS DE AGENDA VINCULADOS:
+${agendaTexto}
 
 CONTEXTO Y DESCRIPCIÓN DE LA SITUACIÓN:
 ${contextoActual || "No registrado"}

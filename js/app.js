@@ -74,7 +74,15 @@ window.goTo = function(modulo) {
   if (navItem) navItem.classList.add('active');
 
   // Activar ítem de barra inferior (si existe)
-  const bnItem = document.getElementById('bn-' + modulo);
+  // Mapa para módulos cuyo bn-ID difiere del nombre del panel
+  const bnMap = {
+    normatividad: 'bn-normas',
+    entidades:    'bn-dependencias',
+    agenda:       'bn-agenda',
+    reuniones:    'bn-agenda'
+  };
+  const bnId = bnMap[modulo] || ('bn-' + modulo);
+  const bnItem = document.getElementById(bnId);
   if (bnItem) bnItem.classList.add('active');
 
   // Actualizar título del topbar

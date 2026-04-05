@@ -165,7 +165,7 @@ function detectarEstructura(texto) {
 function parsearFederal(texto, posSepTrans, posSepReforma) {
 
   // Notas DOF — limpiar del texto antes de parsear
-  const RE_NOTA_DOF = /^(?:Párrafo|Fracción|Artículo|Inciso)\s+(?:reformado|adicionado|derogado)[^\n]*DOF[^\n]*/gim;
+  const RE_NOTA_DOF = /^\s*(?:Párrafo|Fracción|Artículo|Inciso)\s+(?:reformado|reformada|adicionado|adicionada|derogado|derogada|recorrido|recorrida)[^\n]*DOF[^\n]*/gim;
   const RE_DOF_SOLO = /^DOF\s+\d{2}-\d{2}-\d{4}[^\n]*/gm;
   let textoProcesado = texto
     .replace(RE_NOTA_DOF, "")
@@ -221,8 +221,8 @@ function parsearFederal(texto, posSepTrans, posSepReforma) {
 function parsearEstatal(texto, posSepTrans, posSepReforma) {
 
   // Notas POG — limpiar del texto antes de parsear
-  const RE_NOTA_POG  = /\*?\s*(?:Art[ií]culo\s+)?(?:P[áa]rrafo\s+)?(?:reformado|adicionado|derogado|fracción\s+\S+\s+(?:reformada|derogada))(?:\s+POG|\s+por|\s+mediante)[^\n*]*\*?/gi;
-  const RE_NOTA_LINE = /^(?:Art[ií]culo\s+)?(?:reformado|adicionado|derogado|párrafo\s+reformado|fracción\s+\S+\s+(?:reformada|derogada))[^\n]*/gim;
+  const RE_NOTA_POG  = /\*?\s*(?:(?:Art[ií]culo|Fracci[oó]n|P[áa]rrafo|Inciso)\s+)?(?:\S+\s+)?(?:reformado|adicionado|derogado|reformada|derogada|adicionada)(?:\s+POG|\s+por|\s+mediante)[^\n*]*\*?/gi;
+  const RE_NOTA_LINE = /^\s*(?:(?:Art[ií]culo|Fracci[oó]n|P[áa]rrafo|Inciso)\s+)?(?:\S+\s+)?(?:reformado|adicionado|derogado|reformada|adicionada|derogada)(?:\s+POG|\s+por|\s+mediante|\s+Decreto)[^\n]*/gim;
   let textoProcesado = texto
     .replace(RE_NOTA_POG, "")
     .replace(RE_NOTA_LINE, "")

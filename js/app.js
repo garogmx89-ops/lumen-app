@@ -11,7 +11,7 @@ onAuthStateChanged(auth, (user) => {
   if (user) {
     // Mostrar la app (estaba oculta con display:none)
     document.getElementById('shell').style.display = '';
-    document.getElementById('bottom-nav').style.display = '';
+    // bottom-nav visibility is handled by CSS media query
 
     // Iniciar sistema de notificaciones
     iniciarNotificaciones(user.uid);

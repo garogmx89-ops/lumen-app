@@ -132,11 +132,12 @@ onAuthStateChanged(auth, (user) => {
 
   // ─── LIMPIAR FORMULARIO ────────────────────────────────────────────────────
   function limpiarFormulario() {
-    set("proceso-nombre",       "");
-    set("proceso-descripcion",  "");
-    set("proceso-estado",       "Activo");
-    set("proceso-norma-select", "");
-    set("proceso-norma",        "");
+    set("proceso-nombre",        "");
+    set("proceso-descripcion",   "");
+    set("proceso-comentarios",   "");
+    set("proceso-estado",        "Activo");
+    set("proceso-norma-select",  "");
+    set("proceso-norma",         "");
     pasos = [];
     renderPasos();
     normasSeleccionadasProceso = [];
@@ -153,9 +154,10 @@ onAuthStateChanged(auth, (user) => {
     const proceso = todosLosProcesos.find(p => p.id === id);
     if (!proceso) return;
     modoEdicion = id;
-    set("proceso-nombre",       proceso.nombre      || "");
-    set("proceso-descripcion",  proceso.descripcion || "");
-    set("proceso-estado",       proceso.estado      || "Activo");
+    set("proceso-nombre",       proceso.nombre       || "");
+    set("proceso-descripcion",  proceso.descripcion  || "");
+    set("proceso-comentarios",  proceso.comentarios  || "");
+    set("proceso-estado",       proceso.estado       || "Activo");
     set("proceso-norma",        proceso.norma       || "");
     set("proceso-norma-select", "");
     pasos = proceso.pasos ? proceso.pasos.map(p => ({ ...p })) : [];
@@ -178,10 +180,11 @@ onAuthStateChanged(auth, (user) => {
     btnGuardar.parentNode.replaceChild(btnNuevo, btnGuardar);
 
     btnNuevo.addEventListener("click", async () => {
-      const nombre      = get("proceso-nombre");
-      const descripcion = get("proceso-descripcion");
-      const estado      = get("proceso-estado");
-      const norma       = get("proceso-norma");
+      const nombre       = get("proceso-nombre");
+      const descripcion  = get("proceso-descripcion");
+      const comentarios  = get("proceso-comentarios");
+      const estado       = get("proceso-estado");
+      const norma        = get("proceso-norma");
 
       if (!nombre) { alert("El nombre del proceso es obligatorio."); return; }
 
@@ -189,7 +192,7 @@ onAuthStateChanged(auth, (user) => {
 
       try {
         const datos = {
-          nombre, descripcion, estado, norma,
+          nombre, descripcion, comentarios, estado, norma,
           pasos: pasosValidos,
           normasVinculadas: normasSeleccionadasProceso
         };

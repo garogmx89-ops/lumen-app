@@ -1230,7 +1230,7 @@ onAuthStateChanged(auth, (user) => {
       document.getElementById("panel-normatividad").appendChild(panelExplo);
     }
 
-    panelExplo.style.display = "block";
+    panelExplo.style.display = "flex";
     panelExplo.innerHTML = `
       <div class="visor-header">
         <div class="visor-header-info">
@@ -1250,7 +1250,7 @@ onAuthStateChanged(auth, (user) => {
           <button class="explo-filtro-sec filtro-btn" data-sec="reforma" style="font-size:0.75rem;padding:0.2rem 0.6rem">📝 Reformas</button>
         </div>
       </div>
-      <div id="explo-lista" style="padding:0.75rem 1rem;display:flex;flex-direction:column;gap:0.5rem;"></div>`;
+      <div id="explo-lista"></div>`;
 
     document.getElementById("explo-btn-cerrar").addEventListener("click", cerrarExplorador);
 

@@ -1848,6 +1848,43 @@ input[type="file"]::file-selector-button:hover {
   margin-top: 0.25rem;
 }
 
+/* ── Explorador de artículos (Normatividad) — scroll fijo ── */
+/*
+  El explorador (#norma-explorador-panel) se inserta dentro de
+  #panel-normatividad y puede crecer infinitamente si los capítulos
+  se expanden, haciendo que la barra de scroll del .content se aleje
+  del viewport y sea inaccesible.
+
+  Solución: el panel explorador ocupa exactamente el espacio disponible
+  en pantalla y #explo-lista maneja su propio scroll interno.
+*/
+#norma-explorador-panel {
+  display: flex;
+  flex-direction: column;
+  /* Altura = viewport - topbar - bottom-nav (móvil) - margen */
+  height: calc(100vh - var(--topbar-h) - var(--bnav-h, 0px) - 2rem);
+  min-height: 400px;
+}
+
+/* La lista de artículos ocupa el espacio restante y scrollea sola */
+#explo-lista {
+  flex: 1;
+  overflow-y: scroll !important; /* siempre visible, nunca "auto" */
+  scrollbar-gutter: stable;      /* reserva espacio para no saltar layout */
+  padding: 0.75rem 1rem;
+  display: flex;
+  flex-direction: column;
+  gap: 0.5rem;
+}
+
+/* En desktop (con sidebar visible) ajuste sin bottom-nav */
+@media (min-width: 769px) {
+  #norma-explorador-panel {
+    height: calc(100vh - var(--topbar-h) - 2rem);
+  }
+}
+
+
 /* ── Fix input time en modo oscuro (Chrome) ─────────── */
 /* color-scheme no es suficiente — forzar colores explícitos */
 input[type="time"] {

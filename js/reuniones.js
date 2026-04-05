@@ -141,8 +141,8 @@ onAuthStateChanged(auth, (user) => {
         };
         // Si estamos editando, conservar los acuerdos existentes
         if (modoEdicion) {
-          const reunionExistente = snapshot.docs.find(d => d.id === modoEdicion);
-          if (reunionExistente) datos.acuerdos = reunionExistente.data().acuerdos || "";
+          const reunionExistente = todasLasReuniones.find(r => r.id === modoEdicion);
+          if (reunionExistente) datos.acuerdos = reunionExistente.acuerdos || "";
         }
         if (modoEdicion) {
           await updateDoc(doc(db, "usuarios", user.uid, "reuniones", modoEdicion), datos);

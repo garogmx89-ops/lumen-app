@@ -17,6 +17,7 @@ let filtroActivo               = "todos";
 let filtroEntidadActivo        = "todos";
 let modoEdicion                = null;
 let normasSeleccionadasProceso = [];
+let entidadesSeleccionadasProceso = [];
 let pasos                      = [];
 
 const set = (id, val) => { const el = document.getElementById(id); if (el) el.value = val; };
@@ -69,8 +70,9 @@ function renderPasos() {
 onAuthStateChanged(auth, (user) => {
   if (!user) return;
 
-  const procesosRef = collection(db, "usuarios", user.uid, "procesos");
-  const normasRefP  = collection(db, "usuarios", user.uid, "normatividad");
+  const procesosRef  = collection(db, "usuarios", user.uid, "procesos");
+  const normasRefP   = collection(db, "usuarios", user.uid, "normatividad");
+  const entidadesRefP = collection(db, "usuarios", user.uid, "entidades");
 
   // Inicializar pasos y botón agregar paso dentro de onAuthStateChanged
   renderPasos();
@@ -130,18 +132,65 @@ onAuthStateChanged(auth, (user) => {
     });
   }
 
+  // ─── CATÁLOGO DE ENTIDADES ─────────────────────────────────────────────────
+  onSnapshot(query(entidadesRefP, orderBy("creadoEn", "desc")), (snapEnt) => {
+    const select = document.getElementById("proceso-entidad-select");
+    if (!select) return;
+    select.innerHTML = '<option value="">— Agregar dependencia —</option>';
+    snapEnt.docs.forEach(d => {
+      const e = d.data();
+      const opt = document.createElement("option");
+      opt.value = d.id;
+      opt.textContent = e.siglas ? `${e.siglas} — ${e.nombre}` : e.nombre;
+      opt.dataset.nombre = e.siglas || e.nombre;
+      select.appendChild(opt);
+    });
+  });
+
+  document.getElementById("proceso-entidad-select")?.addEventListener("change", (e) => {
+    const id     = e.target.value;
+    const nombre = e.target.options[e.target.selectedIndex].dataset.nombre;
+    if (!id) return;
+    if (entidadesSeleccionadasProceso.find(x => x.id === id)) { e.target.value = ""; return; }
+    entidadesSeleccionadasProceso.push({ id, nombre });
+    renderEntidadesProceso();
+    e.target.value = "";
+  });
+
+  function renderEntidadesProceso() {
+    const contenedor = document.getElementById("proceso-entidades-seleccionadas");
+    if (!contenedor) return;
+    if (entidadesSeleccionadasProceso.length === 0) { contenedor.innerHTML = ""; return; }
+    contenedor.innerHTML = entidadesSeleccionadasProceso.map((x, i) => `
+      <span class="participante-tag">
+        🏛️ ${x.nombre}
+        <button type="button" class="participante-tag-quitar" data-index="${i}">✕</button>
+      </span>
+    `).join("");
+    contenedor.querySelectorAll(".participante-tag-quitar").forEach(btn => {
+      btn.addEventListener("click", () => {
+        entidadesSeleccionadasProceso.splice(Number(btn.dataset.index), 1);
+        renderEntidadesProceso();
+      });
+    });
+  }
+
   // ─── LIMPIAR FORMULARIO ────────────────────────────────────────────────────
   function limpiarFormulario() {
     set("proceso-nombre",        "");
     set("proceso-descripcion",   "");
     set("proceso-comentarios",   "");
+    set("proceso-texto-norma",   "");
     set("proceso-estado",        "Activo");
     set("proceso-norma-select",  "");
     set("proceso-norma",         "");
+    set("proceso-entidad-select","");
     pasos = [];
     renderPasos();
-    normasSeleccionadasProceso = [];
+    normasSeleccionadasProceso    = [];
+    entidadesSeleccionadasProceso = [];
     renderNormasProceso();
+    renderEntidadesProceso();
     const titulo = document.querySelector("#panel-procesos .reunion-form-card h2");
     if (titulo) titulo.textContent = "Nuevo Proceso";
     const btnCancelar = document.getElementById("btn-cancelar-proceso");
@@ -154,18 +203,24 @@ onAuthStateChanged(auth, (user) => {
     const proceso = todosLosProcesos.find(p => p.id === id);
     if (!proceso) return;
     modoEdicion = id;
-    set("proceso-nombre",       proceso.nombre       || "");
-    set("proceso-descripcion",  proceso.descripcion  || "");
-    set("proceso-comentarios",  proceso.comentarios  || "");
-    set("proceso-estado",       proceso.estado       || "Activo");
-    set("proceso-norma",        proceso.norma       || "");
-    set("proceso-norma-select", "");
+    set("proceso-nombre",         proceso.nombre        || "");
+    set("proceso-descripcion",    proceso.descripcion   || "");
+    set("proceso-comentarios",    proceso.comentarios   || "");
+    set("proceso-texto-norma",    proceso.textoNorma    || "");
+    set("proceso-estado",         proceso.estado        || "Activo");
+    set("proceso-norma",          proceso.norma         || "");
+    set("proceso-norma-select",   "");
+    set("proceso-entidad-select", "");
     pasos = proceso.pasos ? proceso.pasos.map(p => ({ ...p })) : [];
     renderPasos();
     normasSeleccionadasProceso = Array.isArray(proceso.normasVinculadas)
       ? proceso.normasVinculadas.map(n => ({ ...n }))
       : [];
+    entidadesSeleccionadasProceso = Array.isArray(proceso.entidadesVinculadas)
+      ? proceso.entidadesVinculadas.map(x => ({ ...x }))
+      : [];
     renderNormasProceso();
+    renderEntidadesProceso();
     const titulo = document.querySelector("#panel-procesos .reunion-form-card h2");
     if (titulo) titulo.textContent = "Editar Proceso";
     const btnCancelar = document.getElementById("btn-cancelar-proceso");
@@ -183,6 +238,7 @@ onAuthStateChanged(auth, (user) => {
       const nombre       = get("proceso-nombre");
       const descripcion  = get("proceso-descripcion");
       const comentarios  = get("proceso-comentarios");
+      const textoNorma   = get("proceso-texto-norma");
       const estado       = get("proceso-estado");
       const norma        = get("proceso-norma");
 
@@ -192,9 +248,10 @@ onAuthStateChanged(auth, (user) => {
 
       try {
         const datos = {
-          nombre, descripcion, comentarios, estado, norma,
+          nombre, descripcion, comentarios, textoNorma, estado, norma,
           pasos: pasosValidos,
-          normasVinculadas: normasSeleccionadasProceso
+          normasVinculadas:    normasSeleccionadasProceso,
+          entidadesVinculadas: entidadesSeleccionadasProceso
         };
         if (modoEdicion) {
           await updateDoc(doc(db, "usuarios", user.uid, "procesos", modoEdicion), datos);
@@ -226,16 +283,6 @@ onAuthStateChanged(auth, (user) => {
     });
   });
 
-  document.querySelectorAll("#procesos-filtros-entidad .filtro-btn[data-entidad]").forEach((btn) => {
-    btn.addEventListener("click", () => {
-      document.querySelectorAll("#procesos-filtros-entidad .filtro-btn")
-        .forEach(b => b.classList.remove("filtro-activo"));
-      btn.classList.add("filtro-activo");
-      filtroEntidadActivo = btn.dataset.entidad;
-      renderProcesos();
-    });
-  });
-
   // ─── LEER EN TIEMPO REAL ───────────────────────────────────────────────────
   const q = query(procesosRef, orderBy("creadoEn", "desc"));
   onSnapshot(q, (snapshot) => {
@@ -256,14 +303,41 @@ onAuthStateChanged(auth, (user) => {
       document.getElementById("btn-pdf-procesos").addEventListener("click", () => exportarPDF_procesos());
     }
 
+    // ── Filtros de entidad dinámicos ──────────────────────────────────────────
+    // Recopilar todas las entidades únicas presentes en los procesos actuales
+    const entidadesUnicas = new Map(); // id → nombre
+    todosLosProcesos.forEach(p => {
+      (p.entidadesVinculadas || []).forEach(x => {
+        if (x.id && !entidadesUnicas.has(x.id)) entidadesUnicas.set(x.id, x.nombre);
+      });
+    });
+    const filtrosEl = document.getElementById("procesos-filtros-entidad");
+    if (filtrosEl) {
+      // Reconstruir botones: siempre "Todas" + uno por entidad presente
+      filtrosEl.innerHTML = `<button class="filtro-btn${filtroEntidadActivo === "todos" ? " filtro-activo" : ""}" data-entidad="todos">Todas las entidades</button>`;
+      entidadesUnicas.forEach((nombre, id) => {
+        const activo = filtroEntidadActivo === id ? " filtro-activo" : "";
+        filtrosEl.insertAdjacentHTML("beforeend",
+          `<button class="filtro-btn${activo}" data-entidad="${id}">${nombre}</button>`
+        );
+      });
+      filtrosEl.querySelectorAll(".filtro-btn[data-entidad]").forEach(btn => {
+        btn.addEventListener("click", () => {
+          filtrosEl.querySelectorAll(".filtro-btn").forEach(b => b.classList.remove("filtro-activo"));
+          btn.classList.add("filtro-activo");
+          filtroEntidadActivo = btn.dataset.entidad;
+          renderProcesos();
+        });
+      });
+    }
+
     let filtrados = filtroActivo === "todos"
       ? todosLosProcesos
       : todosLosProcesos.filter(p => p.estado === filtroActivo);
 
     if (filtroEntidadActivo !== "todos") {
       filtrados = filtrados.filter(p =>
-        (p.entidad || "") === filtroEntidadActivo ||
-        (filtroEntidadActivo === "SEDUVOT" && !p.entidad)
+        (p.entidadesVinculadas || []).some(x => x.id === filtroEntidadActivo)
       );
     }
 
@@ -279,6 +353,14 @@ onAuthStateChanged(auth, (user) => {
         ? `<div class="participantes-tags-display">
             ${p.normasVinculadas.map(n =>
               `<span class="participante-tag-display">📄 ${n.nombre}</span>`
+            ).join("")}
+           </div>`
+        : "";
+
+      const tagsEntidades = Array.isArray(p.entidadesVinculadas) && p.entidadesVinculadas.length > 0
+        ? `<div class="participantes-tags-display">
+            ${p.entidadesVinculadas.map(x =>
+              `<span class="participante-tag-display">🏛️ ${x.nombre}</span>`
             ).join("")}
            </div>`
         : "";
@@ -301,11 +383,12 @@ onAuthStateChanged(auth, (user) => {
               <button class="btn-eliminar" data-id="${p.id}" title="Eliminar proceso">🗑️</button>
             </div>
           </div>
+          ${tagsEntidades}
           ${tagsNormas}
-          ${p.norma        ? `<div class="reunion-card-meta">📄 ${p.norma}</div>` : ""}
-          ${p.descripcion  ? `<div class="reunion-card-acuerdos">${p.descripcion}</div>` : ""}
+          ${p.norma       ? `<div class="reunion-card-meta">📄 ${p.norma}</div>` : ""}
+          ${p.descripcion ? `<div class="reunion-card-acuerdos">${p.descripcion}</div>` : ""}
           ${pasosHTML}
-          ${p.comentarios  ? `<div class="reunion-card-acuerdos" style="border-left:3px solid var(--accent);padding-left:0.5rem;margin-top:0.25rem;font-size:0.8rem;color:var(--text2)">💬 ${p.comentarios}</div>` : ""}
+          ${p.comentarios ? `<div class="reunion-card-acuerdos" style="border-left:3px solid var(--accent);padding-left:0.5rem;margin-top:0.25rem;font-size:0.8rem;color:var(--text2)">💬 ${p.comentarios}</div>` : ""}
         </div>
       `;
     }).join("");
@@ -339,6 +422,11 @@ onAuthStateChanged(auth, (user) => {
   // ─── MODAL DE DETALLE ────────────────────────────────────────────────────
   function mostrarDetalle(p) {
     const color = colorEstado[p.estado] || "#555";
+
+    const tagsEntidades = (p.entidadesVinculadas || [])
+      .map(x => '<span class="participante-tag" style="font-size:0.8rem">🏛️ ' + x.nombre + '</span>')
+      .join("") || "";
+
     const tagsNormas = (p.normasVinculadas || [])
       .map(n => '<span class="participante-tag" style="font-size:0.8rem">📄 ' + n.nombre + '</span>')
       .join("") || "";
@@ -383,10 +471,14 @@ onAuthStateChanged(auth, (user) => {
       + '</div>'
       // Cuerpo
       + '<div style="padding:1.2rem 1.4rem;display:flex;flex-direction:column;gap:1rem;">'
+      + (tagsEntidades ? '<div class="detalle-seccion"><div class="detalle-seccion-titulo">🏛️ Dependencias involucradas</div>'
+        + '<div style="display:flex;flex-wrap:wrap;gap:0.4rem;margin-top:0.4rem">' + tagsEntidades + '</div></div>' : '')
       + (p.descripcion ? '<div class="detalle-seccion"><div class="detalle-seccion-titulo">📝 Descripción</div>'
         + '<div class="detalle-seccion-texto">' + p.descripcion + '</div></div>' : '')
       + (tagsNormas ? '<div class="detalle-seccion"><div class="detalle-seccion-titulo">📄 Normatividad vinculada</div>'
         + '<div style="display:flex;flex-wrap:wrap;gap:0.4rem;margin-top:0.4rem">' + tagsNormas + '</div></div>' : '')
+      + (p.textoNorma ? '<div class="detalle-seccion"><div class="detalle-seccion-titulo">📜 Texto de la norma <span style="font-size:0.72rem;font-weight:400;color:var(--text2)">(fragmento literal)</span></div>'
+        + '<div class="detalle-seccion-texto" style="font-style:italic;border-left:3px solid var(--border);padding-left:0.6rem;color:var(--text2)">' + p.textoNorma + '</div></div>' : '')
       + pasosHtml
       + '</div>'
       // Footer

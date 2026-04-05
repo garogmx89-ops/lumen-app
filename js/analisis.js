@@ -17,6 +17,7 @@ let filtroActivo     = "todos";
 let modoEdicion      = null;
 let normasSeleccionadas    = [];
 let entidadesSeleccionadas = [];
+let procesosSeleccionados  = [];
 
 // Helper: asigna valor a un elemento si existe
 const set = (id, val) => { const el = document.getElementById(id); if (el) el.value = val; };
@@ -28,6 +29,7 @@ onAuthStateChanged(auth, (user) => {
   const analisisRef   = collection(db, "usuarios", user.uid, "analisis");
   const normasRef     = collection(db, "usuarios", user.uid, "normatividad");
   const entidadesRef  = collection(db, "usuarios", user.uid, "entidades");
+  const procesosRef   = collection(db, "usuarios", user.uid, "procesos");
 
   // ─── CARGAR CATÁLOGO DE NORMAS ────────────────────────────────────────────
   onSnapshot(query(normasRef, orderBy("creadoEn", "desc")), (snapshot) => {
@@ -68,6 +70,50 @@ onAuthStateChanged(auth, (user) => {
     renderEntidadesSeleccionadas();
     e.target.value = "";
   });
+
+  // ─── CARGAR CATÁLOGO DE PROCESOS ─────────────────────────────────────────
+  onSnapshot(query(procesosRef, orderBy("creadoEn", "desc")), (snap) => {
+    const sel = document.getElementById("analisis-proceso-select");
+    if (!sel) return;
+    sel.innerHTML = '<option value="">— Agregar proceso vinculado —</option>';
+    snap.docs.forEach(d => {
+      const p = d.data();
+      const opt = document.createElement("option");
+      opt.value = d.id;
+      opt.textContent = p.nombre || d.id;
+      opt.dataset.nombre = p.nombre || d.id;
+      sel.appendChild(opt);
+    });
+  });
+
+  // ─── SELECCIONAR PROCESO ─────────────────────────────────────────────────
+  document.getElementById("analisis-proceso-select")?.addEventListener("change", (e) => {
+    const id     = e.target.value;
+    const nombre = e.target.options[e.target.selectedIndex].dataset.nombre;
+    if (!id) return;
+    if (procesosSeleccionados.find(x => x.id === id)) { e.target.value = ""; return; }
+    procesosSeleccionados.push({ id, nombre });
+    renderProcesosSeleccionados();
+    e.target.value = "";
+  });
+
+  function renderProcesosSeleccionados() {
+    const cont = document.getElementById("analisis-procesos-seleccionados");
+    if (!cont) return;
+    if (procesosSeleccionados.length === 0) { cont.innerHTML = ""; return; }
+    cont.innerHTML = procesosSeleccionados.map((p, i) => `
+      <span class="participante-tag">
+        ⚙️ ${p.nombre}
+        <button type="button" class="participante-tag-quitar" data-index="${i}">✕</button>
+      </span>
+    `).join("");
+    cont.querySelectorAll(".participante-tag-quitar").forEach(btn => {
+      btn.addEventListener("click", () => {
+        procesosSeleccionados.splice(Number(btn.dataset.index), 1);
+        renderProcesosSeleccionados();
+      });
+    });
+  }
 
   function renderEntidadesSeleccionadas() {
     const cont = document.getElementById("analisis-entidades-seleccionadas");
@@ -131,8 +177,10 @@ onAuthStateChanged(auth, (user) => {
     if (_btnRegen) _btnRegen.style.display = "none";
     normasSeleccionadas    = [];
     entidadesSeleccionadas = [];
+    procesosSeleccionados  = [];
     renderNormasSeleccionadas();
     renderEntidadesSeleccionadas();
+    renderProcesosSeleccionados();
     const titulo = document.querySelector("#panel-analisis .reunion-form-card h2");
     if (titulo) titulo.textContent = "Nuevo Análisis";
     const btnCancelar = document.getElementById("btn-cancelar-analisis");
@@ -157,8 +205,12 @@ onAuthStateChanged(auth, (user) => {
     entidadesSeleccionadas = Array.isArray(analisis.entidadesVinculadas)
       ? analisis.entidadesVinculadas.map(e => ({ ...e }))
       : [];
+    procesosSeleccionados = Array.isArray(analisis.procesosVinculados)
+      ? analisis.procesosVinculados.map(p => ({ ...p }))
+      : [];
     renderNormasSeleccionadas();
     renderEntidadesSeleccionadas();
+    renderProcesosSeleccionados();
     const titulo = document.querySelector("#panel-analisis .reunion-form-card h2");
     if (titulo) titulo.textContent = "Editar Análisis";
     const btnCancelar = document.getElementById("btn-cancelar-analisis");
@@ -185,7 +237,8 @@ onAuthStateChanged(auth, (user) => {
       try {
         const datos = { pregunta, estado, contexto, normaExtra, precedente, ia,
           normasVinculadas:    normasSeleccionadas,
-          entidadesVinculadas: entidadesSeleccionadas };
+          entidadesVinculadas: entidadesSeleccionadas,
+          procesosVinculados:  procesosSeleccionados };
         if (modoEdicion) {
           await updateDoc(doc(db, "usuarios", user.uid, "analisis", modoEdicion), datos);
         } else {
@@ -223,6 +276,7 @@ onAuthStateChanged(auth, (user) => {
 
       const normasTexto    = normasSeleccionadas.map(n => n.nombre).join(", ") || "No especificadas";
       const entidadesTexto = entidadesSeleccionadas.map(e => e.nombre).join(", ") || "No especificadas";
+      const procesosTexto  = procesosSeleccionados.map(p => p.nombre).join(", ") || "No especificados";
       const contextoActual    = get("analisis-contexto");
       const normaExtraActual  = get("analisis-norma-extra");
       const precedenteActual  = get("analisis-precedente");
@@ -239,6 +293,9 @@ ${normasTexto}
 
 ENTIDADES RELACIONADAS:
 ${entidadesTexto}
+
+PROCESOS INSTITUCIONALES VINCULADOS:
+${procesosTexto}
 
 CONTEXTO Y DESCRIPCIÓN DE LA SITUACIÓN:
 ${contextoActual || "No registrado"}

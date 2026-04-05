@@ -817,7 +817,7 @@ onAuthStateChanged(auth, (user) => {
     contenedor.innerHTML = filtradas.map(n => {
       const color = colorTipo[n.tipo] || "#555";
 
-      const fechaRef = n.fechaReforma || n.fecha;
+      const fechaRef = n.fechaReforma; // solo usar fecha de reforma, NUNCA la de publicación original
       let semaforoHtml = "";
       if (fechaRef) {
         const [fy,fm,fd] = fechaRef.split("-");

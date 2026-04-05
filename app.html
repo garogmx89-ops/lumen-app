@@ -688,6 +688,16 @@
   </div>
 </div>
 
+<div class="form-group">
+  <label>Procesos institucionales vinculados</label>
+  <div class="participantes-selector">
+    <div id="analisis-procesos-seleccionados" class="participantes-seleccionados"></div>
+    <select id="analisis-proceso-select" class="participantes-select">
+      <option value="">— Agregar proceso —</option>
+    </select>
+  </div>
+</div>
+
             <div class="analisis-capas">
               <div class="capa-label">📋 Contexto — descripción de la duda o situación</div>
               <textarea class="capa-input" id="analisis-contexto" rows="3" placeholder="Ej. Se requiere saber si SEDUVOT puede emitir dictamen sin validación previa de COEPLA, dado que el oficio llegó con urgencia..."></textarea>
@@ -771,6 +781,23 @@
 </div>
             </div>
 
+            <!-- Texto literal de la norma -->
+            <div class="form-group">
+              <label for="proceso-texto-norma">Texto de la norma <span style="font-weight:400;color:var(--text2);font-size:0.78rem">(fragmento literal — referencia fiel)</span></label>
+              <textarea id="proceso-texto-norma" rows="3" placeholder="Ej. Artículo 45.- La Secretaría deberá emitir dictamen en un plazo no mayor a 30 días hábiles..."></textarea>
+            </div>
+
+            <!-- Selector de entidades/dependencias involucradas -->
+            <div class="form-group">
+              <label>Dependencias involucradas</label>
+              <div class="participantes-selector">
+                <div id="proceso-entidades-seleccionadas" class="participantes-seleccionados"></div>
+                <select id="proceso-entidad-select" class="participantes-select">
+                  <option value="">— Agregar dependencia —</option>
+                </select>
+              </div>
+            </div>
+
             <!-- Pasos dinámicos -->
             <div class="pasos-header">
               <label>Pasos o etapas</label>
@@ -798,9 +825,7 @@
           <!-- Filtro por entidad responsable -->
           <div class="norma-filtros" style="margin-top:-0.5rem" id="procesos-filtros-entidad">
             <button class="filtro-btn filtro-activo" data-entidad="todos">Todas las entidades</button>
-            <button class="filtro-btn" data-entidad="SEDUVOT">SEDUVOT</button>
-            <button class="filtro-btn" data-entidad="COEPLA">COEPLA</button>
-            <button class="filtro-btn" data-entidad="Otra">Otra</button>
+            <!-- Los filtros por entidad se generan dinámicamente desde procesos.js -->
           </div>
 
           <!-- Lista de procesos -->

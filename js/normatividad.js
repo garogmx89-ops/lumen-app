@@ -1237,7 +1237,14 @@ onAuthStateChanged(auth, (user) => {
           <button id="explo-btn-cerrar" class="visor-btn-cerrar">← Volver</button>
           <span class="visor-titulo-texto">${norma.nombre || "Texto de ley"}</span>
         </div>
-        <div style="font-size:0.8rem;color:var(--text2)" id="explo-contador"></div>
+        <div style="display:flex;align-items:center;gap:0.5rem">
+          <div style="font-size:0.8rem;color:var(--text2)" id="explo-contador"></div>
+          <button id="explo-btn-exportar-pdf"
+            style="background:none;border:1px solid var(--border);color:var(--text2);
+                   border-radius:6px;padding:0.3rem 0.7rem;font-size:0.78rem;
+                   cursor:pointer;font-family:inherit;white-space:nowrap;flex-shrink:0"
+            title="Exportar artículos como PDF">📄 Exportar PDF</button>
+        </div>
       </div>
       <div style="padding:0.6rem 1rem;background:var(--bg2);border:1px solid var(--border);border-top:none;display:flex;flex-direction:column;gap:0.5rem">
         <input type="text" id="explo-busqueda" placeholder="Buscar en el texto de la ley..." autocomplete="off"
@@ -1253,6 +1260,10 @@ onAuthStateChanged(auth, (user) => {
       <div id="explo-lista"></div>`;
 
     document.getElementById("explo-btn-cerrar").addEventListener("click", cerrarExplorador);
+
+    document.getElementById("explo-btn-exportar-pdf").addEventListener("click", () => {
+      exportarPDF_explorador(norma);
+    });
 
     // Buscador
     let debounceTimer;
@@ -1739,6 +1750,155 @@ onAuthStateChanged(auth, (user) => {
       alert("Error al guardar la nota. Intenta de nuevo.");
     } finally {
       if (btn) { btn.disabled = false; btn.textContent = "Guardar"; }
+    }
+  }
+
+  // ── Exportar artículos del explorador como PDF ────────────────────────────
+  // Genera un PDF con todos los artículos cargados en _exploArticulos,
+  // organizados por capítulo/sección, con texto completo de cada artículo.
+  // Útil para revisar visualmente lo que el parser detectó y diagnosticar errores.
+  function exportarPDF_explorador(norma) {
+    if (!_exploArticulos || _exploArticulos.length === 0) {
+      alert("No hay artículos cargados para exportar.");
+      return;
+    }
+
+    function gen() {
+      const { jsPDF } = window.jspdf;
+      const doc = new jsPDF({ unit: "mm", format: "a4" });
+      const mL = 18, mR = 18, pageW = 210, cW = pageW - mL - mR;
+      let y = 20;
+
+      function checkPage(needed = 12) {
+        if (y + needed > 282) { doc.addPage(); y = 20; }
+      }
+
+      // ── Encabezado institucional ──────────────────────────────────────────
+      doc.setFillColor(74, 74, 138);
+      doc.rect(0, 0, 210, 24, "F");
+      doc.setTextColor(255, 255, 255);
+      doc.setFontSize(8); doc.setFont("helvetica", "normal");
+      doc.text("SEDUVOT Zacatecas · Planeación, Evaluación y Seguimiento", mL, 8);
+      doc.setFontSize(12); doc.setFont("helvetica", "bold");
+      const nombreNorma = (norma.nombre || "Ley").toUpperCase();
+      const nombreLines = doc.splitTextToSize(nombreNorma, cW);
+      doc.text(nombreLines, mL, 16);
+      doc.setFontSize(7); doc.setFont("helvetica", "normal");
+      doc.text("Generado por Lumen · " + fechaHoy_(), mL, 22);
+      y = 32;
+
+      // ── Metadatos de la norma ─────────────────────────────────────────────
+      doc.setTextColor(80, 80, 80);
+      doc.setFontSize(8); doc.setFont("helvetica", "normal");
+      const meta = [
+        norma.tipo    ? "Tipo: " + norma.tipo       : null,
+        norma.ambito  ? "Ámbito: " + norma.ambito   : null,
+        norma.fecha   ? "Publicación: " + fmtFecha_(norma.fecha) : null,
+        norma.fechaReforma ? "Última reforma: " + fmtFecha_(norma.fechaReforma) : null,
+        "Artículos exportados: " + _exploArticulos.length
+      ].filter(Boolean).join("  ·  ");
+      const metaLines = doc.splitTextToSize(meta, cW);
+      doc.text(metaLines, mL, y); y += metaLines.length * 4.5 + 4;
+
+      // Línea divisoria
+      doc.setDrawColor(74, 74, 138); doc.setLineWidth(0.4);
+      doc.line(mL, y, pageW - mR, y); y += 6;
+
+      // ── Artículos agrupados por capítulo ──────────────────────────────────
+      let capituloActual = null;
+
+      _exploArticulos.forEach((art) => {
+        const capKey = [art.titulo, art.tituloNombre, art.capitulo, art.capituloNombre]
+          .filter(Boolean).join(" — ") || "Sin capítulo";
+
+        // Encabezado de capítulo si cambia
+        if (capKey !== capituloActual) {
+          capituloActual = capKey;
+          checkPage(14);
+          y += 3;
+          doc.setFillColor(240, 240, 248);
+          doc.rect(mL, y - 3, cW, 7, "F");
+          doc.setTextColor(74, 74, 138);
+          doc.setFontSize(8); doc.setFont("helvetica", "bold");
+          const capLines = doc.splitTextToSize(capKey, cW - 4);
+          doc.text(capLines, mL + 2, y + 1);
+          y += capLines.length * 4.5 + 4;
+        }
+
+        // Número y epígrafe del artículo
+        checkPage(10);
+        doc.setTextColor(30, 30, 30);
+        doc.setFontSize(9); doc.setFont("helvetica", "bold");
+        const encabezado = "Art. " + art.numero + (art.epigrafe ? " — " + art.epigrafe : "");
+        const encLines = doc.splitTextToSize(encabezado, cW);
+        doc.text(encLines, mL, y);
+        y += encLines.length * 5;
+
+        // Badges: sospechoso, relevante, nota
+        const badges = [];
+        if (art.sospechoso) badges.push("⚠ Sospechoso");
+        if (art.relevante)  badges.push("⭐ Relevante");
+        if (art.nota)       badges.push("📝 Con nota");
+        if (badges.length) {
+          doc.setFontSize(7); doc.setFont("helvetica", "italic");
+          doc.setTextColor(120, 80, 180);
+          doc.text(badges.join("  "), mL, y); y += 4;
+        }
+
+        // Texto del artículo
+        if (art.texto) {
+          doc.setTextColor(50, 50, 50);
+          doc.setFontSize(8); doc.setFont("helvetica", "normal");
+          const textoLimpio = art.texto.replace(/\n{3,}/g, "\n\n").trim();
+          const textoLines = doc.splitTextToSize(textoLimpio, cW);
+          // Renderizar en bloques para evitar cortes de página abruptos
+          let i = 0;
+          while (i < textoLines.length) {
+            checkPage(6);
+            const batchEnd = Math.min(i + 30, textoLines.length);
+            doc.text(textoLines.slice(i, batchEnd), mL, y);
+            y += (batchEnd - i) * 4.2;
+            i = batchEnd;
+          }
+        }
+
+        // Nota personal si existe
+        if (art.nota) {
+          checkPage(8);
+          doc.setFillColor(255, 250, 235);
+          const notaLines = doc.splitTextToSize("📝 " + art.nota, cW - 4);
+          doc.rect(mL, y - 2, cW, notaLines.length * 4.2 + 4, "F");
+          doc.setTextColor(120, 80, 0);
+          doc.setFontSize(7.5); doc.setFont("helvetica", "italic");
+          doc.text(notaLines, mL + 2, y + 1);
+          y += notaLines.length * 4.2 + 5;
+        }
+
+        y += 4; // espacio entre artículos
+      });
+
+      // ── Pie de página ─────────────────────────────────────────────────────
+      const pageCount = doc.getNumberOfPages();
+      for (let i = 1; i <= pageCount; i++) {
+        doc.setPage(i);
+        doc.setFontSize(6.5); doc.setTextColor(160, 160, 160);
+        doc.text(
+          "Lumen · SEDUVOT Zacatecas · " + (norma.nombre || "") + " · Pág " + i + " de " + pageCount,
+          mL, 291
+        );
+      }
+
+      const nombreArchivo = "Lumen_" + (norma.nombre || "ley").replace(/[^a-zA-ZÀ-ÿ0-9\s]/g, "").replace(/\s+/g, "_").slice(0, 40) + "_" + fechaHoy_() + ".pdf";
+      doc.save(nombreArchivo);
+    }
+
+    if (window.jspdf) {
+      gen();
+    } else {
+      const s = document.createElement("script");
+      s.src = "https://cdnjs.cloudflare.com/ajax/libs/jspdf/2.5.1/jspdf.umd.min.js";
+      s.onload = gen;
+      document.head.appendChild(s);
     }
   }
 

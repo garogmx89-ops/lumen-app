@@ -286,8 +286,6 @@ onAuthStateChanged(auth, (user) => {
       const pasosHTML = p.pasos && p.pasos.length > 0
         ? `<div class="proceso-pasos-resumen">
             <span class="proceso-pasos-contador">⚙️ ${p.pasos.length} paso${p.pasos.length !== 1 ? "s" : ""}</span>
-            ${p.pasos.slice(0,2).map(paso => `<span class="proceso-paso-preview">· ${paso.nombre}</span>`).join("")}
-            ${p.pasos.length > 2 ? `<span class="proceso-paso-preview" style="color:var(--text3)">+${p.pasos.length - 2} más</span>` : ""}
            </div>`
         : "";
 

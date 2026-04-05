@@ -247,10 +247,18 @@ onAuthStateChanged(auth, (user) => {
               ${d.titular  ? `· 👤 ${d.titular}` : ""}
               ${d.telefono ? `· 📞 ${d.telefono}${d.extension ? " ext. " + d.extension : ""}` : ""}
             </div>` : ""}
-          ${d.atribuciones ? `
-            <div class="reunion-card-acuerdos">
-              <strong>Atribuciones:</strong> ${d.atribuciones}
-            </div>` : ""}
+          ${d.atribuciones ? (() => {
+            const LIMIT   = 200;
+            const corto   = d.atribuciones.length > LIMIT;
+            const preview = corto ? d.atribuciones.slice(0, LIMIT) + "…" : d.atribuciones;
+            return `<div class="reunion-card-acuerdos entidad-atrib-wrap" data-full="${encodeURIComponent(d.atribuciones)}" data-id="${id}">
+              <strong>Atribuciones:</strong>
+              <span class="entidad-atrib-texto">${preview}</span>
+              ${corto ? `<button class="entidad-atrib-toggle" data-id="${id}" data-expanded="false"
+                style="background:none;border:none;color:var(--accent);font-size:0.78rem;
+                       cursor:pointer;font-family:inherit;padding:0 0.2rem;white-space:nowrap;">Ver más</button>` : ""}
+            </div>`;
+          })() : ""}
         </div>
       `;
     }).join("");
@@ -263,6 +271,29 @@ onAuthStateChanged(auth, (user) => {
         if (encontrado) mostrarDetalle(id, encontrado);
       });
     });
+
+    // ── Toggle Ver más / Ver menos en atribuciones ──────────────────────────
+    // Listener delegado en el contenedor — un solo handler para todas las tarjetas
+    contenedor.addEventListener("click", (e) => {
+      const btn = e.target.closest(".entidad-atrib-toggle");
+      if (!btn) return;
+      e.stopPropagation(); // evitar que abra el modal de detalle
+      const wrap      = btn.closest(".entidad-atrib-wrap");
+      const textoEl   = wrap?.querySelector(".entidad-atrib-texto");
+      if (!wrap || !textoEl) return;
+      const expanded  = btn.dataset.expanded === "true";
+      const textoFull = decodeURIComponent(wrap.dataset.full || "");
+      const LIMIT     = 200;
+      if (expanded) {
+        textoEl.textContent   = textoFull.slice(0, LIMIT) + "…";
+        btn.textContent       = "Ver más";
+        btn.dataset.expanded  = "false";
+      } else {
+        textoEl.textContent   = textoFull;
+        btn.textContent       = "Ver menos";
+        btn.dataset.expanded  = "true";
+      }
+    }, { capture: false });
 
     contenedor.querySelectorAll(".btn-editar").forEach((btn) => {
       btn.addEventListener("click", () => {

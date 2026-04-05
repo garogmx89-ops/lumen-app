@@ -42,69 +42,90 @@ body.light {
 }
 
 /* ─── PALETAS DE COLOR ───────────────────────────────────────────────────────── */
-/* Solo cambian los colores de acento — los fondos vienen del modo claro/oscuro  */
+/* Fondos tintados suaves + acento fuerte. Modo claro con tinte muy sutil.       */
+
 body.tema-carbon {
-  --accent:       #78909C;
-  --accent-soft:  #1e2729;
-  --accent-hover: #90A4AE;
-  --ctx:          #90A4AE;
+  --bg:           #111314;  --bg2:  #191c1e;  --bg3:  #202426;
+  --bg4:          #282d30;  --surface: #303538; --border: #3a4044;
+  --accent:       #78909C;  --accent-soft: #1e2729;
+  --accent-hover: #90A4AE;  --ctx: #90A4AE;
 }
 body.light.tema-carbon {
-  --accent-soft:  #cfd8dc;
+  --bg: #f2f4f5; --bg2: #ffffff; --bg3: #f7f9fa; --bg4: #edf0f2;
+  --surface: #e4e8ea; --border: #cdd3d6;
+  --accent-soft: #cfd8dc;
 }
+
 body.tema-pan {
-  --accent:       #1E88E5;
-  --accent-soft:  #0d2040;
-  --accent-hover: #42A5F5;
-  --ctx:          #64B5F6;
+  --bg:           #0c0f18;  --bg2:  #111520;  --bg3:  #151b28;
+  --bg4:          #1a2232;  --surface: #1e283c; --border: #243050;
+  --accent:       #1E88E5;  --accent-soft: #0d1e3a;
+  --accent-hover: #42A5F5;  --ctx: #64B5F6;
 }
 body.light.tema-pan {
-  --accent-soft:  #bbdefb;
+  --bg: #f0f4fb; --bg2: #ffffff; --bg3: #f5f8fd; --bg4: #e8eef8;
+  --surface: #dce6f5; --border: #c5d5ee;
+  --accent-soft: #bbdefb;
 }
+
 body.tema-pvem {
-  --accent:       #4CAF50;
-  --accent-soft:  #0f2a11;
-  --accent-hover: #66BB6A;
-  --ctx:          #81C784;
+  --bg:           #0c130d;  --bg2:  #111a12;  --bg3:  #152016;
+  --bg4:          #1a281b;  --surface: #1e3020; --border: #243a26;
+  --accent:       #4CAF50;  --accent-soft: #0f2211;
+  --accent-hover: #66BB6A;  --ctx: #81C784;
 }
 body.light.tema-pvem {
-  --accent-soft:  #c8e6c9;
+  --bg: #f1f8f1; --bg2: #ffffff; --bg3: #f4fbf4; --bg4: #e6f4e6;
+  --surface: #d8efd8; --border: #c2e0c2;
+  --accent-soft: #c8e6c9;
 }
+
 body.tema-morena {
-  --accent:       #C0392B;
-  --accent-soft:  #3d0c0c;
-  --accent-hover: #E53935;
-  --ctx:          #EF9A9A;
+  --bg:           #140c0c;  --bg2:  #1c1010;  --bg3:  #221414;
+  --bg4:          #2a1818;  --surface: #341e1e; --border: #442424;
+  --accent:       #C0392B;  --accent-soft: #2e0f0f;
+  --accent-hover: #E53935;  --ctx: #EF9A9A;
 }
 body.light.tema-morena {
-  --accent-soft:  #ffcdd2;
+  --bg: #faf2f2; --bg2: #ffffff; --bg3: #fdf5f5; --bg4: #f5e8e8;
+  --surface: #eed8d8; --border: #e0c0c0;
+  --accent-soft: #ffcdd2;
 }
+
 body.tema-pri {
-  --accent:       #2E7D32;
-  --accent-soft:  #0a2010;
-  --accent-hover: #43A047;
-  --ctx:          #C62828;
+  --bg:           #0c130d;  --bg2:  #111a12;  --bg3:  #152016;
+  --bg4:          #1a281b;  --surface: #1e3020; --border: #243a26;
+  --accent:       #2E7D32;  --accent-soft: #0a1e0b;
+  --accent-hover: #43A047;  --ctx: #C62828;
 }
 body.light.tema-pri {
-  --accent-soft:  #c8e6c9;
+  --bg: #f1f8f1; --bg2: #ffffff; --bg3: #f4fbf4; --bg4: #e6f4e6;
+  --surface: #d8efd8; --border: #c2e0c2;
+  --accent-soft: #c8e6c9;
 }
+
 body.tema-mc {
-  --accent:       #E65100;
-  --accent-soft:  #331200;
-  --accent-hover: #FF6D00;
-  --ctx:          #FF8A50;
+  --bg:           #140e08;  --bg2:  #1c130c;  --bg3:  #231810;
+  --bg4:          #2c1e14;  --surface: #362518; --border: #452e1e;
+  --accent:       #E65100;  --accent-soft: #2a1200;
+  --accent-hover: #FF6D00;  --ctx: #FF8A50;
 }
 body.light.tema-mc {
-  --accent-soft:  #ffe0b2;
+  --bg: #fdf4ee; --bg2: #ffffff; --bg3: #fdf7f2; --bg4: #f8ece0;
+  --surface: #f2dcc8; --border: #e8c9a8;
+  --accent-soft: #ffe0b2;
 }
+
 body.tema-estatal {
-  --accent:       #8B1A1A;
-  --accent-soft:  #2a0608;
-  --accent-hover: #B71C1C;
-  --ctx:          #E8A0A0;
+  --bg:           #130c0d;  --bg2:  #1c1011;  --bg3:  #231416;
+  --bg4:          #2c191b;  --surface: #361f22; --border: #44262a;
+  --accent:       #8B1A1A;  --accent-soft: #220808;
+  --accent-hover: #B71C1C;  --ctx: #E8A0A0;
 }
 body.light.tema-estatal {
-  --accent-soft:  #ffcdd2;
+  --bg: #faf1f1; --bg2: #ffffff; --bg3: #fdf4f4; --bg4: #f5e6e6;
+  --surface: #ecd4d4; --border: #ddbebe;
+  --accent-soft: #ffcdd2;
 }
 
 /* ─── BOTONES DE PALETA ──────────────────────────────────────────────────────── */

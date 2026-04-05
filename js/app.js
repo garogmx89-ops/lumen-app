@@ -53,6 +53,7 @@ const titulos = {
   agenda:       { title: 'Agenda',             sub: 'Seguimiento y vencimientos' },
   territorio:   { title: 'Indicadores',       sub: 'Datos territoriales y estadisticos' },
   contexto:     { title: 'Contexto',          sub: 'Datos de referencia' },
+  mejora:       { title: 'Áreas de Mejora',   sub: 'Mejora continua institucional' },
 };
 
 window.goTo = function(modulo) {

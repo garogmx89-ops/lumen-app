@@ -130,6 +130,21 @@
           </div>
         </div>
 
+        <!-- ── MEJORA CONTINUA ── -->
+        <div class="nav-section-label nav-section-bloque" onclick="toggleBloque('mejora')" id="lbl-mejora">
+          <span>Mejora Continua</span><span class="bloque-chevron" id="chv-mejora">▾</span>
+        </div>
+        <div id="bloque-mejora">
+          <div class="nav-item" onclick="goTo('mejora')" id="nav-mejora">
+            <svg class="nav-icon" viewBox="0 0 16 16" fill="none">
+              <circle cx="8" cy="8" r="5.5" stroke="currentColor" stroke-width="1.3"/>
+              <path d="M5.5 8.5l2 2 3-3.5" stroke="currentColor" stroke-width="1.3" stroke-linecap="round" stroke-linejoin="round"/>
+            </svg>
+            <span class="nav-label">Áreas de Mejora</span>
+            <span class="nav-badge amber" id="badge-mejora"></span>
+          </div>
+        </div>
+
       </nav>
 
       <!-- Usuario -->
@@ -1247,6 +1262,128 @@
     </div>
   </div>
 
+<!-- MEJORA CONTINUA -->
+        <div class="panel" id="panel-mejora">
+
+          <div class="reunion-form-card">
+            <h2 class="panel-title">Nueva Área de Mejora</h2>
+
+            <div class="form-group">
+              <label for="mejora-titulo">Título</label>
+              <input type="text" id="mejora-titulo" placeholder="Ej. Retraso en validación de dictámenes técnicos">
+            </div>
+
+            <div class="form-row">
+              <div class="form-group">
+                <label for="mejora-estado">Estado</label>
+                <select id="mejora-estado">
+                  <option value="Identificada">Identificada</option>
+                  <option value="En proceso">En proceso</option>
+                  <option value="Resuelta">Resuelta</option>
+                  <option value="Cancelada">Cancelada</option>
+                </select>
+              </div>
+              <div class="form-group">
+                <label for="mejora-prioridad">Prioridad</label>
+                <select id="mejora-prioridad">
+                  <option value="Alta">Alta</option>
+                  <option value="Media">Media</option>
+                  <option value="Baja">Baja</option>
+                </select>
+              </div>
+            </div>
+
+            <div class="form-group">
+              <label for="mejora-situacion">Situación problemática</label>
+              <textarea id="mejora-situacion" rows="3" placeholder="Ej. Los dictámenes técnicos llegan sin firma del titular, lo que obliga a devolverlos y retrasa el proceso de validación..."></textarea>
+            </div>
+
+            <div class="form-group">
+              <label for="mejora-impacto">Impacto institucional</label>
+              <textarea id="mejora-impacto" rows="2" placeholder="Ej. Retrasa el cumplimiento del indicador de gestión en al menos 5 días hábiles por caso..."></textarea>
+            </div>
+
+            <div class="form-group">
+              <label for="mejora-accion">Acción sugerida</label>
+              <textarea id="mejora-accion" rows="2" placeholder="Ej. Establecer lista de verificación obligatoria antes de enviar dictámenes a validación..."></textarea>
+            </div>
+
+            <!-- Vinculación con Procesos -->
+            <div class="form-group">
+              <label>Proceso relacionado</label>
+              <div class="participantes-selector">
+                <div id="mejora-procesos-seleccionados" class="participantes-seleccionados"></div>
+                <select id="mejora-proceso-select" class="participantes-select">
+                  <option value="">— Agregar proceso —</option>
+                </select>
+              </div>
+            </div>
+
+            <!-- Vinculación con Normatividad -->
+            <div class="form-group">
+              <label>Normatividad relacionada</label>
+              <div class="participantes-selector">
+                <div id="mejora-normas-seleccionadas" class="participantes-seleccionados"></div>
+                <select id="mejora-norma-select" class="participantes-select">
+                  <option value="">— Agregar norma —</option>
+                </select>
+              </div>
+            </div>
+
+            <!-- IA: Mitigación -->
+            <div class="form-group">
+              <div class="capa-label" style="display:flex;justify-content:space-between;align-items:center">
+                <span>✨ Propuesta de mitigación IA</span>
+                <button type="button" id="btn-mejora-mitigacion"
+                  style="background:none;border:1px solid var(--accent);color:var(--accent);border-radius:6px;
+                         padding:0.25rem 0.7rem;font-size:0.78rem;cursor:pointer;font-family:inherit">
+                  ✨ Generar mitigación
+                </button>
+              </div>
+              <textarea class="capa-input" id="mejora-mitigacion" rows="4"
+                placeholder="Presiona ✨ Generar mitigación para obtener una propuesta..." readonly
+                style="opacity:0.7"></textarea>
+            </div>
+
+            <!-- IA: Respuesta institucional -->
+            <div class="form-group">
+              <div class="capa-label" style="display:flex;justify-content:space-between;align-items:center">
+                <span>📝 Respuesta institucional IA</span>
+                <button type="button" id="btn-mejora-respuesta"
+                  style="background:none;border:1px solid var(--border);color:var(--text2);border-radius:6px;
+                         padding:0.25rem 0.7rem;font-size:0.78rem;cursor:pointer;font-family:inherit">
+                  📝 Redactar respuesta
+                </button>
+              </div>
+              <textarea class="capa-input" id="mejora-respuesta" rows="4"
+                placeholder="Primero genera la mitigación, luego presiona 📝 Redactar respuesta..." readonly
+                style="opacity:0.7"></textarea>
+            </div>
+
+            <button class="btn-primary" id="btn-guardar-mejora">Guardar área de mejora</button>
+            <button class="btn-secondary" id="btn-cancelar-mejora" style="display:none;">Cancelar edición</button>
+          </div>
+
+          <!-- Filtros -->
+          <div class="norma-filtros">
+            <button class="filtro-btn filtro-activo" data-filtro="todos">Todas</button>
+            <button class="filtro-btn" data-filtro="Identificada">Identificada</button>
+            <button class="filtro-btn" data-filtro="En proceso">En proceso</button>
+            <button class="filtro-btn" data-filtro="Resuelta">Resuelta</button>
+          </div>
+
+          <!-- Lista -->
+          <div class="reuniones-lista">
+            <div style="display:flex;justify-content:space-between;align-items:center;flex-wrap:wrap;gap:0.5rem;margin-bottom:0.75rem;">
+              <h2 class="panel-title" style="margin-bottom:0">Áreas de mejora registradas</h2>
+            </div>
+            <div id="mejora-contenido">
+              <p class="lista-vacia">No hay áreas de mejora registradas aún.</p>
+            </div>
+          </div>
+
+        </div>
+
   <!-- ══ SCRIPTS ══ -->
   <script src="js/firebase-config.js" type="module"></script>
   <script src="js/app.js" type="module"></script>
@@ -1257,6 +1394,7 @@
   <script src="js/agenda.js" type="module"></script>
   <script src="js/territorio.js" type="module"></script>
   <script src="js/contexto.js" type="module"></script>
+  <script src="js/mejora.js" type="module"></script>
 
 </body>
 </html>

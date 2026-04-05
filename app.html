@@ -134,12 +134,36 @@
 
       <!-- Usuario -->
       <div class="user-area">
+
+        <!-- Selector de paleta de color -->
+        <div id="paleta-panel" style="display:none;padding:0.6rem 0.75rem;border-bottom:1px solid var(--border)">
+          <div style="font-size:0.7rem;color:var(--text3);font-weight:600;letter-spacing:0.05em;margin-bottom:0.5rem">PALETA DE COLOR</div>
+          <div style="display:grid;grid-template-columns:1fr 1fr;gap:0.35rem">
+            <button onclick="aplicarTema('default')"    class="paleta-btn" data-tema="default"  style="--pc:#7c6af5">Púrpura</button>
+            <button onclick="aplicarTema('carbon')"     class="paleta-btn" data-tema="carbon"   style="--pc:#78909C">Carbón</button>
+            <button onclick="aplicarTema('pan')"        class="paleta-btn" data-tema="pan"      style="--pc:#1E88E5">PAN</button>
+            <button onclick="aplicarTema('pvem')"       class="paleta-btn" data-tema="pvem"     style="--pc:#4CAF50">P. Verde</button>
+            <button onclick="aplicarTema('morena')"     class="paleta-btn" data-tema="morena"   style="--pc:#C0392B">MORENA</button>
+            <button onclick="aplicarTema('pri')"        class="paleta-btn" data-tema="pri"      style="--pc:#2E7D32">PRI</button>
+            <button onclick="aplicarTema('mc')"         class="paleta-btn" data-tema="mc"       style="--pc:#E65100">MC</button>
+            <button onclick="aplicarTema('estatal')"    class="paleta-btn" data-tema="estatal"  style="--pc:#8B1A1A">Estatal Zac.</button>
+          </div>
+        </div>
+
         <div class="user-chip">
           <div class="avatar" id="user-avatar">EG</div>
           <div class="user-info">
             <div class="user-name" id="user-name">Edgar García</div>
             <div class="user-role">SEDUVOT · Planeación</div>
           </div>
+          <button class="btn-sm btn-ghost-small" onclick="togglePaletaPanel()" title="Cambiar paleta de color" style="margin-right:2px">
+            <svg width="14" height="14" viewBox="0 0 16 16" fill="none">
+              <circle cx="8" cy="8" r="6" stroke="currentColor" stroke-width="1.3"/>
+              <circle cx="5.5" cy="6" r="1.2" fill="currentColor"/>
+              <circle cx="10.5" cy="6" r="1.2" fill="currentColor"/>
+              <circle cx="8" cy="10.5" r="1.2" fill="currentColor"/>
+            </svg>
+          </button>
           <button class="btn-sm btn-ghost-small" onclick="cerrarSesion()" title="Cerrar sesión">
             <svg width="14" height="14" viewBox="0 0 16 16" fill="none">
               <path d="M6 2H3a1 1 0 00-1 1v10a1 1 0 001 1h3M10 11l3-3-3-3M13 8H6" stroke="currentColor" stroke-width="1.3"/>
@@ -616,11 +640,6 @@
             <div class="form-group">
               <label for="norma-anotaciones">Anotaciones / notas de aplicación</label>
               <textarea id="norma-anotaciones" rows="3" placeholder="Ej. Aplica para validar dictámenes de cambio de uso de suelo en zonas urbanas"></textarea>
-            </div>
-
-            <div class="form-group">
-              <label for="norma-url">Enlace DOF / POG <span style="color:var(--text2);font-weight:400;font-size:0.78rem">(fuente oficial)</span></label>
-              <input type="url" id="norma-url" placeholder="Ej. https://www.dof.gob.mx/nota_detalle.php?codigo=...">
             </div>
 
             <div class="form-group">

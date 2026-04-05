@@ -133,6 +133,42 @@ if (localStorage.getItem('lumen-tema') === 'claro') {
   document.body.classList.add('light');
 }
 
+// ─── PALETAS DE COLOR ─────────────────────────────────────────────────────────
+const TEMAS_VALIDOS = ['default','carbon','pan','pvem','morena','pri','mc','estatal'];
+
+window.aplicarTema = function(nombre) {
+  // Quitar todas las clases de tema
+  TEMAS_VALIDOS.forEach(t => document.body.classList.remove('tema-' + t));
+  // Aplicar la nueva (default no agrega clase)
+  if (nombre !== 'default') document.body.classList.add('tema-' + nombre);
+  // Guardar en localStorage
+  localStorage.setItem('lumen-paleta', nombre);
+  // Actualizar botones activos
+  document.querySelectorAll('.paleta-btn').forEach(btn => {
+    btn.classList.toggle('activo', btn.dataset.tema === nombre);
+  });
+};
+
+window.togglePaletaPanel = function() {
+  const panel = document.getElementById('paleta-panel');
+  if (panel) panel.style.display = panel.style.display === 'none' ? 'block' : 'none';
+};
+
+// Aplicar paleta guardada al iniciar
+(function() {
+  const paleta = localStorage.getItem('lumen-paleta');
+  if (paleta && paleta !== 'default') {
+    document.body.classList.add('tema-' + paleta);
+  }
+  // Marcar botón activo cuando el DOM esté listo
+  document.addEventListener('DOMContentLoaded', () => {
+    const activa = paleta || 'default';
+    document.querySelectorAll('.paleta-btn').forEach(btn => {
+      btn.classList.toggle('activo', btn.dataset.tema === activa);
+    });
+  });
+})();
+
 // ─── MENÚ "MÁS" EN MÓVIL ─────────────────────────────────────────────────────
 
 window.openMore  = function() { document.getElementById('more-overlay').classList.remove('hidden'); };

@@ -54,6 +54,7 @@ const titulos = {
   territorio:   { title: 'Planeación',                 sub: 'Datos territoriales y estadísticos' },
   contexto:     { title: 'Programas Sociales',         sub: 'Programas sociales y federales' },
   pp:           { title: 'Programas Presupuestarios',  sub: 'Diagnósticos y recursos financieros' },
+  ua:           { title: 'Unidades Administrativas',   sub: 'Organización interna SEDUVOT' },
   mejora:       { title: 'Áreas de Mejora',            sub: 'Mejora continua institucional' },
 };
 
@@ -82,7 +83,8 @@ window.goTo = function(modulo) {
     entidades:    'bn-dependencias',
     agenda:       'bn-agenda',
     reuniones:    'bn-agenda',
-    pp:           'bn-more'
+    pp:           'bn-more',
+    ua:           'bn-more'
   };
   const bnId = bnMap[modulo] || ('bn-' + modulo);
   const bnItem = document.getElementById(bnId);

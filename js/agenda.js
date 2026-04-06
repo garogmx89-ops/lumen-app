@@ -33,6 +33,7 @@ let modoEdicion       = null;
 let procesosVinculados  = [];
 let normasVinculadas    = [];
 let entidadesVinculadas = [];
+let uasVinculadas       = [];
 
 // ─── TOGGLE CAMPOS SEGÚN TIPO ──────────────────────────────────────────────
 function toggleCamposTipo(tipo) {
@@ -43,6 +44,8 @@ function toggleCamposTipo(tipo) {
 
   if (camposReunion)   camposReunion.style.display   = tipo === "Reunión"   ? "" : "none";
   if (camposActividad) camposActividad.style.display  = tipo === "Actividad" ? "" : "none";
+  const camposReunionFin = document.getElementById("agenda-campos-reunion-fin");
+  if (camposReunionFin) camposReunionFin.style.display = tipo === "Reunión" ? "" : "none";
   if (labelFecha)      labelFecha.textContent = tipo === "Reunión" ? "Fecha" : "Fecha límite";
 
   // Actualizar opciones de estado según tipo
@@ -62,6 +65,7 @@ onAuthStateChanged(auth, (user) => {
   const procesosRef  = collection(db, "usuarios", user.uid, "procesos");
   const normasRef    = collection(db, "usuarios", user.uid, "normatividad");
   const entidadesRef = collection(db, "usuarios", user.uid, "entidades");
+  const uaRef        = collection(db, "usuarios", user.uid, "ua");
 
   // ─── TOGGLE TIPO AL CAMBIAR SELECT ─────────────────────────────────────
   const selTipo = document.getElementById("alerta-tipo");
@@ -110,6 +114,21 @@ onAuthStateChanged(auth, (user) => {
     });
   });
 
+  // ─── CATÁLOGO DE UNIDADES ADMINISTRATIVAS ────────────────────────────────
+  onSnapshot(query(uaRef, orderBy("creadoEn", "asc")), (snap) => {
+    const sel = document.getElementById("alerta-selector-ua");
+    if (!sel) return;
+    sel.innerHTML = '<option value="">— Selecciona una unidad —</option>';
+    snap.docs.forEach(d => {
+      const u = d.data();
+      const opt = document.createElement("option");
+      opt.value = d.id;
+      opt.textContent = u.nombre || "(sin nombre)";
+      opt.dataset.nombre = u.nombre || "";
+      sel.appendChild(opt);
+    });
+  });
+
   // ─── CATÁLOGO DE NORMATIVIDAD ──────────────────────────────────────────
   onSnapshot(query(normasRef, orderBy("creadoEn", "asc")), (snap) => {
     const sel = document.getElementById("alerta-selector-norma");
@@ -131,6 +150,17 @@ onAuthStateChanged(auth, (user) => {
     if (procesosVinculados.find(p => p.id === id)) { e.target.value = ""; return; }
     procesosVinculados.push({ id, nombre });
     renderTagsProcesos();
+    e.target.value = "";
+  });
+
+  // ─── SELECTOR UA ───────────────────────────────────────────────────────
+  document.getElementById("alerta-selector-ua")?.addEventListener("change", (e) => {
+    const id     = e.target.value;
+    const nombre = e.target.options[e.target.selectedIndex].dataset.nombre;
+    if (!id) return;
+    if (uasVinculadas.find(x => x.id === id)) { e.target.value = ""; return; }
+    uasVinculadas.push({ id, nombre });
+    renderTagsUA();
     e.target.value = "";
   });
 
@@ -192,6 +222,18 @@ onAuthStateChanged(auth, (user) => {
     });
   }
 
+  function renderTagsUA() {
+    const c = document.getElementById("alerta-tags-ua");
+    if (!c) return;
+    c.innerHTML = uasVinculadas.map((u, i) => `
+      <span class="participante-tag">🏢 ${u.nombre}
+        <button type="button" class="participante-tag-quitar" data-index="${i}" data-tipo="ua">✕</button>
+      </span>`).join("");
+    c.querySelectorAll(".participante-tag-quitar[data-tipo='ua']").forEach(btn => {
+      btn.addEventListener("click", () => { uasVinculadas.splice(Number(btn.dataset.index), 1); renderTagsUA(); });
+    });
+  }
+
   // ─── LIMPIAR FORMULARIO ────────────────────────────────────────────────
   function limpiarFormulario() {
     const ids = ["alerta-titulo","alerta-fecha","alerta-asunto",
@@ -217,9 +259,11 @@ onAuthStateChanged(auth, (user) => {
     procesosVinculados  = [];
     normasVinculadas    = [];
     entidadesVinculadas = [];
+    uasVinculadas       = [];
     renderTagsProcesos();
     renderTagsNormas();
     renderTagsEntidades();
+    renderTagsUA();
 
     const titulo = document.querySelector("#panel-agenda .reunion-form-card h2");
     if (titulo) titulo.textContent = "Nueva Agenda";
@@ -271,9 +315,11 @@ onAuthStateChanged(auth, (user) => {
     procesosVinculados  = Array.isArray(a.procesosVinculados)  ? a.procesosVinculados.map(x => ({...x}))  : [];
     normasVinculadas    = Array.isArray(a.normasVinculadas)    ? a.normasVinculadas.map(x => ({...x}))    : [];
     entidadesVinculadas = Array.isArray(a.entidadesVinculadas) ? a.entidadesVinculadas.map(x => ({...x})) : [];
+    uasVinculadas       = Array.isArray(a.uasVinculadas)       ? a.uasVinculadas.map(x => ({...x}))       : [];
     renderTagsProcesos();
     renderTagsNormas();
     renderTagsEntidades();
+    renderTagsUA();
 
     const tituloEl = document.querySelector("#panel-agenda .reunion-form-card h2");
     if (tituloEl) tituloEl.textContent = "Editar Agenda";
@@ -301,7 +347,7 @@ onAuthStateChanged(auth, (user) => {
       // Campos comunes
       const datos = {
         tipo, titulo, fecha, prioridad, estado,
-        procesosVinculados, normasVinculadas, entidadesVinculadas
+        procesosVinculados, normasVinculadas, entidadesVinculadas, uasVinculadas
       };
 
       // Campos específicos de Reunión
@@ -424,8 +470,10 @@ onAuthStateChanged(auth, (user) => {
         .map(p => `<span class="participante-tag-display">⚙️ ${p.nombre}</span>`).join("");
       const normasTags = (a.normasVinculadas || [])
         .map(n => `<span class="participante-tag-display">📄 ${n.nombre}</span>`).join("");
-      const seccionVinculos = (entidadesTags || procesosTags || normasTags)
-        ? `<div class="participantes-tags-display">${entidadesTags}${procesosTags}${normasTags}</div>` : "";
+      const uasTags = (a.uasVinculadas || [])
+        .map(u => `<span class="participante-tag-display">🏢 ${u.nombre}</span>`).join("");
+      const seccionVinculos = (entidadesTags || procesosTags || normasTags || uasTags)
+        ? `<div class="participantes-tags-display">${entidadesTags}${procesosTags}${normasTags}${uasTags}</div>` : "";
 
       // Campo descriptivo según tipo
       const descripcion = tipo === "Reunión"
@@ -507,10 +555,12 @@ onAuthStateChanged(auth, (user) => {
       .map(p => `<span class="participante-tag" style="font-size:0.8rem">⚙️ ${p.nombre}</span>`).join("");
     const tagsNormas = (a.normasVinculadas || [])
       .map(n => `<span class="participante-tag" style="font-size:0.8rem">📄 ${n.nombre}</span>`).join("");
+    const tagsUAs = (a.uasVinculadas || [])
+      .map(u => `<span class="participante-tag" style="font-size:0.8rem">🏢 ${u.nombre}</span>`).join("");
 
-    const secVinc = (tagsEntidades || tagsProcesos || tagsNormas)
+    const secVinc = (tagsEntidades || tagsProcesos || tagsNormas || tagsUAs)
       ? `<div class="detalle-seccion"><div class="detalle-seccion-titulo">🔗 Vínculos</div>
-          <div style="display:flex;flex-wrap:wrap;gap:0.4rem;margin-top:0.4rem">${tagsEntidades}${tagsProcesos}${tagsNormas}</div></div>`
+          <div style="display:flex;flex-wrap:wrap;gap:0.4rem;margin-top:0.4rem">${tagsEntidades}${tagsProcesos}${tagsNormas}${tagsUAs}</div></div>`
       : "";
 
     // Sección específica según tipo
@@ -595,6 +645,7 @@ onAuthStateChanged(auth, (user) => {
         "Entidades": (a.entidadesVinculadas || []).map(e => e.nombre).join(", "),
         "Procesos": (a.procesosVinculados  || []).map(p => p.nombre).join(", "),
         "Normas":   (a.normasVinculadas    || []).map(n => n.nombre).join(", "),
+        "Unidades": (a.uasVinculadas       || []).map(u => u.nombre).join(", "),
       }));
       const ws = window.XLSX.utils.json_to_sheet(filas);
       ws["!cols"] = [{wch:12},{wch:40},{wch:14},{wch:10},{wch:10},{wch:12},{wch:40},{wch:30},{wch:20},{wch:30},{wch:30},{wch:40}];

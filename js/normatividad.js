@@ -91,6 +91,10 @@ const ORDINALES_PAT = ORDINALES_ES.join("|");
 const RE_SEP_TRANS_ESTATAL  = /T\s*R\s*A\s*N\s*S\s*I\s*T\s*O\s*R\s*I\s*O\s*S|^TRANSITORIOS\s*$/mi;
 const RE_SEP_TRANS_FEDERAL  = /^TRANSITORIOS\s*$/m;
 const RE_SEP_REFORMA        = /ART[ÍI]CULOS\s+TRANSITORIOS\s+DE\s+LOS\s+DECRETOS/i;
+// Separador de firma presidencial — marca el fin de los transitorios del decreto original.
+// Todo el texto después de la firma y antes del encabezado de decretos de reforma
+// son instrucciones de decreto que no forman parte de la ley vigente.
+const RE_SEP_FIRMA_FEDERAL  = /^(?:México|Ciudad de México),\s+(?:D\.F\.,\s+)?a\s+\d+\s+(?:días\s+del\s+mes\s+de\s+)?(?:de\s+)?(?:enero|febrero|marzo|abril|mayo|junio|julio|agosto|septiembre|octubre|noviembre|diciembre)\s+de\s+\d{4}\.[-–]/im;
 
 // ── Detectar perfil automáticamente ──────────────────────────────────
 // Federal: artículos usan "ARTÍCULO N.-" o "Artículo N.-" (con guión)
@@ -165,14 +169,27 @@ function detectarEstructura(texto) {
 function parsearFederal(texto, posSepTrans, posSepReforma) {
 
   // Notas DOF — limpiar del texto antes de parsear
-  const RE_NOTA_DOF = /^\s*(?:Párrafo|Fracción|Artículo|Inciso)\s+(?:reformado|reformada|adicionado|adicionada|derogado|derogada|recorrido|recorrida)[^\n]*DOF[^\n]*/gim;
-  const RE_DOF_SOLO = /^DOF\s+\d{2}-\d{2}-\d{4}[^\n]*/gm;
+  // Cubre todos los formatos encontrados en leyes federales (DOF):
+  // 1. "Párrafo/Fracción/Artículo/Inciso reformado/adicionado/derogado/recorrido DOF..."
+  // 2. Mismas con sangría (pandoc genera 2 espacios para fracciones indentadas)
+  // 3. "Reforma DOF dd-mm-yyyy: Derogó del artículo..."
+  // 4. Notas compuestas: "...DOF fecha. Reformada DOF fecha2"
+  //    — la segunda parte se captura porque toda la línea termina en \n
+  // 5. "DOF dd-mm-yyyy" solos (líneas de pie de decreto)
+  const RE_NOTA_DOF = /^[ \t]*(?:Párrafo|Fracción|Artículo|Inciso|Apartado)\s+(?:reformado|reformada|adicionado|adicionada|derogado|derogada|recorrido|recorrida)[^\n]*(?:DOF|POG)[^\n]*/gim;
+  const RE_DOF_REFORMA = /^[ \t]*Reforma\s+DOF\s+[\d-]+[^\n]*/gim;
+  const RE_DOF_SOLO    = /^[ \t]*DOF\s+\d{2}-\d{2}-\d{4}[^\n]*/gm;
   let textoProcesado = texto
     .replace(RE_NOTA_DOF, "")
+    .replace(RE_DOF_REFORMA, "")
     .replace(RE_DOF_SOLO, "")
     .replace(/\n{3,}/g, "\n\n");
 
   // Separadores de sección ya calculados sobre texto original
+  // Firma presidencial del decreto original — todo lo posterior (hasta posReforma)
+  // son instrucciones de decretos de reforma, no artículos de la ley.
+  const mFirma = RE_SEP_FIRMA_FEDERAL.exec(texto);
+  const posFirma = mFirma ? mFirma.index : Infinity;
 
   // Regex artículos federales:
   // Grupo 1: número arábigo (con Bis/Ter)
@@ -208,6 +225,21 @@ function parsearFederal(texto, posSepTrans, posSepReforma) {
     else if (m.index >= posSepTrans)    seccion = "transitorio";
     const esOrdinal = ORDINALES_ES.some(o => rawNum.toLowerCase() === o.toLowerCase());
     if (esOrdinal && seccion === "ley") seccion = "transitorio";
+
+    // Descartar artículos que caen entre la firma presidencial y el encabezado
+    // de decretos de reforma — son instrucciones de decretos, no artículos de ley.
+    if (m.index > posFirma && m.index < posSepReforma) continue;
+
+    // En la sección de transitorios, solo aceptar los ordinales en MAYÚSCULAS
+    // al inicio de línea SIN prefijo "Artículo" (PRIMERO.- SEGUNDO.- etc.)
+    if (seccion === "transitorio") {
+      const esOrdinalSolo = Boolean(m[4]);
+      if (esOrdinalSolo && rawNum !== rawNum.toUpperCase()) continue;
+      if (!esOrdinalSolo && esOrdinal) continue;
+    }
+
+    // En la sección de decretos de reforma, descartar todo
+    if (seccion === "reforma") continue;
 
     hits.push({ pos: m.index, numero: rawNum.replace(/\s+/g," "), seccion, matchLen: m[0].length });
   }
@@ -626,28 +658,6 @@ onAuthStateChanged(auth, (user) => {
     e.target.value = "";
   });
 
-  // ── Visibilidad campo Norma Padre según tipo ─────────────────────
-  // Solo los Reglamentos derivan de otra norma — el campo se muestra/oculta
-  // al cambiar el tipo para guiar al usuario sin agregar complejidad visual.
-  function actualizarVisibilidadCampoPadre() {
-    const tipo  = document.getElementById("norma-tipo")?.value || "";
-    const campo = document.getElementById("campo-norma-padre");
-    if (!campo) return;
-    // Reglamento → mostrar; resto → ocultar y limpiar selección
-    const mostrar = (tipo === "Reglamento");
-    campo.style.display = mostrar ? "" : "none";
-    if (!mostrar) {
-      padreIdActual = null;
-      const sp = document.getElementById("norma-padre-select");
-      if (sp) sp.value = "";
-      renderPadreSeleccionado();
-    }
-  }
-
-  document.getElementById("norma-tipo")?.addEventListener("change", actualizarVisibilidadCampoPadre);
-  // Aplicar al cargar (en caso de que el formulario ya tenga valor)
-  actualizarVisibilidadCampoPadre();
-
   // ── Limpiar formulario ────────────────────────────────────────────
   function limpiarFormulario() {
     ["norma-nombre","norma-tipo","norma-ambito","norma-fecha",
@@ -668,7 +678,6 @@ onAuthStateChanged(auth, (user) => {
     document.getElementById("btn-cancelar-norma").style.display = "none";
     modoEdicion = null;
     poblarSelectoresVinculacion();
-    actualizarVisibilidadCampoPadre();
   }
 
   // ── Activar edición ───────────────────────────────────────────────
@@ -701,7 +710,6 @@ onAuthStateChanged(auth, (user) => {
 
     document.querySelector("#panel-normatividad .reunion-form-card h2").textContent = "Editar Norma";
     document.getElementById("btn-cancelar-norma").style.display = "inline-block";
-    actualizarVisibilidadCampoPadre();
     document.getElementById("panel-normatividad").scrollIntoView({ behavior: "smooth" });
   }
 
@@ -1233,29 +1241,16 @@ onAuthStateChanged(auth, (user) => {
   // ══════════════════════════════════════════════════════════════════
   // EXPLORADOR DE ARTÍCULOS — vista propia (similar al visor PDF)
   // ══════════════════════════════════════════════════════════════════
-  let _exploNorma        = null;
-  let _exploArticulos    = [];
-  let _exploFiltrados    = [];
+  let _exploNorma      = null;
+  let _exploArticulos  = [];
+  let _exploFiltrados  = [];
   let _ambitoNormaActual = ""; // ámbito de la norma activa — para seleccionar perfil parser
-  let _exploNotas        = {};   // { artId: "texto de nota" }
-  let _exploRelevantes   = new Set(); // Set de artIds marcados como relevantes
-  let _exploPreambulo    = null;  // Texto del preámbulo del documento
-  // Reglamentos hijos con texto cargado — para el botón "Ver en Reglamento" por artículo
-  // Formato: [{ id, nombre, sigla }]  — sigla es el nombre corto para el botón
-  let _exploReglamentos  = [];
+  let _exploNotas      = {};   // { artId: "texto de nota" }
+  let _exploRelevantes = new Set(); // Set de artIds marcados como relevantes
+  let _exploPreambulo  = null;  // Texto del preámbulo del documento
 
   async function abrirExplorador(norma) {
     _exploNorma = norma;
-
-    // Calcular reglamentos hijos con texto cargado — disponibles para cruce por artículo
-    _exploReglamentos = todasLasNormas
-      .filter(n => n.padreId === norma.id && n.tipo === "Reglamento" && n.tieneTexto)
-      .map(n => ({
-        id:    n.id,
-        nombre: n.nombre,
-        // Sigla para el botón: hasta 15 chars, eliminando prefijos largos
-        sigla: n.siglas || n.nombre.replace(/^Reglamento\s+(de\s+la?\s+)?/i, "").slice(0, 15)
-      }));
 
     // Ocultar lista principal, mostrar panel explorador
     document.querySelector("#panel-normatividad .reunion-form-card").style.display  = "none";
@@ -1482,14 +1477,7 @@ onAuthStateChanged(auth, (user) => {
         <span style="font-size:0.82rem;font-weight:700;color:var(--accent)">Artículo ${a.numero}</span>
         ${badgeSecFn(a.seccion)}
         ${a.epigrafe ? `<span style="font-size:0.75rem;color:var(--text2);font-style:italic">${a.epigrafe}</span>` : ""}
-        <div style="margin-left:auto;display:flex;gap:0.3rem;flex-wrap:wrap;justify-content:flex-end">
-          ${(_exploReglamentos && _exploReglamentos.length > 0) ? _exploReglamentos.map(reg =>
-            `<button class="explo-btn-ver-reglamento" data-numero="${a.numero}" data-reg-id="${reg.id}"
-              title="Ver Art. ${a.numero} en ${reg.nombre}"
-              style="background:none;border:1px solid #3A0CA366;color:#3A0CA3;
-              border-radius:6px;padding:0.15rem 0.4rem;font-size:0.72rem;cursor:pointer;
-              font-family:inherit;white-space:nowrap">📜 ${reg.sigla}</button>`
-          ).join("") : ""}
+        <div style="margin-left:auto;display:flex;gap:0.3rem">
           <button class="explo-btn-relevante" data-art-id="${a.id}" data-norma-id="${_exploNorma?.id}"
             title="${esRelevante ? "Quitar de relevantes" : "Marcar como relevante"}"
             style="background:none;border:1px solid ${esRelevante ? "var(--accent)" : "var(--border)"};
@@ -1701,29 +1689,6 @@ onAuthStateChanged(auth, (user) => {
     });
     contenedor.querySelectorAll(".explo-btn-nota").forEach(btn => {
       btn.addEventListener("click", () => toggleNota_art(btn.dataset.artId));
-    });
-
-    // ── Botón "Ver en Reglamento" — cruce Ley↔Reglamento por número de artículo ──
-    contenedor.querySelectorAll(".explo-btn-ver-reglamento").forEach(btn => {
-      btn.addEventListener("click", () => {
-        const numero = btn.dataset.numero;
-        const regId  = btn.dataset.regId;
-        const reg    = todasLasNormas.find(n => n.id === regId);
-        if (!reg || !reg.tieneTexto) return;
-
-        // Abrir el explorador del reglamento con el número de artículo pre-buscado
-        cerrarExplorador();
-        setTimeout(() => {
-          abrirExplorador(reg).then(() => {
-            // Pre-rellenar el buscador con el número del artículo
-            const inputBusq = document.getElementById("explo-busqueda");
-            if (inputBusq) {
-              inputBusq.value = numero;
-              inputBusq.dispatchEvent(new Event("input"));
-            }
-          });
-        }, 80);
-      });
     });
   }
 
@@ -1981,7 +1946,7 @@ onAuthStateChanged(auth, (user) => {
     const bw = document.querySelector("#panel-normatividad .norma-busqueda-wrap");
     if (bw) bw.style.display = "";
     document.querySelector("#panel-normatividad .reuniones-lista").style.display    = "";
-    _exploNorma = null; _exploArticulos = []; _exploFiltrados = []; _exploPreambulo = null; _exploReglamentos = [];
+    _exploNorma = null; _exploArticulos = []; _exploFiltrados = []; _exploPreambulo = null;
   }
 
   // \u2500\u2500 Vinculaciones en detalle (sin cambios) \u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500
@@ -2006,7 +1971,7 @@ onAuthStateChanged(auth, (user) => {
     const hijos = todasLasNormas.filter(n => n.padreId === norma.id);
     if (hijos.length > 0) {
       html += `<div style="margin-bottom:0.6rem">
-        <div style="font-size:0.75rem;color:var(--text2);margin-bottom:0.3rem;font-weight:600">↓ NORMAS HIJAS (${hijos.length})</div>
+        <div style="font-size:0.75rem;color:var(--text2);margin-bottom:0.3rem;font-weight:600">\u2193 NORMAS HIJAS (${hijos.length})</div>
         <div style="display:flex;flex-wrap:wrap;gap:0.4rem">`;
       hijos.forEach(h => {
         const cH = colorTipo[h.tipo] || "#555";
@@ -2014,15 +1979,6 @@ onAuthStateChanged(auth, (user) => {
           style="display:inline-flex;align-items:center;gap:0.4rem;background:${cH}22;color:var(--text);border:1px solid ${cH}66;border-radius:20px;padding:0.3rem 0.8rem;font-size:0.8rem;cursor:pointer;font-family:inherit;">
           ${h.tipo ? `<span style="background:${cH};color:white;border-radius:10px;padding:0.1rem 0.5rem;font-size:0.7rem">${h.tipo}</span>` : ""}
           ${h.nombre}</button>`;
-        // Botón extra — abre el explorador del hijo directamente (solo si tiene texto cargado)
-        if (h.tieneTexto) {
-          html += `<button class="chip-explorar-hijo" data-hijo-id="${h.id}"
-            title="Explorar artículos de ${h.nombre}"
-            style="display:inline-flex;align-items:center;gap:0.3rem;background:none;color:var(--accent);
-            border:1px solid var(--accent);border-radius:20px;padding:0.3rem 0.7rem;
-            font-size:0.78rem;cursor:pointer;font-family:inherit;margin-left:-0.2rem">
-            📖 Explorar</button>`;
-        }
       });
       html += `</div></div>`;
     }
@@ -2049,15 +2005,6 @@ onAuthStateChanged(auth, (user) => {
         document.getElementById("detalle-norma-modal").style.display = "none";
         const dest = todasLasNormas.find(n => n.id === btn.dataset.vincId);
         if (dest) setTimeout(() => mostrarDetalle(dest), 120);
-      });
-    });
-
-    // Boton Explorar — abre el explorador de la norma hija directamente
-    contenedor.querySelectorAll(".chip-explorar-hijo").forEach(btn => {
-      btn.addEventListener("click", () => {
-        document.getElementById("detalle-norma-modal").style.display = "none";
-        const hijo = todasLasNormas.find(n => n.id === btn.dataset.hijoId);
-        if (hijo && hijo.tieneTexto) setTimeout(() => abrirExplorador(hijo), 120);
       });
     });
   }

@@ -1303,24 +1303,9 @@ onAuthStateChanged(auth, (user) => {
         </div>
       </div>
 
-      <!-- Layout principal: índice lateral + área de artículos -->
-      <div style="display:flex;flex:1;min-height:0;overflow:hidden">
-
-        <!-- Índice lateral (desktop) -->
-        <div id="explo-indice" style="width:220px;flex-shrink:0;overflow-y:auto;
-          background:var(--bg2);border-right:1px solid var(--border);
-          padding:0.5rem 0;display:flex;flex-direction:column;gap:0">
-          <div style="font-size:0.65rem;font-weight:700;color:var(--text3);
-            text-transform:uppercase;letter-spacing:0.06em;padding:0.4rem 0.85rem 0.2rem">
-            Índice
-          </div>
-          <div id="explo-indice-contenido"></div>
-        </div>
-
-        <!-- Área de artículos -->
-        <div id="explo-lista" style="flex:1;overflow-y:scroll;padding:0.75rem 1rem;
-          display:flex;flex-direction:column;gap:0.5rem;scrollbar-gutter:stable"></div>
-      </div>`;
+      <!-- Layout principal: lista de artículos con grupos colapsables integrados -->
+      <div id="explo-lista" style="flex:1;overflow-y:scroll;padding:0.75rem 1rem;
+        display:flex;flex-direction:column;gap:0.5rem;scrollbar-gutter:stable"></div>
 
     document.getElementById("explo-btn-cerrar").addEventListener("click", cerrarExplorador);
 
@@ -1383,7 +1368,7 @@ onAuthStateChanged(auth, (user) => {
       if (nNota) partes.push("📝 " + nNota);
       if (contEl) contEl.textContent = partes.join(" · ");
 
-      construirIndice(_exploArticulos, _exploPreambulo);
+      construirIndice(_exploArticulos, _exploPreambulo); // mantener para compatibilidad aunque el índice no se muestre
       renderArticulos(_exploArticulos);
     } catch (err) {
       console.error("Error cargando artículos:", err);

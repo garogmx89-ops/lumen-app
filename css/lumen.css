@@ -1960,13 +1960,11 @@ input[type="file"]::file-selector-button:hover {
   margin-top: 0.25rem;
 }
 
-/* ── Explorador de artículos (Normatividad) — layout dos columnas ── */
+/* ── Explorador de artículos (Normatividad) — lista única con grupos colapsables ── */
 /*
-  Layout: columna izquierda (índice) + columna derecha (artículos).
-  El panel ocupa exactamente el viewport disponible; cada columna
-  maneja su propio scroll interno independientemente.
-  En desktop el bottom-nav no existe (display:none via media query),
-  por lo que NO se resta --bnav-h para evitar el hueco fantasma.
+  Layout simplificado: sin índice lateral.
+  Los grupos Título/Capítulo son botones colapsables directamente en la lista.
+  El panel ocupa el viewport disponible; la lista maneja su propio scroll.
 */
 #norma-explorador-panel {
   display: flex;
@@ -1976,17 +1974,12 @@ input[type="file"]::file-selector-button:hover {
   overflow: hidden;
 }
 
-/* Índice lateral */
+/* Índice lateral — ya no se usa, oculto por defecto */
 #explo-indice {
-  width: 220px;
-  flex-shrink: 0;
-  overflow-y: auto;
-  background: var(--bg2);
-  border-right: 1px solid var(--border);
-  scrollbar-width: thin;
+  display: none;
 }
 
-/* La lista de artículos scrollea sola */
+/* La lista de artículos ocupa todo el ancho y scrollea sola */
 #explo-lista {
   flex: 1;
   overflow-y: scroll;
@@ -1995,14 +1988,15 @@ input[type="file"]::file-selector-button:hover {
   display: flex;
   flex-direction: column;
   gap: 0.5rem;
+  max-width: 860px;   /* legibilidad en pantallas muy anchas */
+  width: 100%;
 }
 
-/* En móvil: ocultar índice lateral (navegar con filtros) */
+/* En móvil: ajustar altura restando bottom nav */
 @media (max-width: 768px) {
   #norma-explorador-panel {
     height: calc(100vh - var(--topbar-h) - var(--bnav-h) - 1rem);
   }
-  #explo-indice { display: none; }
 }
 
 

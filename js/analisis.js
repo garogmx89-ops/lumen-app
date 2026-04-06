@@ -3,7 +3,7 @@ import { auth, db } from "./firebase-config.js";
 import { onAuthStateChanged } from "https://www.gstatic.com/firebasejs/10.12.0/firebase-auth.js";
 import {
   collection, addDoc, updateDoc, deleteDoc, doc,
-  onSnapshot, orderBy, query, serverTimestamp
+  onSnapshot, orderBy, query, serverTimestamp, getDocs
 } from "https://www.gstatic.com/firebasejs/10.12.0/firebase-firestore.js";
 
 const colorEstado = {
@@ -325,13 +325,51 @@ onAuthStateChanged(auth, (user) => {
       btnGenerarIA.disabled = true;
       btnGenerarIA.textContent = "⏳ Generando...";
 
-      const normasTexto    = normasSeleccionadas.map(n => n.nombre).join(", ") || "No especificadas";
       const entidadesTexto = entidadesSeleccionadas.map(e => e.nombre).join(", ") || "No especificadas";
       const procesosTexto  = procesosSeleccionados.map(p => p.nombre).join(", ") || "No especificados";
       const agendaTexto    = agendaSeleccionada.map(a => a.nombre).join(", ")    || "No especificada";
       const contextoActual    = get("analisis-contexto");
       const normaExtraActual  = get("analisis-norma-extra");
       const precedenteActual  = get("analisis-precedente");
+
+      // ── Construir contexto normativo con artículos reales (SIN derogados) ──
+      // Si la norma tiene texto cargado en Firestore, se usan sus artículos vigentes.
+      // Si no tiene texto, se usa solo el nombre como referencia.
+      // FILTRO CLAVE: se excluyen artículos con derogado:true antes de armar el prompt.
+      let normasTexto = "";
+      for (const n of normasSeleccionadas) {
+        // Las normas se guardan por nombre; buscamos el doc correspondiente para obtener su id
+        try {
+          const normasSnap = await getDocs(collection(db, "usuarios", user.uid, "normatividad"));
+          const normaDoc   = normasSnap.docs.find(d => d.data().nombre === n.nombre);
+          if (normaDoc && normaDoc.data().tieneTexto) {
+            const artSnap = await getDocs(
+              collection(db, "usuarios", user.uid, "normatividad", normaDoc.id, "articulos")
+            );
+            // Filtrar: excluir preámbulo y artículos derogados
+            const validos = artSnap.docs
+              .map(d => ({ id: d.id, ...d.data() }))
+              .filter(a => a.id !== "_preambulo" && !a.derogado);
+            // Priorizar artículos marcados como relevantes; si no hay, tomar los primeros 30
+            const relevantes = validos.filter(a => a.relevante);
+            const paraPrompt = relevantes.length > 0 ? relevantes : validos.slice(0, 30);
+            if (paraPrompt.length > 0) {
+              normasTexto += `\n### ${n.nombre}\n`;
+              normasTexto += paraPrompt
+                .map(a => `${a.numero ? a.numero + ".- " : ""}${a.texto || ""}`.trim())
+                .filter(Boolean).join("\n\n");
+              normasTexto += "\n";
+            } else {
+              normasTexto += `${n.nombre} (sin artículos vigentes cargados)\n`;
+            }
+          } else {
+            normasTexto += `${n.nombre}\n`;
+          }
+        } catch (_) {
+          normasTexto += `${n.nombre}\n`;
+        }
+      }
+      if (!normasTexto) normasTexto = "No especificadas";
 
       const prompt = `Eres un asesor jurídico-administrativo especializado en políticas públicas de vivienda, desarrollo urbano y ordenamiento territorial en México, con experiencia en el marco normativo federal y estatal aplicable a SEDUVOT Zacatecas.
 
@@ -340,7 +378,7 @@ Se te presenta una pregunta institucional con contexto y referencias. Tu tarea e
 PREGUNTA INSTITUCIONAL:
 ${pregunta}
 
-NORMATIVIDAD PRINCIPAL VINCULADA:
+NORMATIVIDAD PRINCIPAL VINCULADA (artículos vigentes — derogados excluidos):
 ${normasTexto}
 
 ENTIDADES RELACIONADAS:

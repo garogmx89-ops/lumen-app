@@ -10,7 +10,7 @@ import {
 
 // Definición fija de las tres adscripciones
 const SUBSECS = [
-  { id: "staff",                 nombre: "Staff",                                                            color: "#4A4A8A", icono: "⚙️"  },
+  { id: "staff",                 nombre: "Despacho",                                                         color: "#4A4A8A", icono: "🏛️" },
   { id: "subsec_regularizacion", nombre: "Subsecretaría de Regularización de la Tenencia de la Tierra",     color: "#2D6A4F", icono: "🏘️" },
   { id: "subsec_desarrollo",     nombre: "Subsecretaría de Desarrollo Urbano y Vivienda",                   color: "#0077B6", icono: "🏙️" },
 ];
@@ -42,7 +42,12 @@ onAuthStateChanged(auth, (user) => {
 
   onSnapshot(query(subsecRef), (snap) => {
     snap.docs.forEach(d => {
-      todasLasSubsecs[d.id] = { nombre: d.data().nombre, titular: d.data().titular || "" };
+      todasLasSubsecs[d.id] = {
+        nombre:    d.data().nombre,
+        titular:   d.data().titular   || "",
+        cargo:     d.data().cargo     || "Titular",
+        extension: d.data().extension || ""
+      };
     });
     renderSubsecs();
     poblarSelectorAdscripcion();
@@ -64,12 +69,14 @@ onAuthStateChanged(auth, (user) => {
               <span style="font-size:0.85rem;font-weight:700;color:var(--text)">${s.nombre}</span>
               <span style="background:${s.color};color:white;font-size:0.65rem;font-weight:700;
                 padding:0.1rem 0.45rem;border-radius:20px">
-                ${s.id === "staff" ? "Staff" : "Subsecretaría"}
+                ${s.id === "staff" ? "Despacho" : "Subsecretaría"}
               </span>
             </div>
             <div style="font-size:0.8rem;color:var(--text2);margin-top:0.25rem">
               ${titular
-                ? `👤 <strong style="color:var(--text)">${titular}</strong>`
+                ? `👤 <span style="color:var(--text3);font-size:0.72rem">${datos.cargo || "Titular"}:</span>
+                   <strong style="color:var(--text)">${titular}</strong>
+                   ${datos.extension ? `<span style="color:var(--text3)"> · 📞 Ext. ${datos.extension}</span>` : ""}`
                 : `<span style="color:var(--text3);font-style:italic">Sin titular registrado</span>`}
             </div>
           </div>
@@ -105,13 +112,34 @@ onAuthStateChanged(auth, (user) => {
           ${s ? s.icono + " " + s.nombre : subsecId}
         </div>
         <div style="font-size:0.78rem;color:var(--text2);margin-bottom:1.1rem">Registrar o actualizar titular</div>
-        <div class="form-group" style="margin-bottom:1.1rem">
-          <label style="font-size:0.82rem;color:var(--text2);font-weight:500">Nombre del Titular</label>
+        <div class="form-group" style="margin-bottom:0.85rem">
+          <label style="font-size:0.82rem;color:var(--text2);font-weight:500">Nombre</label>
           <input type="text" id="input-titular-subsec" value="${actual}"
             placeholder="Ej. Lic. Juan Pérez García"
             style="background:var(--bg3);border:1px solid var(--border);border-radius:8px;
             padding:0.6rem 0.8rem;color:var(--text);font-size:0.9rem;font-family:inherit;
             width:100%;margin-top:0.4rem;outline:none">
+        </div>
+        <div style="display:grid;grid-template-columns:1fr 1fr;gap:0.75rem;margin-bottom:1.1rem">
+          <div class="form-group" style="margin-bottom:0">
+            <label style="font-size:0.82rem;color:var(--text2);font-weight:500">Cargo</label>
+            <select id="input-cargo-subsec"
+              style="background:var(--bg3);border:1px solid var(--border);border-radius:8px;
+              padding:0.55rem 0.8rem;color:var(--text);font-size:0.875rem;font-family:inherit;
+              width:100%;margin-top:0.4rem">
+              <option value="Titular"   ${(todasLasSubsecs[subsecId]?.cargo || "Titular") === "Titular"   ? "selected" : ""}>Titular</option>
+              <option value="Encargado" ${(todasLasSubsecs[subsecId]?.cargo || "") === "Encargado" ? "selected" : ""}>Encargado</option>
+            </select>
+          </div>
+          <div class="form-group" style="margin-bottom:0">
+            <label style="font-size:0.82rem;color:var(--text2);font-weight:500">Extensión</label>
+            <input type="text" id="input-extension-subsec"
+              value="${todasLasSubsecs[subsecId]?.extension || ""}"
+              placeholder="Ej. 301"
+              style="background:var(--bg3);border:1px solid var(--border);border-radius:8px;
+              padding:0.55rem 0.8rem;color:var(--text);font-size:0.875rem;font-family:inherit;
+              width:100%;margin-top:0.4rem;outline:none">
+          </div>
         </div>
         <div style="display:flex;gap:0.75rem;justify-content:flex-end">
           <button id="btn-cancelar-subsec"
@@ -141,7 +169,9 @@ onAuthStateChanged(auth, (user) => {
       const btn     = document.getElementById("btn-guardar-subsec");
       btn.disabled = true; btn.textContent = "Guardando...";
       try {
-        await updateDoc(doc(db, "usuarios", user.uid, "ua_subsec", subsecId), { titular });
+        const cargo     = document.getElementById("input-cargo-subsec")?.value     || "Titular";
+        const extension = document.getElementById("input-extension-subsec")?.value.trim() || "";
+        await updateDoc(doc(db, "usuarios", user.uid, "ua_subsec", subsecId), { titular, cargo, extension });
         modal.style.display = "none";
       } catch (err) {
         console.error("Error guardando titular:", err);
@@ -161,10 +191,9 @@ onAuthStateChanged(auth, (user) => {
     const valorActual = sel.value;
     sel.innerHTML = '<option value="">— Seleccionar adscripción —</option>';
     SUBSECS.forEach(s => {
-      const titular = todasLasSubsecs[s.id]?.titular;
-      const opt     = document.createElement("option");
+      const opt = document.createElement("option");
       opt.value       = s.id;
-      opt.textContent = titular ? `${s.nombre} · ${titular}` : s.nombre;
+      opt.textContent = s.nombre;
       sel.appendChild(opt);
     });
     if (valorActual) sel.value = valorActual;
@@ -248,7 +277,7 @@ onAuthStateChanged(auth, (user) => {
   function badgeAdscripcion(adscripcionId) {
     const s = SUBSECS.find(x => x.id === adscripcionId);
     if (!s) return "";
-    const label = s.id === "staff" ? "Staff"
+    const label = s.id === "staff" ? "Despacho"
       : s.id === "subsec_regularizacion" ? "Subsec. Regularización"
       : "Subsec. Des. Urbano";
     return `<span style="background:${s.color};color:white;font-size:0.65rem;font-weight:700;
@@ -285,7 +314,17 @@ onAuthStateChanged(auth, (user) => {
             border-radius:7px;background:var(--bg3);border:1px solid var(--border);margin-bottom:0.4rem">
             <span>${s.icono}</span>
             <span style="font-size:0.75rem;font-weight:700;color:var(--text)">${s.nombre}</span>
-            ${titular ? `<span style="font-size:0.72rem;color:var(--text2)">· 👤 ${titular}</span>` : ""}
+            ${(() => {
+              const datos = todasLasSubsecs[s.id] || {};
+              const t = datos.titular || "";
+              const c = datos.cargo   || "Titular";
+              const e = datos.extension || "";
+              if (!t) return "";
+              return `<span style="font-size:0.72rem;color:var(--text2)">
+                · <span style="color:var(--text3)">${c}:</span> ${t}
+                ${e ? `<span style="color:var(--text3)"> · Ext. ${e}</span>` : ""}
+              </span>`;
+            })()}
             <span style="margin-left:auto;font-size:0.68rem;color:var(--text3)">
               ${lista.length} unidad${lista.length > 1 ? "es" : ""}
             </span>
@@ -377,7 +416,15 @@ onAuthStateChanged(auth, (user) => {
             </div>
             ${s
               ? `<div style="font-size:0.78rem;color:var(--text2);margin-bottom:0.2rem">
-                  ${s.icono} ${s.nombre}${titular ? ` · 👤 <strong style="color:var(--text)">${titular}</strong>` : ""}
+                  ${s.icono} ${s.nombre}
+                  ${titular
+                    ? (() => {
+                        const dSub = todasLasSubsecs[ua.adscripcionId] || {};
+                        return ` · <span style="color:var(--text3);font-size:0.72rem">${dSub.cargo || "Titular"}:</span>
+                          <strong style="color:var(--text)">${titular}</strong>
+                          ${dSub.extension ? ` <span style="color:var(--text3)">· Ext. ${dSub.extension}</span>` : ""}`;
+                      })()
+                    : ""}
                  </div>` : ""}
             ${ua.responsable
               ? `<div style="font-size:0.78rem;color:var(--text2)">

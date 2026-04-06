@@ -1306,6 +1306,7 @@ onAuthStateChanged(auth, (user) => {
       <!-- Layout principal: lista de artículos con grupos colapsables integrados -->
       <div id="explo-lista" style="flex:1;overflow-y:scroll;padding:0.75rem 1rem;
         display:flex;flex-direction:column;gap:0.5rem;scrollbar-gutter:stable"></div>
+    `;
 
     document.getElementById("explo-btn-cerrar").addEventListener("click", cerrarExplorador);
 

@@ -641,7 +641,20 @@
 
 <!-- UNIDADES ADMINISTRATIVAS -->
         <div class="panel" id="panel-ua">
+
+          <!-- Sección 1: Estructura organizacional -->
           <div class="reunion-form-card">
+            <h2 class="panel-title">Estructura organizacional</h2>
+            <p style="font-size:0.8rem;color:var(--text2);margin-bottom:0.75rem;margin-top:-0.25rem">
+              Registra el titular de cada subsecretaría. Las unidades administrativas se vincularán a ellas.
+            </p>
+            <div id="ua-subsecs-contenido">
+              <p class="lista-vacia">Cargando...</p>
+            </div>
+          </div>
+
+          <!-- Sección 2: Formulario nueva UA -->
+          <div class="reunion-form-card" id="ua-form-nueva">
             <h2 class="panel-title">Nueva Unidad Administrativa</h2>
             <div class="form-group">
               <label for="ua-nombre">Nombre de la Unidad</label>
@@ -651,14 +664,7 @@
               <label for="ua-adscripcion">Adscripción</label>
               <select id="ua-adscripcion">
                 <option value="">— Seleccionar adscripción —</option>
-                <option value="Staff">Staff</option>
-                <option value="Subsecretaría de Regularización de la Tenencia de la Tierra">Subsecretaría de Regularización de la Tenencia de la Tierra</option>
-                <option value="Subsecretaría de Desarrollo Urbano y Vivienda">Subsecretaría de Desarrollo Urbano y Vivienda</option>
               </select>
-            </div>
-            <div class="form-group" id="ua-campo-titular-subsec" style="display:none">
-              <label for="ua-titular-subsec">Titular de la Subsecretaría</label>
-              <input type="text" id="ua-titular-subsec" placeholder="Ej. Lic. Juan Pérez">
             </div>
             <div class="form-row">
               <div class="form-group">
@@ -672,19 +678,21 @@
             </div>
             <div class="form-group">
               <label for="ua-atribuciones">Atribuciones según Reglamento Interior</label>
-              <textarea id="ua-atribuciones" rows="4" placeholder="Ej. Coordinar la formulación del Plan Estatal de Desarrollo Urbano..."></textarea>
+              <textarea id="ua-atribuciones" rows="4"
+                placeholder="Ej. Coordinar la formulación del Plan Estatal de Desarrollo Urbano..."></textarea>
             </div>
             <button class="btn-primary" id="btn-guardar-ua">Guardar unidad</button>
             <button class="btn-secondary" id="btn-cancelar-ua" style="display:none;">Cancelar edición</button>
           </div>
+
+          <!-- Sección 3: Lista de UAs agrupada -->
           <div class="reuniones-lista">
-            <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:0.75rem;">
-              <h2 class="panel-title" style="margin-bottom:0">Unidades registradas</h2>
-            </div>
+            <h2 class="panel-title" style="margin-bottom:0.75rem">Unidades registradas</h2>
             <div id="ua-contenido">
               <p class="lista-vacia">No hay unidades administrativas registradas aún.</p>
             </div>
           </div>
+
         </div>
 
 <!-- PROGRAMAS PRESUPUESTARIOS -->

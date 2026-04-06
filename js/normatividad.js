@@ -1740,10 +1740,14 @@ onAuthStateChanged(auth, (user) => {
     }
 
     if (agruparPorCapitulo) {
-      // Construir grupos
+      // Separar ley de transitorios antes de agrupar
+      const artLey         = lista.filter(a => a.seccion !== "transitorio");
+      const artTransitorios = lista.filter(a => a.seccion === "transitorio");
+
+      // Construir grupos solo de artículos de la ley
       const grupos = [];
       let grupoActual = null;
-      lista.forEach(a => {
+      artLey.forEach(a => {
         const clave = [a.titulo, a.capitulo, a.seccionNombre].join("|");
         if (!grupoActual || grupoActual.clave !== clave) {
           grupoActual = { clave, titulo: a.titulo, tituloNombre: a.tituloNombre,
@@ -1817,6 +1821,37 @@ onAuthStateChanged(auth, (user) => {
           </div>`;
         });
       });
+
+      // ── Transitorios — bloque separado, siempre al final de la ley ──
+      if (artTransitorios.length > 0) {
+        const grupoTransId = "explo-grupo-transitorios";
+        html += `
+        <div style="margin-top:1.1rem;margin-bottom:0.3rem;padding:0.4rem 0.6rem;
+          background:rgba(0,119,182,0.1);border-left:3px solid #0077B6;border-radius:0 6px 6px 0">
+          <div style="font-size:0.7rem;font-weight:700;color:#0077B6;text-transform:uppercase;letter-spacing:0.07em">
+            ⏱ Transitorios
+          </div>
+        </div>
+        <div style="margin-bottom:0.3rem">
+          <button class="explo-cap-toggle" data-grupo="${grupoTransId}"
+            style="width:100%;background:var(--bg2);border:1px solid var(--border);
+            border-radius:8px;cursor:pointer;font-family:inherit;text-align:left;
+            padding:0.5rem 0.85rem;display:flex;justify-content:space-between;align-items:center;
+            transition:background 0.15s,border-color 0.15s">
+            <span style="font-size:0.85rem;font-weight:600;color:var(--text)">Artículos transitorios</span>
+            <div style="display:flex;align-items:center;gap:0.4rem;flex-shrink:0">
+              <span style="font-size:0.72rem;color:var(--text3)">${artTransitorios.length} art.</span>
+              <span class="explo-cap-chevron" style="font-size:0.7rem;color:var(--text3);
+                transition:transform 0.2s;display:inline-block">▶</span>
+            </div>
+          </button>
+          <div id="${grupoTransId}" class="explo-cap-body"
+            style="display:none;flex-direction:column;gap:0.4rem;margin-top:0.3rem;">
+            ${artTransitorios.map(a => renderArticulo(a, termino, badgeSec)).join("")}
+          </div>
+        </div>`;
+      }
+
     } else {
       html = lista.map(a => renderArticulo(a, termino, badgeSec)).join("");
     }
@@ -2050,7 +2085,7 @@ onAuthStateChanged(auth, (user) => {
       let y = 20;
 
       function checkPage(needed = 12) {
-        if (y + needed > 282) { doc.addPage(); y = 20; }
+        if (y + needed > 272) { doc.addPage(); y = 20; }
       }
 
       // ── Encabezado institucional ──────────────────────────────────────────
@@ -2161,10 +2196,13 @@ onAuthStateChanged(auth, (user) => {
       const pageCount = doc.getNumberOfPages();
       for (let i = 1; i <= pageCount; i++) {
         doc.setPage(i);
+        doc.setDrawColor(200, 200, 200); doc.setLineWidth(0.3);
+        doc.line(mL, 284, pageW - mR, 284);
         doc.setFontSize(6.5); doc.setTextColor(160, 160, 160);
+        doc.setFont("helvetica", "normal");
         doc.text(
           "Lumen · SEDUVOT Zacatecas · " + (norma.nombre || "") + " · Pág " + i + " de " + pageCount,
-          mL, 291
+          mL, 289
         );
       }
 

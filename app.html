@@ -655,20 +655,35 @@
 
           <!-- Sección 2: Formulario nueva UA -->
           <div class="reunion-form-card" id="ua-form-nueva">
-            <h2 class="panel-title">Nueva Unidad Administrativa</h2>
-            <div class="form-group">
-              <label for="ua-nombre">Nombre de la Unidad</label>
-              <input type="text" id="ua-nombre" placeholder="Ej. Dirección de Planeación y Evaluación">
-            </div>
-            <div class="form-group">
-              <label for="ua-adscripcion">Adscripción</label>
-              <select id="ua-adscripcion">
-                <option value="">— Seleccionar adscripción —</option>
-              </select>
-            </div>
+            <h2 class="panel-title" id="ua-form-titulo">Nueva Unidad Administrativa</h2>
+
             <div class="form-row">
               <div class="form-group">
-                <label for="ua-responsable">Responsable de la Unidad</label>
+                <label for="ua-tipo">Tipo</label>
+                <select id="ua-tipo">
+                  <option value="">— Seleccionar tipo —</option>
+                  <option value="Dirección">📁 Dirección</option>
+                  <option value="Unidad">📂 Unidad</option>
+                  <option value="Departamento">📄 Departamento</option>
+                </select>
+              </div>
+            </div>
+
+            <div class="form-group" id="ua-padre-wrap" style="display:none">
+              <label for="ua-padre-select">Depende de</label>
+              <select id="ua-padre-select">
+                <option value="">— Seleccionar unidad superior —</option>
+              </select>
+            </div>
+
+            <div class="form-group">
+              <label for="ua-nombre">Nombre</label>
+              <input type="text" id="ua-nombre" placeholder="Ej. Dirección de Planeación y Evaluación">
+            </div>
+
+            <div class="form-row">
+              <div class="form-group">
+                <label for="ua-responsable">Responsable</label>
                 <input type="text" id="ua-responsable" placeholder="Ej. Lic. María García">
               </div>
               <div class="form-group form-group--corto">
@@ -676,12 +691,14 @@
                 <input type="text" id="ua-extension" placeholder="Ej. 305">
               </div>
             </div>
+
             <div class="form-group">
               <label for="ua-atribuciones">Atribuciones según Reglamento Interior</label>
               <textarea id="ua-atribuciones" rows="4"
                 placeholder="Ej. Coordinar la formulación del Plan Estatal de Desarrollo Urbano..."></textarea>
             </div>
-            <button class="btn-primary" id="btn-guardar-ua">Guardar unidad</button>
+
+            <button class="btn-primary" id="btn-guardar-ua">Guardar</button>
             <button class="btn-secondary" id="btn-cancelar-ua" style="display:none;">Cancelar edición</button>
           </div>
 

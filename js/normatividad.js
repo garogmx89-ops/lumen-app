@@ -695,7 +695,8 @@ onAuthStateChanged(auth, (user) => {
     document.getElementById("norma-fecha-reforma").value = norma.fechaReforma  || "";
     document.getElementById("norma-resumen").value       = norma.resumen       || "";
     document.getElementById("norma-anotaciones").value   = norma.anotaciones   || "";
-    document.getElementById("norma-url").value           = norma.urlFuente      || "";
+    const elUrl = document.getElementById("norma-url");
+    if (elUrl) elUrl.value = norma.urlFuente || "";
     document.getElementById("norma-pdf").value           = "";
 
     padreIdActual      = norma.padreId     || null;
@@ -735,7 +736,7 @@ onAuthStateChanged(auth, (user) => {
       const fechaReforma = document.getElementById("norma-fecha-reforma").value;
       const resumen      = document.getElementById("norma-resumen").value.trim();
       const anotaciones  = document.getElementById("norma-anotaciones").value.trim();
-      const urlFuente    = document.getElementById("norma-url").value.trim();
+      const urlFuente    = document.getElementById("norma-url")?.value.trim() || "";
       const archivoPdf   = document.getElementById("norma-pdf").files[0];
 
       if (!nombre) { alert("El nombre del documento es obligatorio."); return; }

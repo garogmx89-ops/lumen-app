@@ -1754,38 +1754,68 @@ onAuthStateChanged(auth, (user) => {
         grupoActual.articulos.push(a);
       });
 
-      grupos.forEach((g, gi) => {
-        const tieneRel = g.articulos.some(a => _exploRelevantes.has(a.id));
-        const tieneNota = g.articulos.some(a => _exploNotas[a.id]);
-        let linea1 = "", linea2 = "";
-        if (g.titulo) linea1 = g.titulo + (g.tituloNombre ? " — " + g.tituloNombre : "");
-        if (g.capitulo) linea2 = g.capitulo + (g.capituloNombre ? " — " + g.capituloNombre : "");
-        if (g.seccionNombre) linea2 += (linea2 ? " · " : "") + "Sección " + g.seccionNombre;
+      // Agrupar capítulos bajo su Título para jerarquía visual
+      const porTitulo = [];
+      let tituloActual = null;
 
-        const grupoId = `explo-grupo-${gi}`;
-        const badges = (tieneRel ? '<span style="font-size:0.7rem;color:var(--accent)">⭐</span>' : "") +
-                       (tieneNota ? '<span style="font-size:0.7rem;color:var(--text2)">📝</span>' : "");
+      grupos.forEach(g => {
+        const tKey = g.titulo || "__sin_titulo__";
+        if (!tituloActual || tituloActual.clave !== tKey) {
+          tituloActual = { clave: tKey, titulo: g.titulo, tituloNombre: g.tituloNombre, caps: [] };
+          porTitulo.push(tituloActual);
+        }
+        tituloActual.caps.push(g);
+      });
 
-        html += `<div style="margin-top:0.6rem">
-          <button class="explo-cap-toggle" data-grupo="${grupoId}"
-            style="width:100%;background:var(--bg2);border:1px solid var(--border);
-            border-radius:8px;cursor:pointer;font-family:inherit;text-align:left;padding:0">
-            <div style="padding:0.5rem 0.85rem">
-              ${linea1 ? `<div style="font-size:0.68rem;font-weight:600;color:var(--text3);text-transform:uppercase;letter-spacing:0.06em;margin-bottom:0.1rem">${linea1}</div>` : ""}
-              <div style="display:flex;justify-content:space-between;align-items:center">
-                <div style="font-size:0.88rem;font-weight:600;color:var(--text)">${linea2 || "Sin capítulo"}</div>
-                <div style="display:flex;align-items:center;gap:0.4rem">
-                  ${badges}
-                  <span style="font-size:0.72rem;color:var(--text3)">${g.articulos.length} art.</span>
-                  <span class="explo-cap-chevron" style="font-size:0.75rem;color:var(--text3);transition:transform 0.2s">▼</span>
-                </div>
-              </div>
+      porTitulo.forEach(t => {
+        // ── Encabezado de Título (separador, no colapsable) ──
+        if (t.titulo) {
+          const nombreTitulo = t.titulo + (t.tituloNombre ? " — " + t.tituloNombre : "");
+          html += `<div style="margin-top:1.1rem;margin-bottom:0.3rem;padding:0.4rem 0.6rem;
+            background:var(--accent-soft);border-left:3px solid var(--accent);border-radius:0 6px 6px 0">
+            <div style="font-size:0.7rem;font-weight:700;color:var(--accent);text-transform:uppercase;letter-spacing:0.07em">
+              ${nombreTitulo}
             </div>
-          </button>
-          <div id="${grupoId}" style="display:none;margin-top:0.3rem;display:flex;flex-direction:column;gap:0.4rem">
-            ${g.articulos.map(a => renderArticulo(a, termino, badgeSec)).join("")}
-          </div>
-        </div>`;
+          </div>`;
+        } else {
+          html += `<div style="margin-top:0.5rem"></div>`;
+        }
+
+        // ── Capítulos dentro del título (botones colapsables, indentados) ──
+        t.caps.forEach((g, gi) => {
+          const tieneRel  = g.articulos.some(a => _exploRelevantes.has(a.id));
+          const tieneNota = g.articulos.some(a => _exploNotas[a.id]);
+          const badges = (tieneRel  ? '<span style="font-size:0.68rem;color:var(--accent)">⭐</span>' : "") +
+                         (tieneNota ? '<span style="font-size:0.68rem;color:var(--text2)">📝</span>' : "");
+
+          let labelCap = "";
+          if (g.capitulo) labelCap = g.capitulo + (g.capituloNombre ? " — " + g.capituloNombre : "");
+          else labelCap = t.titulo ? "Capítulo único" : "Artículos";
+          if (g.seccionNombre) labelCap += " · Sección " + g.seccionNombre;
+
+          const grupoId = `explo-grupo-${gi}-${t.clave.replace(/\s/g,"")}`;
+
+          html += `<div style="margin-bottom:0.3rem;${t.titulo ? "margin-left:0.75rem" : ""}">
+            <button class="explo-cap-toggle" data-grupo="${grupoId}"
+              style="width:100%;background:var(--bg2);border:1px solid var(--border);
+              border-radius:8px;cursor:pointer;font-family:inherit;text-align:left;
+              padding:0.5rem 0.85rem;display:flex;justify-content:space-between;align-items:center;
+              transition:background 0.15s,border-color 0.15s">
+              <span style="font-size:0.85rem;font-weight:600;color:var(--text)">${labelCap}</span>
+              <div style="display:flex;align-items:center;gap:0.4rem;flex-shrink:0">
+                ${badges}
+                <span style="font-size:0.72rem;color:var(--text3)">${g.articulos.length} art.</span>
+                <span class="explo-cap-chevron" style="font-size:0.7rem;color:var(--text3);
+                  transition:transform 0.2s;display:inline-block">▶</span>
+              </div>
+            </button>
+            <div id="${grupoId}" class="explo-cap-body"
+              style="display:none;flex-direction:column;gap:0.4rem;
+              margin-top:0.3rem;${t.titulo ? "padding-left:0.75rem" : ""}">
+              ${g.articulos.map(a => renderArticulo(a, termino, badgeSec)).join("")}
+            </div>
+          </div>`;
+        });
       });
     } else {
       html = lista.map(a => renderArticulo(a, termino, badgeSec)).join("");
@@ -1827,15 +1857,19 @@ onAuthStateChanged(auth, (user) => {
       const grupoId  = btn.dataset.grupo;
       const grupoDiv = document.getElementById(grupoId);
       const chevron  = btn.querySelector(".explo-cap-chevron");
-      // Todos los capítulos colapsados por defecto
-      if (grupoDiv) { grupoDiv.style.display = "none"; }
-      if (chevron) chevron.style.transform = "rotate(-90deg)";
+      // Todos colapsados por defecto
+      if (grupoDiv) grupoDiv.style.display = "none";
+      if (chevron)  chevron.style.transform = "rotate(0deg)"; // ▶ apunta derecha = cerrado
 
       btn.addEventListener("click", () => {
         const abierto = grupoDiv.style.display !== "none";
         grupoDiv.style.display = abierto ? "none" : "flex";
-        if (chevron) chevron.style.transform = abierto ? "rotate(-90deg)" : "rotate(0deg)";
+        if (chevron) chevron.style.transform = abierto ? "rotate(0deg)" : "rotate(90deg)"; // ▶ rotado 90° = ▼ abierto
       });
+
+      // Hover sutil
+      btn.addEventListener("mouseenter", () => { btn.style.background = "var(--bg3)"; btn.style.borderColor = "var(--accent)"; });
+      btn.addEventListener("mouseleave", () => { btn.style.background = "var(--bg2)"; btn.style.borderColor = "var(--border)"; });
     });
 
     // ── Botón expandir artículo ──

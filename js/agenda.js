@@ -18,12 +18,14 @@ const colorPrioridad = {
 
 const colorTipo = {
   "Reunión":   "#4A4A8A",
-  "Actividad": "#0077B6"
+  "Actividad": "#0077B6",
+  "Evento":    "#2D6A4F"
 };
 
 // Estados según tipo
 const estadosReunion    = ["Pendiente", "Realizada", "Cancelada"];
 const estadosActividad  = ["Pendiente", "Entregada",  "Vencida"];
+const estadosEvento     = ["Pendiente", "Asistido",  "Cancelado"];
 
 let todasLasEventos   = [];
 let filtroActivo      = "todos";
@@ -39,18 +41,25 @@ let uasVinculadas       = [];
 function toggleCamposTipo(tipo) {
   const camposReunion    = document.getElementById("agenda-campos-reunion");
   const camposActividad  = document.getElementById("agenda-campos-actividad");
+  const camposEvento     = document.getElementById("agenda-campos-evento");
   const labelFecha       = document.getElementById("agenda-label-fecha");
   const selEstado        = document.getElementById("alerta-estado");
-
-  if (camposReunion)   camposReunion.style.display   = tipo === "Reunión"   ? "" : "none";
-  if (camposActividad) camposActividad.style.display  = tipo === "Actividad" ? "" : "none";
   const camposReunionFin = document.getElementById("agenda-campos-reunion-fin");
-  if (camposReunionFin) camposReunionFin.style.display = tipo === "Reunión" ? "" : "none";
-  if (labelFecha)      labelFecha.textContent = tipo === "Reunión" ? "Fecha" : "Fecha límite";
+
+  if (camposReunion)    camposReunion.style.display    = tipo === "Reunión"   ? "" : "none";
+  if (camposActividad)  camposActividad.style.display  = tipo === "Actividad" ? "" : "none";
+  if (camposEvento)     camposEvento.style.display     = tipo === "Evento"    ? "" : "none";
+  if (camposReunionFin) camposReunionFin.style.display = tipo === "Reunión"   ? "" : "none";
+
+  if (labelFecha) {
+    labelFecha.textContent = tipo === "Actividad" ? "Fecha límite" : "Fecha";
+  }
 
   // Actualizar opciones de estado según tipo
   if (selEstado) {
-    const estados = tipo === "Reunión" ? estadosReunion : estadosActividad;
+    const estados = tipo === "Reunión"   ? estadosReunion
+                  : tipo === "Actividad" ? estadosActividad
+                  : estadosEvento;
     const valorActual = selEstado.value;
     selEstado.innerHTML = estados.map(e =>
       `<option value="${e}"${e === valorActual ? " selected" : ""}>${e}</option>`
@@ -101,17 +110,37 @@ onAuthStateChanged(auth, (user) => {
 
   // ─── CATÁLOGO DE ENTIDADES ─────────────────────────────────────────────
   onSnapshot(query(entidadesRef, orderBy("creadoEn", "asc")), (snap) => {
+    // Selector de "Dependencias involucradas"
     const sel = document.getElementById("alerta-selector-entidad");
-    if (!sel) return;
-    sel.innerHTML = '<option value="">— Selecciona una dependencia —</option>';
-    snap.docs.forEach(d => {
-      const e = d.data();
-      const opt = document.createElement("option");
-      opt.value = d.id;
-      opt.textContent = e.siglas ? `${e.siglas} — ${e.nombre}` : e.nombre;
-      opt.dataset.nombre = e.siglas || e.nombre;
-      sel.appendChild(opt);
-    });
+    if (sel) {
+      sel.innerHTML = '<option value="">— Selecciona una dependencia —</option>';
+      snap.docs.forEach(d => {
+        const e = d.data();
+        const opt = document.createElement("option");
+        opt.value = d.id;
+        opt.textContent = e.siglas ? `${e.siglas} — ${e.nombre}` : e.nombre;
+        opt.dataset.nombre = e.siglas || e.nombre;
+        sel.appendChild(opt);
+      });
+    }
+    // Selector de "Destinatario" en Actividad
+    const selDest = document.getElementById("alerta-destinatario-selector");
+    if (selDest) {
+      // Conservar la opción "Otra instancia..." al final
+      selDest.innerHTML = '<option value="">— Seleccionar dependencia —</option>';
+      snap.docs.forEach(d => {
+        const e = d.data();
+        const opt = document.createElement("option");
+        opt.value = d.id;
+        opt.dataset.nombre = e.siglas ? `${e.siglas} — ${e.nombre}` : e.nombre;
+        opt.textContent = e.siglas ? `${e.siglas} — ${e.nombre}` : e.nombre;
+        selDest.appendChild(opt);
+      });
+      const otraOpt = document.createElement("option");
+      otraOpt.value = "__otra__";
+      otraOpt.textContent = "✏️ Otra instancia...";
+      selDest.appendChild(otraOpt);
+    }
   });
 
   // ─── CATÁLOGO DE UNIDADES ADMINISTRATIVAS ────────────────────────────────
@@ -185,6 +214,30 @@ onAuthStateChanged(auth, (user) => {
     e.target.value = "";
   });
 
+  // ─── SELECTOR DESTINATARIO (Actividad) ────────────────────────────────
+  document.getElementById("alerta-destinatario-selector")?.addEventListener("change", (e) => {
+    const val    = e.target.value;
+    const campo  = document.getElementById("alerta-destinatario");
+    const tagEl  = document.getElementById("alerta-destinatario-tag");
+    if (val === "__otra__") {
+      // Mostrar campo libre
+      if (campo) { campo.style.display = ""; campo.value = ""; campo.focus(); }
+      if (tagEl) tagEl.innerHTML = "";
+      e.target.value = "";
+    } else if (val) {
+      const nombre = e.target.options[e.target.selectedIndex].dataset.nombre;
+      if (campo) { campo.style.display = "none"; campo.value = nombre; }
+      if (tagEl) tagEl.innerHTML = `<span class="participante-tag">📬 ${nombre}
+        <button type="button" id="btn-quitar-destinatario" style="background:none;border:none;cursor:pointer;color:var(--text3);font-size:0.75rem;padding:0 2px;line-height:1">✕</button>
+      </span>`;
+      document.getElementById("btn-quitar-destinatario")?.addEventListener("click", () => {
+        if (campo) { campo.value = ""; campo.style.display = "none"; }
+        if (tagEl) tagEl.innerHTML = "";
+      });
+      e.target.value = "";
+    }
+  });
+
   // ─── RENDER TAGS ───────────────────────────────────────────────────────
   function renderTagsProcesos() {
     const c = document.getElementById("alerta-tags-procesos");
@@ -238,8 +291,18 @@ onAuthStateChanged(auth, (user) => {
   function limpiarFormulario() {
     const ids = ["alerta-titulo","alerta-fecha","alerta-asunto",
                  "alerta-hora","alerta-ubicacion","alerta-participantes",
-                 "alerta-acuerdos","alerta-entregable","alerta-destinatario"];
+                 "alerta-acuerdos","alerta-entregable","alerta-destinatario",
+                 "alerta-fecha-activacion","alerta-hora-evento",
+                 "alerta-ubicacion-evento","alerta-convocante","alerta-asunto-evento"];
     ids.forEach(id => { const el = document.getElementById(id); if (el) el.value = ""; });
+
+    // Reset destinatario selector
+    const selDest = document.getElementById("alerta-destinatario-selector");
+    if (selDest) selDest.value = "";
+    const campo = document.getElementById("alerta-destinatario");
+    if (campo) campo.style.display = "none";
+    const tagEl = document.getElementById("alerta-destinatario-tag");
+    if (tagEl) tagEl.innerHTML = "";
 
     const selTipoEl = document.getElementById("alerta-tipo");
     if (selTipoEl) selTipoEl.value = "Reunión";
@@ -309,8 +372,22 @@ onAuthStateChanged(auth, (user) => {
     set("alerta-acuerdos",      a.acuerdos);
 
     // Campos de Actividad
-    set("alerta-entregable",    a.entregable);
-    set("alerta-destinatario",  a.destinatario);
+    set("alerta-entregable",      a.entregable);
+    set("alerta-fecha-activacion",a.fechaActivacion || "");
+    // Destinatario: mostrar en campo libre si tiene valor
+    const campoD = document.getElementById("alerta-destinatario");
+    const tagD   = document.getElementById("alerta-destinatario-tag");
+    if (campoD && a.destinatario) {
+      campoD.style.display = "";
+      campoD.value = a.destinatario;
+      if (tagD) tagD.innerHTML = `<span class="participante-tag">📬 ${a.destinatario}</span>`;
+    }
+
+    // Campos de Evento
+    set("alerta-hora-evento",      a.horaEvento || "");
+    set("alerta-ubicacion-evento", a.ubicacionEvento || "");
+    set("alerta-convocante",       a.convocante || "");
+    set("alerta-asunto-evento",    a.asuntoEvento || "");
 
     procesosVinculados  = Array.isArray(a.procesosVinculados)  ? a.procesosVinculados.map(x => ({...x}))  : [];
     normasVinculadas    = Array.isArray(a.normasVinculadas)    ? a.normasVinculadas.map(x => ({...x}))    : [];
@@ -362,8 +439,17 @@ onAuthStateChanged(auth, (user) => {
 
       // Campos específicos de Actividad
       if (tipo === "Actividad") {
-        datos.entregable    = document.getElementById("alerta-entregable")?.value.trim()   || "";
-        datos.destinatario  = document.getElementById("alerta-destinatario")?.value.trim() || "";
+        datos.entregable       = document.getElementById("alerta-entregable")?.value.trim()      || "";
+        datos.destinatario     = document.getElementById("alerta-destinatario")?.value.trim()    || "";
+        datos.fechaActivacion  = document.getElementById("alerta-fecha-activacion")?.value || "";
+      }
+
+      // Campos específicos de Evento
+      if (tipo === "Evento") {
+        datos.horaEvento       = document.getElementById("alerta-hora-evento")?.value        || "";
+        datos.ubicacionEvento  = document.getElementById("alerta-ubicacion-evento")?.value.trim() || "";
+        datos.convocante       = document.getElementById("alerta-convocante")?.value.trim()  || "";
+        datos.asuntoEvento     = document.getElementById("alerta-asunto-evento")?.value.trim() || "";
       }
 
       try {
@@ -442,8 +528,20 @@ onAuthStateChanged(auth, (user) => {
     }
 
     const hoy = new Date(); hoy.setHours(0, 0, 0, 0);
+    const hoyStr = hoy.toISOString().slice(0, 10);
 
-    contenedor.innerHTML = filtrados.map(a => {
+    // Filtrar por fechaActivacion — actividades con fecha futura no se muestran
+    const visibles = filtrados.filter(a => {
+      if (a.tipo === "Actividad" && a.fechaActivacion && a.fechaActivacion > hoyStr) return false;
+      return true;
+    });
+
+    if (visibles.length === 0) {
+      contenedor.innerHTML = '<p class="lista-vacia">No hay eventos para este filtro.</p>';
+      return;
+    }
+
+    contenedor.innerHTML = visibles.map(a => {
       const tipo   = a.tipo || "Reunión";
       const colorT = colorTipo[tipo]             || "#555";
       const colorP = colorPrioridad[a.prioridad] || "#555";
@@ -462,7 +560,9 @@ onAuthStateChanged(auth, (user) => {
 
       const metaFecha = tipo === "Reunión"
         ? (a.fecha ? `📅 ${formatearFecha(a.fecha)}${a.hora && a.hora !== "pendiente" ? " · " + a.hora : a.hora === "pendiente" ? " · Por confirmar" : ""}${a.ubicacion ? " · 📍 " + a.ubicacion : ""}` : "")
-        : (a.fecha ? `📅 Entrega: ${formatearFecha(a.fecha)}` : "");
+        : tipo === "Evento"
+          ? (a.fecha ? `📅 ${formatearFecha(a.fecha)}${a.horaEvento ? " · " + a.horaEvento : ""}${a.ubicacionEvento ? " · 📍 " + a.ubicacionEvento : ""}` : "")
+          : (a.fecha ? `📅 Entrega: ${formatearFecha(a.fecha)}` : "");
 
       const entidadesTags = (a.entidadesVinculadas || [])
         .map(e => `<span class="participante-tag-display">🏛️ ${e.nombre}</span>`).join("");
@@ -478,7 +578,14 @@ onAuthStateChanged(auth, (user) => {
       // Campo descriptivo según tipo
       const descripcion = tipo === "Reunión"
         ? (a.asunto ? `<div class="reunion-card-acuerdos"><strong>Asunto:</strong> ${a.asunto}</div>` : "")
-        : (a.entregable ? `<div class="reunion-card-acuerdos"><strong>Entregable:</strong> ${a.entregable}${a.destinatario ? " · <strong>Para:</strong> " + a.destinatario : ""}</div>` : "");
+        : tipo === "Evento"
+          ? (() => {
+              const partes = [];
+              if (a.convocante)   partes.push(`<strong>Convocante:</strong> ${a.convocante}`);
+              if (a.asuntoEvento) partes.push(`<strong>Descripción:</strong> ${a.asuntoEvento}`);
+              return partes.length ? `<div class="reunion-card-acuerdos">${partes.join(" · ")}</div>` : "";
+            })()
+          : (a.entregable ? `<div class="reunion-card-acuerdos"><strong>Entregable:</strong> ${a.entregable}${a.destinatario ? " · <strong>Para:</strong> " + a.destinatario : ""}</div>` : "");
 
       return `
         <div class="reunion-card alerta-card alerta-card--clickable${diasRestantes !== null && diasRestantes < 0 && a.estado === 'Pendiente' ? ' alerta-card--vencida' : ''}" data-id="${a.id}" style="cursor:pointer">
@@ -574,10 +681,19 @@ onAuthStateChanged(auth, (user) => {
         + sec("👥 Participantes", a.participantes)
         + sec("📌 Asunto", a.asunto)
         + sec("📋 Acuerdos", a.acuerdos);
+    } else if (tipo === "Evento") {
+      const fechaHoraEvento = a.fecha
+        ? formatearFecha(a.fecha) + (a.horaEvento ? " · " + a.horaEvento : "")
+        : "";
+      secEspecifica = sec("📅 Fecha y hora", fechaHoraEvento)
+        + sec("📍 Lugar o modalidad", a.ubicacionEvento)
+        + sec("🏛️ Convocante", a.convocante)
+        + sec("📌 Descripción", a.asuntoEvento);
     } else {
       secEspecifica = sec("📅 Fecha límite", a.fecha ? formatearFecha(a.fecha) : "")
         + sec("📦 Entregable", a.entregable)
-        + sec("📬 Destinatario", a.destinatario);
+        + sec("📬 Destinatario", a.destinatario)
+        + (a.fechaActivacion ? sec("⏰ Activación", formatearFecha(a.fechaActivacion)) : "");
     }
 
     let modal = document.getElementById("detalle-agenda-modal");

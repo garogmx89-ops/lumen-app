@@ -44,18 +44,20 @@ window.cerrarSesion = function() {
 // ─── NAVEGACIÓN ───────────────────────────────────────────────────────────────
 
 const titulos = {
-  inicio:       { title: 'Inicio',                    sub: 'Resumen institucional del día' },
-  reuniones:    { title: 'Reuniones',                  sub: 'Memoria institucional' },
-  entidades:    { title: 'Dependencias',               sub: 'Directorio institucional' },
-  normatividad: { title: 'Normatividad',               sub: 'Marco normativo vigente' },
-  analisis:     { title: 'Análisis',                   sub: 'Razonamiento institucional' },
-  procesos:     { title: 'Procesos',                   sub: 'Flujos y trámites' },
-  agenda:       { title: 'Agenda',                     sub: 'Seguimiento y vencimientos' },
-  territorio:   { title: 'Planeación',                 sub: 'Datos territoriales y estadísticos' },
-  contexto:     { title: 'Programas Sociales',         sub: 'Programas sociales y federales' },
-  pp:           { title: 'Programas Presupuestarios',  sub: 'Diagnósticos y recursos financieros' },
-  ua:           { title: 'Unidades Administrativas',   sub: 'Organización interna SEDUVOT' },
-  mejora:       { title: 'Áreas de Mejora',            sub: 'Mejora continua institucional' },
+  inicio:              { title: 'Inicio',                    sub: 'Resumen institucional del día' },
+  reuniones:           { title: 'Reuniones',                  sub: 'Memoria institucional' },
+  entidades:           { title: 'Dependencias',               sub: 'Directorio institucional' },
+  normatividad:        { title: 'Normatividad',               sub: 'Marco normativo vigente' },
+  analisis:            { title: 'Análisis',                   sub: 'Razonamiento institucional' },
+  procesos:            { title: 'Procesos',                   sub: 'Flujos y trámites' },
+  agenda:              { title: 'Agenda',                     sub: 'Seguimiento y vencimientos' },
+  territorio:          { title: 'Planeación Territorial',     sub: 'Datos territoriales y estadísticos' },
+  planeacion:          { title: 'Planeación',                 sub: 'Módulos de planeación SEDUVOT' },
+  'planeacion-seduvot':{ title: 'Planeación',                 sub: 'Módulos de planeación SEDUVOT' },
+  contexto:            { title: 'Programas Sociales',         sub: 'Programas sociales y federales' },
+  pp:                  { title: 'Programas Presupuestarios',  sub: 'Diagnósticos y recursos financieros' },
+  ua:                  { title: 'Unidades Administrativas',   sub: 'Organización interna SEDUVOT' },
+  mejora:              { title: 'Áreas de Mejora',            sub: 'Mejora continua institucional' },
 };
 
 window.goTo = function(modulo) {
@@ -79,12 +81,19 @@ window.goTo = function(modulo) {
   // Activar ítem de barra inferior (si existe)
   // Mapa para módulos cuyo bn-ID difiere del nombre del panel
   const bnMap = {
-    normatividad: 'bn-normas',
-    entidades:    'bn-dependencias',
-    agenda:       'bn-agenda',
-    reuniones:    'bn-agenda',
-    pp:           'bn-more',
-    ua:           'bn-more'
+    normatividad:        'bn-normas',
+    entidades:           'bn-dependencias',
+    agenda:              'bn-agenda',
+    reuniones:           'bn-agenda',
+    pp:                  'bn-more',
+    ua:                  'bn-more',
+    planeacion:          'bn-more',
+    'planeacion-seduvot':'bn-more',
+    contexto:            'bn-more',
+    territorio:          'bn-more',
+    procesos:            'bn-more',
+    analisis:            'bn-more',
+    mejora:              'bn-more',
   };
   const bnId = bnMap[modulo] || ('bn-' + modulo);
   const bnItem = document.getElementById(bnId);
@@ -120,7 +129,7 @@ window.toggleBloque = function(nombre) {
 };
 
 // Restaurar estado de bloques al cargar
-['seduvot','godezac','territorio','mejora'].forEach(nombre => {
+['seduvot','godezac','mejora'].forEach(nombre => {
   const estado  = localStorage.getItem('lumen-bloque-' + nombre);
   const bloque  = document.getElementById('bloque-' + nombre);
   const chevron = document.getElementById('chv-' + nombre);

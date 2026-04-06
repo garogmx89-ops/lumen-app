@@ -44,16 +44,17 @@ window.cerrarSesion = function() {
 // ─── NAVEGACIÓN ───────────────────────────────────────────────────────────────
 
 const titulos = {
-  inicio:       { title: 'Inicio',           sub: 'Resumen institucional del día' },
-  reuniones:    { title: 'Reuniones',         sub: 'Memoria institucional' },
-  entidades:    { title: 'Entidades',         sub: 'Dependencias y organismos' },
-  normatividad: { title: 'Normatividad',      sub: 'Marco normativo vigente' },
-  analisis:     { title: 'Análisis',          sub: 'Razonamiento institucional' },
-  procesos:     { title: 'Procesos',          sub: 'Flujos y trámites' },
-  agenda:       { title: 'Agenda',             sub: 'Seguimiento y vencimientos' },
-  territorio:   { title: 'Indicadores',       sub: 'Datos territoriales y estadisticos' },
-  contexto:     { title: 'Contexto',          sub: 'Datos de referencia' },
-  mejora:       { title: 'Áreas de Mejora',   sub: 'Mejora continua institucional' },
+  inicio:       { title: 'Inicio',                    sub: 'Resumen institucional del día' },
+  reuniones:    { title: 'Reuniones',                  sub: 'Memoria institucional' },
+  entidades:    { title: 'Dependencias',               sub: 'Directorio institucional' },
+  normatividad: { title: 'Normatividad',               sub: 'Marco normativo vigente' },
+  analisis:     { title: 'Análisis',                   sub: 'Razonamiento institucional' },
+  procesos:     { title: 'Procesos',                   sub: 'Flujos y trámites' },
+  agenda:       { title: 'Agenda',                     sub: 'Seguimiento y vencimientos' },
+  territorio:   { title: 'Planeación',                 sub: 'Datos territoriales y estadísticos' },
+  contexto:     { title: 'Programas Sociales',         sub: 'Programas sociales y federales' },
+  pp:           { title: 'Programas Presupuestarios',  sub: 'Diagnósticos y recursos financieros' },
+  mejora:       { title: 'Áreas de Mejora',            sub: 'Mejora continua institucional' },
 };
 
 window.goTo = function(modulo) {
@@ -80,7 +81,8 @@ window.goTo = function(modulo) {
     normatividad: 'bn-normas',
     entidades:    'bn-dependencias',
     agenda:       'bn-agenda',
-    reuniones:    'bn-agenda'
+    reuniones:    'bn-agenda',
+    pp:           'bn-more'
   };
   const bnId = bnMap[modulo] || ('bn-' + modulo);
   const bnItem = document.getElementById(bnId);
@@ -116,7 +118,7 @@ window.toggleBloque = function(nombre) {
 };
 
 // Restaurar estado de bloques al cargar
-['seduvot','godezac','territorio'].forEach(nombre => {
+['seduvot','godezac','territorio','mejora'].forEach(nombre => {
   const estado  = localStorage.getItem('lumen-bloque-' + nombre);
   const bloque  = document.getElementById('bloque-' + nombre);
   const chevron = document.getElementById('chv-' + nombre);
@@ -163,17 +165,17 @@ window.togglePaletaPanel = function() {
   if (panel) panel.style.display = panel.style.display === 'none' ? 'block' : 'none';
 };
 
-// Aplicar paleta guardada al iniciar
+// Aplicar paleta guardada al iniciar — default: Zafiro (pan) + Oscuro
 (function() {
-  const paleta = localStorage.getItem('lumen-paleta');
-  if (paleta && paleta !== 'default') {
+  // Si el usuario nunca eligió paleta, usar Zafiro como default
+  const paleta = localStorage.getItem('lumen-paleta') || 'pan';
+  if (paleta !== 'default') {
     document.body.classList.add('tema-' + paleta);
   }
-  // Marcar botón activo cuando el DOM esté listo
+  // Si nunca se guardó tema visual, el body queda sin 'light' → oscuro por defecto. ✓
   document.addEventListener('DOMContentLoaded', () => {
-    const activa = paleta || 'default';
     document.querySelectorAll('.paleta-btn').forEach(btn => {
-      btn.classList.toggle('activo', btn.dataset.tema === activa);
+      btn.classList.toggle('activo', btn.dataset.tema === paleta);
     });
   });
 })();

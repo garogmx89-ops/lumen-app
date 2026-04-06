@@ -1241,13 +1241,14 @@ onAuthStateChanged(auth, (user) => {
   // ══════════════════════════════════════════════════════════════════
   // EXPLORADOR DE ARTÍCULOS — vista propia (similar al visor PDF)
   // ══════════════════════════════════════════════════════════════════
-  let _exploNorma      = null;
-  let _exploArticulos  = [];
-  let _exploFiltrados  = [];
+  let _exploNorma        = null;
+  let _exploArticulos    = [];
+  let _exploFiltrados    = [];
   let _ambitoNormaActual = ""; // ámbito de la norma activa — para seleccionar perfil parser
-  let _exploNotas      = {};   // { artId: "texto de nota" }
-  let _exploRelevantes = new Set(); // Set de artIds marcados como relevantes
-  let _exploPreambulo  = null;  // Texto del preámbulo del documento
+  let _exploNotas        = {};        // { artId: "texto de nota" }
+  let _exploRelevantes   = new Set(); // Set de artIds marcados como relevantes
+  let _exploDerogados    = new Set(); // Set de artIds marcados como derogados
+  let _exploPreambulo    = null;      // Texto del preámbulo del documento
 
   async function abrirExplorador(norma) {
     _exploNorma = norma;
@@ -1268,7 +1269,8 @@ onAuthStateChanged(auth, (user) => {
 
     panelExplo.style.display = "flex";
     panelExplo.innerHTML = `
-      <div class="visor-header">
+      <!-- Topbar del explorador -->
+      <div class="visor-header" style="flex-shrink:0">
         <div class="visor-header-info">
           <button id="explo-btn-cerrar" class="visor-btn-cerrar">← Volver</button>
           <span class="visor-titulo-texto">${norma.nombre || "Texto de ley"}</span>
@@ -1282,18 +1284,43 @@ onAuthStateChanged(auth, (user) => {
             title="Exportar artículos como PDF">📄 Exportar PDF</button>
         </div>
       </div>
-      <div style="padding:0.6rem 1rem;background:var(--bg2);border:1px solid var(--border);border-top:none;display:flex;flex-direction:column;gap:0.5rem">
-        <input type="text" id="explo-busqueda" placeholder="Buscar en el texto de la ley..." autocomplete="off"
-          style="width:100%;background:var(--bg);border:1px solid var(--border);border-radius:8px;
-          padding:0.5rem 0.75rem;font-size:0.875rem;color:var(--text);font-family:inherit">
-        <div style="display:flex;gap:0.4rem;flex-wrap:wrap">
-          <button class="explo-filtro-sec filtro-activo filtro-btn" data-sec="todos" style="font-size:0.75rem;padding:0.2rem 0.6rem">Todos</button>
-          <button class="explo-filtro-sec filtro-btn" data-sec="ley" style="font-size:0.75rem;padding:0.2rem 0.6rem">📋 Ley</button>
-          <button class="explo-filtro-sec filtro-btn" data-sec="transitorio" style="font-size:0.75rem;padding:0.2rem 0.6rem">⏱ Transitorios</button>
-          <button class="explo-filtro-sec filtro-btn" data-sec="reforma" style="font-size:0.75rem;padding:0.2rem 0.6rem">📝 Reformas</button>
+
+      <!-- Barra de búsqueda y filtros -->
+      <div id="explo-toolbar" style="flex-shrink:0;padding:0.6rem 1rem;background:var(--bg2);
+        border:1px solid var(--border);border-top:none;display:flex;flex-wrap:wrap;gap:0.5rem;align-items:center">
+        <input type="text" id="explo-busqueda" placeholder="🔍 Buscar en el texto..." autocomplete="off"
+          style="flex:1;min-width:180px;background:var(--bg);border:1px solid var(--border);border-radius:8px;
+          padding:0.45rem 0.75rem;font-size:0.875rem;color:var(--text);font-family:inherit">
+        <div style="display:flex;gap:0.35rem;flex-wrap:wrap">
+          <button class="explo-filtro-sec filtro-activo filtro-btn" data-sec="todos"
+            style="font-size:0.72rem;padding:0.18rem 0.55rem">Todos</button>
+          <button class="explo-filtro-sec filtro-btn" data-sec="ley"
+            style="font-size:0.72rem;padding:0.18rem 0.55rem">📋 Ley</button>
+          <button class="explo-filtro-sec filtro-btn" data-sec="transitorio"
+            style="font-size:0.72rem;padding:0.18rem 0.55rem">⏱ Transitorios</button>
+          <button class="explo-filtro-sec filtro-btn" data-sec="derogado"
+            style="font-size:0.72rem;padding:0.18rem 0.55rem">🚫 Derogados</button>
         </div>
       </div>
-      <div id="explo-lista"></div>`;
+
+      <!-- Layout principal: índice lateral + área de artículos -->
+      <div style="display:flex;flex:1;min-height:0;overflow:hidden">
+
+        <!-- Índice lateral (desktop) -->
+        <div id="explo-indice" style="width:220px;flex-shrink:0;overflow-y:auto;
+          background:var(--bg2);border-right:1px solid var(--border);
+          padding:0.5rem 0;display:flex;flex-direction:column;gap:0">
+          <div style="font-size:0.65rem;font-weight:700;color:var(--text3);
+            text-transform:uppercase;letter-spacing:0.06em;padding:0.4rem 0.85rem 0.2rem">
+            Índice
+          </div>
+          <div id="explo-indice-contenido"></div>
+        </div>
+
+        <!-- Área de artículos -->
+        <div id="explo-lista" style="flex:1;overflow-y:scroll;padding:0.75rem 1rem;
+          display:flex;flex-direction:column;gap:0.5rem;scrollbar-gutter:stable"></div>
+      </div>`;
 
     document.getElementById("explo-btn-cerrar").addEventListener("click", cerrarExplorador);
 
@@ -1334,12 +1361,14 @@ onAuthStateChanged(auth, (user) => {
       _exploArticulos   = todosLsDocs.filter(d => d.id !== "_preambulo");
       _exploFiltrados   = _exploArticulos;
 
-      // Cargar notas y relevantes guardados en cada artículo
+      // Cargar notas, relevantes y derogados
       _exploNotas      = {};
       _exploRelevantes = new Set();
+      _exploDerogados  = new Set();
       _exploArticulos.forEach(a => {
         if (a.nota)      _exploNotas[a.id]      = a.nota;
         if (a.relevante) _exploRelevantes.add(a.id);
+        if (a.derogado)  _exploDerogados.add(a.id);
       });
 
       // Guardar preámbulo en variable de módulo — se renderizará dentro de renderArticulos
@@ -1347,7 +1376,14 @@ onAuthStateChanged(auth, (user) => {
 
       const nRel  = _exploRelevantes.size;
       const nNota = Object.keys(_exploNotas).length;
-      if (contEl) contEl.textContent = `${_exploArticulos.length} artículos${nRel > 0 ? " · ⭐ " + nRel : ""}${nNota > 0 ? " · 📝 " + nNota : ""}`;
+      const nDer  = _exploDerogados.size;
+      const partes = [`${_exploArticulos.length} arts.`];
+      if (nRel)  partes.push("⭐ " + nRel);
+      if (nDer)  partes.push("🚫 " + nDer);
+      if (nNota) partes.push("📝 " + nNota);
+      if (contEl) contEl.textContent = partes.join(" · ");
+
+      construirIndice(_exploArticulos, _exploPreambulo);
       renderArticulos(_exploArticulos);
     } catch (err) {
       console.error("Error cargando artículos:", err);
@@ -1435,6 +1471,7 @@ onAuthStateChanged(auth, (user) => {
       : "";
 
     const esRelevante = _exploRelevantes.has(a.id);
+    const esDerogado  = _exploDerogados.has(a.id);
     const notaTexto   = _exploNotas[a.id] || "";
 
     // Panel de nota (visible si ya tiene nota o se activa)
@@ -1472,12 +1509,20 @@ onAuthStateChanged(auth, (user) => {
           </div>
         </div>`;
 
-    return `<div class="reunion-card" style="cursor:default" id="art-card-${a.id}">
+    return `<div class="reunion-card" style="cursor:default;${esDerogado ? "opacity:0.55;border-left:3px solid #9B2226;" : ""}" id="art-card-${a.id}">
       <div style="display:flex;align-items:center;gap:0.4rem;flex-wrap:wrap;margin-bottom:0.5rem">
-        <span style="font-size:0.82rem;font-weight:700;color:var(--accent)">Artículo ${a.numero}</span>
+        <span style="font-size:0.82rem;font-weight:700;color:${esDerogado ? "#9B2226" : "var(--accent)"}">Artículo ${a.numero}</span>
         ${badgeSecFn(a.seccion)}
+        ${esDerogado ? `<span style="background:#9B222222;color:#9B2226;border:1px solid #9B226644;font-size:0.65rem;font-weight:700;padding:0.08rem 0.4rem;border-radius:10px">DEROGADO</span>` : ""}
         ${a.epigrafe ? `<span style="font-size:0.75rem;color:var(--text2);font-style:italic">${a.epigrafe}</span>` : ""}
-        <div style="margin-left:auto;display:flex;gap:0.3rem">
+        <div style="margin-left:auto;display:flex;gap:0.3rem;flex-wrap:wrap;justify-content:flex-end">
+          <button class="explo-btn-derogado" data-art-id="${a.id}" data-norma-id="${_exploNorma?.id}"
+            title="${esDerogado ? "Marcar como vigente" : "Marcar como derogado / no aplicable"}"
+            style="background:${esDerogado ? "#9B222622" : "none"};
+            border:1px solid ${esDerogado ? "#9B2226" : "var(--border)"};
+            border-radius:6px;padding:0.15rem 0.4rem;font-size:0.8rem;cursor:pointer;
+            color:${esDerogado ? "#9B2226" : "var(--text3)"};font-family:inherit;
+            transition:all 0.15s" title="${esDerogado ? "Vigente" : "Derogar"}">🚫</button>
           <button class="explo-btn-relevante" data-art-id="${a.id}" data-norma-id="${_exploNorma?.id}"
             title="${esRelevante ? "Quitar de relevantes" : "Marcar como relevante"}"
             style="background:none;border:1px solid ${esRelevante ? "var(--accent)" : "var(--border)"};
@@ -1505,8 +1550,151 @@ onAuthStateChanged(auth, (user) => {
 
 
 
+  // ── Construir índice lateral ─────────────────────────────────────────────
+  // El índice muestra: Preámbulo / estructura jerárquica (Título > Capítulo) / Transitorios
+  // Cada nodo es un botón que hace scroll al primer artículo del grupo.
+  function construirIndice(articulos, preambulo) {
+    const contenedor = document.getElementById("explo-indice-contenido");
+    if (!contenedor) return;
+
+    let html = "";
+
+    // ── Preámbulo ──────────────────────────────────────────────────────────
+    if (preambulo) {
+      html += `<button class="explo-idx-btn" data-target="_preambulo"
+        style="width:100%;text-align:left;background:none;border:none;cursor:pointer;
+        padding:0.35rem 0.85rem;font-size:0.75rem;color:var(--text2);font-family:inherit;
+        border-left:2px solid transparent;transition:all 0.12s">
+        📜 Preámbulo
+      </button>`;
+    }
+
+    // ── Artículos de ley agrupados por Título > Capítulo ──────────────────
+    const artLey = articulos.filter(a => a.seccion === "ley");
+
+    // Construir estructura única de grupos
+    const grupos = [];
+    let grupoActual = null;
+    artLey.forEach(a => {
+      const clave = [a.titulo, a.tituloNombre, a.capitulo, a.capituloNombre].join("|");
+      if (!grupoActual || grupoActual.clave !== clave) {
+        grupoActual = {
+          clave,
+          titulo: a.titulo, tituloNombre: a.tituloNombre,
+          capitulo: a.capitulo, capituloNombre: a.capituloNombre,
+          primerArtId: a.id, count: 1
+        };
+        grupos.push(grupoActual);
+      } else {
+        grupoActual.count++;
+      }
+    });
+
+    // Agrupar capítulos bajo su título
+    const titulos = {};
+    grupos.forEach(g => {
+      const tKey = [g.titulo, g.tituloNombre].join("|") || "_sin_titulo";
+      if (!titulos[tKey]) titulos[tKey] = { titulo: g.titulo, nombre: g.tituloNombre, caps: [] };
+      titulos[tKey].caps.push(g);
+    });
+
+    Object.values(titulos).forEach(t => {
+      if (t.titulo) {
+        html += `<div style="padding:0.3rem 0.85rem 0.1rem;font-size:0.65rem;font-weight:700;
+          color:var(--text3);text-transform:uppercase;letter-spacing:0.04em;margin-top:0.4rem">
+          ${t.titulo}${t.nombre ? ` — ${t.nombre.slice(0, 30)}${t.nombre.length > 30 ? "…" : ""}` : ""}
+        </div>`;
+      }
+      t.caps.forEach(g => {
+        const label = g.capitulo
+          ? `${g.capitulo}${g.capituloNombre ? " — " + g.capituloNombre.slice(0,28) + (g.capituloNombre.length>28?"…":"") : ""}`
+          : (t.titulo ? "Capítulo único" : "Artículos");
+        html += `<button class="explo-idx-btn" data-target="${g.primerArtId}"
+          style="width:100%;text-align:left;background:none;border:none;cursor:pointer;
+          padding:0.3rem 0.85rem 0.3rem 1.2rem;font-size:0.72rem;color:var(--text2);
+          font-family:inherit;border-left:2px solid transparent;
+          line-height:1.4;transition:all 0.12s">
+          ${label}
+          <span style="display:block;font-size:0.62rem;color:var(--text3)">${g.count} art${g.count!==1?"s":""}.</span>
+        </button>`;
+      });
+    });
+
+    // ── Transitorios ──────────────────────────────────────────────────────
+    const artTrans = articulos.filter(a => a.seccion === "transitorio");
+    if (artTrans.length > 0) {
+      html += `<div style="padding:0.3rem 0.85rem 0.1rem;font-size:0.65rem;font-weight:700;
+        color:var(--text3);text-transform:uppercase;letter-spacing:0.04em;margin-top:0.4rem">
+        Transitorios
+      </div>`;
+      html += `<button class="explo-idx-btn" data-target="${artTrans[0].id}"
+        style="width:100%;text-align:left;background:none;border:none;cursor:pointer;
+        padding:0.3rem 0.85rem 0.3rem 1.2rem;font-size:0.72rem;color:var(--text2);
+        font-family:inherit;border-left:2px solid transparent;line-height:1.4;transition:all 0.12s">
+        ⏱ Artículos transitorios
+        <span style="display:block;font-size:0.62rem;color:var(--text3)">${artTrans.length} arts.</span>
+      </button>`;
+    }
+
+    // ── Derogados ─────────────────────────────────────────────────────────
+    if (_exploDerogados.size > 0) {
+      html += `<button class="explo-idx-btn" data-sec-filter="derogado"
+        style="width:100%;text-align:left;background:none;border:none;cursor:pointer;
+        padding:0.35rem 0.85rem;font-size:0.72rem;color:#9B2226;font-family:inherit;
+        border-left:2px solid transparent;margin-top:0.4rem;transition:all 0.12s">
+        🚫 Derogados (${_exploDerogados.size})
+      </button>`;
+    }
+
+    contenedor.innerHTML = html;
+
+    // Listeners de scroll
+    contenedor.querySelectorAll(".explo-idx-btn[data-target]").forEach(btn => {
+      btn.addEventListener("click", () => {
+        const target = btn.dataset.target;
+        // Resaltar botón activo
+        contenedor.querySelectorAll(".explo-idx-btn").forEach(b => {
+          b.style.borderLeftColor = "transparent";
+          b.style.color = "";
+          b.style.background = "";
+        });
+        btn.style.borderLeftColor = "var(--accent)";
+        btn.style.color = "var(--accent)";
+        btn.style.background = "var(--accent-soft)";
+
+        if (target === "_preambulo") {
+          const preambWrap = document.getElementById("explo-preambulo-wrap");
+          if (preambWrap) preambWrap.scrollIntoView({ behavior: "smooth", block: "start" });
+          return;
+        }
+        const card = document.getElementById("art-card-" + target);
+        if (card) card.scrollIntoView({ behavior: "smooth", block: "start" });
+      });
+    });
+
+    // Listener de filtro derogados
+    contenedor.querySelectorAll(".explo-idx-btn[data-sec-filter]").forEach(btn => {
+      btn.addEventListener("click", () => {
+        // Activar filtro de derogados en la toolbar
+        document.querySelectorAll(".explo-filtro-sec").forEach(b => b.classList.remove("filtro-activo"));
+        const btnDer = document.querySelector(".explo-filtro-sec[data-sec='derogado']");
+        if (btnDer) btnDer.classList.add("filtro-activo");
+        filtrarArticulos("", "derogado");
+      });
+    });
+  }
+
   function filtrarArticulos(termino, seccion = "todos") {
     const contEl = document.getElementById("explo-contador");
+
+    // Filtro especial: mostrar solo derogados
+    if (seccion === "derogado") {
+      const base = _exploArticulos.filter(a => _exploDerogados.has(a.id));
+      _exploFiltrados = base;
+      if (contEl) contEl.textContent = `${base.length} artículo${base.length !== 1 ? "s" : ""} derogado${base.length !== 1 ? "s" : ""}`;
+      renderArticulos(base, termino);
+      return;
+    }
 
     // Primero filtrar por sección
     let base = seccion === "todos"
@@ -1683,16 +1871,52 @@ onAuthStateChanged(auth, (user) => {
       });
     });
 
-    // ── Botones de nota y relevante ──
+    // ── Botones de nota, relevante y derogado ──
     contenedor.querySelectorAll(".explo-btn-relevante").forEach(btn => {
       btn.addEventListener("click", () => toggleRelevante_art(btn.dataset.artId, btn.dataset.normaId));
     });
     contenedor.querySelectorAll(".explo-btn-nota").forEach(btn => {
       btn.addEventListener("click", () => toggleNota_art(btn.dataset.artId));
     });
+    contenedor.querySelectorAll(".explo-btn-derogado").forEach(btn => {
+      btn.addEventListener("click", () => toggleDerogado_art(btn.dataset.artId, btn.dataset.normaId));
+    });
   }
 
-  // ── Toggle relevante de artículo ─────────────────────────────────────
+  // ── Toggle derogado de artículo ──────────────────────────────────────
+  async function toggleDerogado_art(artId, normaId) {
+    const esDer  = _exploDerogados.has(artId);
+    const artRef = doc(db, "usuarios", user.uid, "normatividad", normaId, "articulos", artId);
+    try {
+      await updateDoc(artRef, { derogado: !esDer });
+      if (esDer) _exploDerogados.delete(artId);
+      else        _exploDerogados.add(artId);
+
+      const idx = _exploArticulos.findIndex(a => a.id === artId);
+      if (idx !== -1) _exploArticulos[idx].derogado = !esDer;
+
+      const termino = document.getElementById("explo-busqueda")?.value.trim() || "";
+      const seccion = document.querySelector(".explo-filtro-sec.filtro-activo")?.dataset.sec || "todos";
+      filtrarArticulos(termino, seccion);
+
+      // Actualizar contador en el encabezado del explorador
+      const contEl = document.getElementById("explo-contador");
+      const nDer   = _exploDerogados.size;
+      const nRel   = _exploRelevantes.size;
+      const nNota  = Object.keys(_exploNotas).length;
+      if (contEl) {
+        const partes = [`${_exploArticulos.length} arts.`];
+        if (nRel)  partes.push(`⭐ ${nRel}`);
+        if (nDer)  partes.push(`🚫 ${nDer}`);
+        if (nNota) partes.push(`📝 ${nNota}`);
+        contEl.textContent = partes.join(" · ");
+      }
+    } catch(e) {
+      console.error("Error toggling derogado:", e);
+    }
+  }
+
+  // ── Toggle relevante de artículo ──────────────────────────────────────
   async function toggleRelevante_art(artId, normaId) {
     const esRel = _exploRelevantes.has(artId);
     const artRef = doc(db, "usuarios", user.uid, "normatividad", normaId, "articulos", artId);
@@ -1946,7 +2170,7 @@ onAuthStateChanged(auth, (user) => {
     const bw = document.querySelector("#panel-normatividad .norma-busqueda-wrap");
     if (bw) bw.style.display = "";
     document.querySelector("#panel-normatividad .reuniones-lista").style.display    = "";
-    _exploNorma = null; _exploArticulos = []; _exploFiltrados = []; _exploPreambulo = null;
+    _exploNorma = null; _exploArticulos = []; _exploFiltrados = []; _exploPreambulo = null; _exploDerogados = new Set();
   }
 
   // \u2500\u2500 Vinculaciones en detalle (sin cambios) \u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500

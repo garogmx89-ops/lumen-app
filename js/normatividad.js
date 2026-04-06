@@ -94,7 +94,9 @@ const RE_SEP_REFORMA        = /ART[ÍI]CULOS\s+TRANSITORIOS\s+DE\s+LOS\s+DECRETO
 // Separador de firma presidencial — marca el fin de los transitorios del decreto original.
 // Todo el texto después de la firma y antes del encabezado de decretos de reforma
 // son instrucciones de decreto que no forman parte de la ley vigente.
-const RE_SEP_FIRMA_FEDERAL  = /^(?:México|Ciudad de México),\s+(?:D\.F\.,\s+)?a\s+\d+\s+(?:días\s+del\s+mes\s+de\s+)?(?:de\s+)?(?:enero|febrero|marzo|abril|mayo|junio|julio|agosto|septiembre|octubre|noviembre|diciembre)\s+de\s+\d{4}\.[-–]/im;
+// Variante 1: fecha con dígitos — "México, D.F., a 25 de abril de 2006.-"
+// Variante 2: fecha en letras  — "México, D.F., a veintiséis días del mes de junio de dos mil seis.-"
+const RE_SEP_FIRMA_FEDERAL = /^(?:México|Ciudad de México),\s+(?:D\.F\.,\s+)?a\s+(?:\d+|[a-záéíóúüñ]+(?:\s+[a-záéíóúüñ]+)*)\s+(?:días?\s+del\s+mes\s+de\s+)?(?:de\s+)?(?:enero|febrero|marzo|abril|mayo|junio|julio|agosto|septiembre|octubre|noviembre|diciembre|\w+)\s+de\s+(?:\d{4}|[a-záéíóúüñ\s]+)\.[-–]/im;
 
 // ── Detectar perfil automáticamente ──────────────────────────────────
 // Federal: artículos usan "ARTÍCULO N.-" o "Artículo N.-" (con guión)

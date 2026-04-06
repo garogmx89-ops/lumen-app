@@ -270,92 +270,95 @@
 
         <!-- INICIO -->
         <div class="panel active" id="panel-inicio">
-          <div class="ctx-activate-btn" id="ctx-activate-btn" onclick="activateCtx()">
+
+          <!-- Banner próxima reunión (oculto por defecto, JS lo activa) -->
+          <div class="ctx-activate-btn" id="ctx-activate-btn" onclick="activateCtx()" style="display:none">
             <svg width="14" height="14" viewBox="0 0 16 16" fill="none">
               <circle cx="8" cy="8" r="6" stroke="var(--ctx)" stroke-width="1.3"/>
               <path d="M8 5v3l2 1" stroke="var(--ctx)" stroke-width="1.3"/>
             </svg>
-            Activar contexto de reunión — COEPLA mañana 10:00
+            <span id="ctx-activate-texto">Próxima reunión</span>
           </div>
+
+          <!-- Stat cards — llenadas por JS -->
           <div class="stat-grid">
             <div class="stat-card" onclick="goTo('agenda')">
-              <div class="stat-label">Reuniones</div>
-              <div class="stat-value">3</div>
-              <div class="stat-sub"><span class="stat-dot dot-amber"></span>2 pendientes</div>
+              <div class="stat-label">Agenda hoy / mañana</div>
+              <div class="stat-value" id="inicio-stat-agenda">—</div>
+              <div class="stat-sub" id="inicio-stat-agenda-sub"><span class="stat-dot dot-amber"></span>cargando…</div>
             </div>
             <div class="stat-card" onclick="goTo('agenda')">
-              <div class="stat-label">Alertas</div>
-              <div class="stat-value">3</div>
-              <div class="stat-sub"><span class="stat-dot dot-coral"></span>1 urgente</div>
+              <div class="stat-label">Alertas activas</div>
+              <div class="stat-value" id="inicio-stat-alertas">—</div>
+              <div class="stat-sub" id="inicio-stat-alertas-sub"><span class="stat-dot dot-coral"></span>cargando…</div>
             </div>
             <div class="stat-card" onclick="goTo('analisis')">
-              <div class="stat-label">Análisis</div>
-              <div class="stat-value">2</div>
-              <div class="stat-sub"><span class="stat-dot dot-accent"></span>Abiertos</div>
+              <div class="stat-label">Análisis abiertos</div>
+              <div class="stat-value" id="inicio-stat-analisis">—</div>
+              <div class="stat-sub" id="inicio-stat-analisis-sub"><span class="stat-dot dot-accent"></span>cargando…</div>
             </div>
           </div>
+
+          <!-- Alertas del día — llenadas por JS -->
           <div class="section-header">
             <div class="section-title">Alertas del día</div>
             <button class="btn-sm" onclick="goTo('agenda')">Ver todas</button>
           </div>
-          <div class="alert-card alert-danger">
-            <div class="alert-dot" style="background:var(--coral)"></div>
-            <div>
-              <div class="alert-label">FISE — vencimiento en 2 días</div>
-              <div class="alert-desc">$1.2M por devengar antes del 31 mar · Art. 45 ROP</div>
+          <div id="inicio-alertas-lista">
+            <div class="alert-card alert-info" style="opacity:0.5">
+              <div class="alert-dot" style="background:var(--accent)"></div>
+              <div><div class="alert-label">Cargando alertas…</div></div>
             </div>
           </div>
-          <div class="alert-card alert-warn">
-            <div class="alert-dot" style="background:var(--amber)"></div>
-            <div>
-              <div class="alert-label">Reunión COEPLA — mañana 10:00</div>
-              <div class="alert-desc">3 acuerdos pendientes · Briefing disponible</div>
-            </div>
+
+          <!-- Próximos eventos — llenados por JS -->
+          <div class="section-header" style="margin-top:14px">
+            <div class="section-title">Próximos eventos</div>
+            <button class="btn-sm" onclick="goTo('agenda')">Ver agenda</button>
           </div>
-          <div class="alert-card alert-info">
-            <div class="alert-dot" style="background:var(--accent)"></div>
-            <div>
-              <div class="alert-label">Análisis pendiente — calentadores solares</div>
-              <div class="alert-desc">SEDUVOT vs SEDESOL · sin veredicto</div>
-            </div>
+          <div id="inicio-proximos-lista">
+            <p class="lista-vacia" style="font-size:0.8rem">Cargando…</p>
           </div>
+
+          <!-- Acceso rápido — llenado por JS -->
           <div class="section-header" style="margin-top:14px">
             <div class="section-title">Acceso rápido</div>
           </div>
-          <div class="two-col">
+          <div class="two-col" id="inicio-acceso-rapido">
             <div class="card-list">
-              <div class="list-card" onclick="goTo('agenda')">
-                <div class="list-icon li-blue">📅</div>
+              <div class="list-card" onclick="goTo('normatividad')">
+                <div class="list-icon li-purple">📄</div>
                 <div class="list-body">
-                  <div class="list-title">COEPLA — mañana</div>
-                  <div class="list-meta">Briefing · 3 acuerdos</div>
+                  <div class="list-title" id="inicio-ar-norma-titulo">Normatividad</div>
+                  <div class="list-meta" id="inicio-ar-norma-meta">Ver normas registradas</div>
                 </div>
               </div>
               <div class="list-card" onclick="goTo('analisis')">
                 <div class="list-icon li-teal">🔍</div>
                 <div class="list-body">
-                  <div class="list-title">Calentadores solares</div>
-                  <div class="list-meta">Análisis abierto</div>
+                  <div class="list-title" id="inicio-ar-analisis-titulo">Análisis</div>
+                  <div class="list-meta" id="inicio-ar-analisis-meta">Ver análisis registrados</div>
                 </div>
               </div>
             </div>
             <div class="card-list">
               <div class="list-card" onclick="goTo('entidades')">
-                <div class="list-icon li-blue">🏛</div>
+                <div class="list-icon li-blue">🏛️</div>
                 <div class="list-body">
-                  <div class="list-title">Ficha COEPLA</div>
-                  <div class="list-meta">2 fricciones · 5 reuniones</div>
+                  <div class="list-title" id="inicio-ar-entidad-titulo">Dependencias</div>
+                  <div class="list-meta" id="inicio-ar-entidad-meta">Ver dependencias registradas</div>
                 </div>
               </div>
-              <div class="list-card" onclick="goTo('normatividad')">
-                <div class="list-icon li-purple">📄</div>
+              <div class="list-card" onclick="goTo('procesos')">
+                <div class="list-icon" style="background:rgba(249,115,22,0.12)">⚙️</div>
                 <div class="list-body">
-                  <div class="list-title">ROP FISE 2025</div>
-                  <div class="list-meta">5 artículos clave</div>
+                  <div class="list-title" id="inicio-ar-proceso-titulo">Procesos</div>
+                  <div class="list-meta" id="inicio-ar-proceso-meta">Ver procesos registrados</div>
                 </div>
               </div>
             </div>
           </div>
+
         </div>
         <!-- /inicio -->
 
@@ -467,6 +470,18 @@
                   <option value="">— Selecciona una unidad —</option>
                 </select>
               </div>
+            </div>
+
+            <!-- Vinculación con evento origen (ej. Reunión que genera esta Actividad/Evento) -->
+            <div class="form-group" id="agenda-campo-origen">
+              <label for="alerta-origen-selector">
+                Surge de
+                <span style="font-weight:400;color:var(--text2);font-size:0.78rem"> — (opcional) reunión o evento que origina este registro</span>
+              </label>
+              <select id="alerta-origen-selector" class="participantes-select">
+                <option value="">— Sin vínculo de origen —</option>
+              </select>
+              <div id="alerta-origen-tag" style="margin-top:0.4rem"></div>
             </div>
 
             <div id="agenda-campos-reunion-fin">

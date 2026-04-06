@@ -36,6 +36,7 @@ let procesosVinculados  = [];
 let normasVinculadas    = [];
 let entidadesVinculadas = [];
 let uasVinculadas       = [];
+let origenVinculado     = null;   // { id, titulo, tipo } del evento que origina este registro
 
 // ─── TOGGLE CAMPOS SEGÚN TIPO ──────────────────────────────────────────────
 function toggleCamposTipo(tipo) {
@@ -156,6 +157,51 @@ onAuthStateChanged(auth, (user) => {
       opt.dataset.nombre = u.nombre || "";
       sel.appendChild(opt);
     });
+  });
+
+  // ─── CATÁLOGO DE ORIGEN (Reuniones y Eventos para vincular) ──────────────
+  // Escucha en tiempo real y llena el selector "Surge de"
+  onSnapshot(query(agendaRef, orderBy("fecha", "desc")), (snap) => {
+    const sel = document.getElementById("alerta-origen-selector");
+    if (!sel) return;
+    const valorActual = sel.value;
+    sel.innerHTML = '<option value="">— Sin vínculo de origen —</option>';
+    snap.docs.forEach(d => {
+      const a = d.data();
+      if (a.tipo !== "Reunión" && a.tipo !== "Evento") return; // Solo reuniones y eventos como origen
+      const icono = a.tipo === "Reunión" ? "📅" : "🎓";
+      const opt = document.createElement("option");
+      opt.value = d.id;
+      opt.dataset.titulo = a.titulo || "(sin título)";
+      opt.dataset.tipo   = a.tipo;
+      opt.textContent = `${icono} ${a.titulo || "(sin título)"}${a.fecha ? " · " + a.fecha.slice(0,10) : ""}`;
+      sel.appendChild(opt);
+    });
+    if (valorActual) sel.value = valorActual;
+  });
+
+  // ─── SELECTOR ORIGEN ──────────────────────────────────────────────────
+  document.getElementById("alerta-origen-selector")?.addEventListener("change", (e) => {
+    const id     = e.target.value;
+    const opt    = e.target.options[e.target.selectedIndex];
+    const tagEl  = document.getElementById("alerta-origen-tag");
+    if (!id) {
+      origenVinculado = null;
+      if (tagEl) tagEl.innerHTML = "";
+      return;
+    }
+    origenVinculado = { id, titulo: opt.dataset.titulo || opt.textContent, tipo: opt.dataset.tipo || "" };
+    if (tagEl) {
+      const icono = origenVinculado.tipo === "Reunión" ? "📅" : "🎓";
+      tagEl.innerHTML = `<span class="participante-tag">${icono} ${origenVinculado.titulo}
+        <button type="button" id="btn-quitar-origen" style="background:none;border:none;cursor:pointer;color:var(--text3);font-size:0.75rem;padding:0 2px;line-height:1">✕</button>
+      </span>`;
+      document.getElementById("btn-quitar-origen")?.addEventListener("click", () => {
+        origenVinculado = null;
+        if (tagEl) tagEl.innerHTML = "";
+        e.target.value = "";
+      });
+    }
   });
 
   // ─── CATÁLOGO DE NORMATIVIDAD ──────────────────────────────────────────
@@ -323,6 +369,11 @@ onAuthStateChanged(auth, (user) => {
     normasVinculadas    = [];
     entidadesVinculadas = [];
     uasVinculadas       = [];
+    origenVinculado     = null;
+    const selOrigen = document.getElementById("alerta-origen-selector");
+    if (selOrigen) selOrigen.value = "";
+    const tagOrigen = document.getElementById("alerta-origen-tag");
+    if (tagOrigen) tagOrigen.innerHTML = "";
     renderTagsProcesos();
     renderTagsNormas();
     renderTagsEntidades();
@@ -393,6 +444,18 @@ onAuthStateChanged(auth, (user) => {
     normasVinculadas    = Array.isArray(a.normasVinculadas)    ? a.normasVinculadas.map(x => ({...x}))    : [];
     entidadesVinculadas = Array.isArray(a.entidadesVinculadas) ? a.entidadesVinculadas.map(x => ({...x})) : [];
     uasVinculadas       = Array.isArray(a.uasVinculadas)       ? a.uasVinculadas.map(x => ({...x}))       : [];
+
+    // Restaurar origen vinculado
+    origenVinculado = a.origenId ? { id: a.origenId, titulo: a.origenTitulo || "", tipo: a.origenTipo || "" } : null;
+    const selOrigen = document.getElementById("alerta-origen-selector");
+    const tagOrigen = document.getElementById("alerta-origen-tag");
+    if (selOrigen && a.origenId) selOrigen.value = a.origenId;
+    if (tagOrigen && origenVinculado) {
+      const icono = origenVinculado.tipo === "Reunión" ? "📅" : "🎓";
+      tagOrigen.innerHTML = `<span class="participante-tag">${icono} ${origenVinculado.titulo}</span>`;
+    } else if (tagOrigen) {
+      tagOrigen.innerHTML = "";
+    }
     renderTagsProcesos();
     renderTagsNormas();
     renderTagsEntidades();
@@ -424,7 +487,10 @@ onAuthStateChanged(auth, (user) => {
       // Campos comunes
       const datos = {
         tipo, titulo, fecha, prioridad, estado,
-        procesosVinculados, normasVinculadas, entidadesVinculadas, uasVinculadas
+        procesosVinculados, normasVinculadas, entidadesVinculadas, uasVinculadas,
+        origenId:     origenVinculado?.id     || null,
+        origenTitulo: origenVinculado?.titulo || null,
+        origenTipo:   origenVinculado?.tipo   || null,
       };
 
       // Campos específicos de Reunión
@@ -575,6 +641,13 @@ onAuthStateChanged(auth, (user) => {
       const seccionVinculos = (entidadesTags || procesosTags || normasTags || uasTags)
         ? `<div class="participantes-tags-display">${entidadesTags}${procesosTags}${normasTags}${uasTags}</div>` : "";
 
+      // Vínculo de origen
+      const origenHtml = a.origenId
+        ? `<div style="margin-top:0.35rem;font-size:0.75rem;color:var(--text3)">
+            🔗 Surge de: <span style="color:var(--accent);font-weight:600">${a.origenTipo === "Reunión" ? "📅" : "🎓"} ${a.origenTitulo || "evento anterior"}</span>
+           </div>`
+        : "";
+
       // Campo descriptivo según tipo
       const descripcion = tipo === "Reunión"
         ? (a.asunto ? `<div class="reunion-card-acuerdos"><strong>Asunto:</strong> ${a.asunto}</div>` : "")
@@ -603,6 +676,7 @@ onAuthStateChanged(auth, (user) => {
           ${metaFecha ? `<div class="reunion-card-meta">${metaFecha}</div>` : ""}
           ${alertaVenc}
           ${descripcion}
+          ${origenHtml}
           ${seccionVinculos}
         </div>`;
     }).join("");
@@ -670,6 +744,19 @@ onAuthStateChanged(auth, (user) => {
           <div style="display:flex;flex-wrap:wrap;gap:0.4rem;margin-top:0.4rem">${tagsEntidades}${tagsProcesos}${tagsNormas}${tagsUAs}</div></div>`
       : "";
 
+    // Sección origen
+    const secOrigen = a.origenId
+      ? `<div class="detalle-seccion">
+          <div class="detalle-seccion-titulo">🔗 Surge de</div>
+          <div style="margin-top:0.3rem;display:flex;align-items:center;gap:0.5rem">
+            <span class="participante-tag" style="font-size:0.82rem">
+              ${a.origenTipo === "Reunión" ? "📅" : "🎓"} ${a.origenTitulo || "evento anterior"}
+            </span>
+            <button id="btn-ver-origen" style="background:none;border:1px solid var(--border);color:var(--accent);border-radius:6px;padding:0.2rem 0.65rem;font-size:0.75rem;cursor:pointer;font-family:inherit">Ver origen →</button>
+          </div>
+        </div>`
+      : "";
+
     // Sección específica según tipo
     let secEspecifica = "";
     if (tipo === "Reunión") {
@@ -719,6 +806,7 @@ onAuthStateChanged(auth, (user) => {
         </div>
         <div style="padding:1.2rem 1.4rem;display:flex;flex-direction:column;gap:1rem;">
           ${vencHtml}
+          ${secOrigen}
           ${secEspecifica}
           ${secVinc}
         </div>
@@ -730,6 +818,16 @@ onAuthStateChanged(auth, (user) => {
     document.getElementById("detalle-agenda-cerrar").addEventListener("click", () => { modal.style.display = "none"; });
     modal.addEventListener("click", (e) => { if (e.target === modal) modal.style.display = "none"; });
     document.getElementById("detalle-agenda-editar").addEventListener("click", () => { modal.style.display = "none"; activarEdicion(a.id); });
+
+    // Botón "Ver origen" — abre el modal del evento origen
+    if (a.origenId) {
+      document.getElementById("btn-ver-origen")?.addEventListener("click", () => {
+        const origen = todasLasEventos.find(x => x.id === a.origenId);
+        if (origen) { modal.style.display = "none"; mostrarDetalle(origen); }
+        else alert("El evento de origen no se encontró en la agenda.");
+      });
+    }
+
     modal.style.display = "flex";
   }
 

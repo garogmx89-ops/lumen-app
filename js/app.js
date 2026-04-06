@@ -2,7 +2,7 @@
 import { auth, db } from "./firebase-config.js";
 import { onAuthStateChanged, signOut } from "https://www.gstatic.com/firebasejs/10.12.0/firebase-auth.js";
 import {
-  collection, getDocs, onSnapshot, query, orderBy, where
+  collection, getDocs, onSnapshot, query, orderBy, where, limit
 } from "https://www.gstatic.com/firebasejs/10.12.0/firebase-firestore.js";
 
 // ─── USUARIO ─────────────────────────────────────────────────────────────────
@@ -15,6 +15,9 @@ onAuthStateChanged(auth, (user) => {
 
     // Iniciar sistema de notificaciones
     iniciarNotificaciones(user.uid);
+
+    // Iniciar panel de inicio con datos reales
+    iniciarPanelInicio(user.uid);
 
     // Nombre del usuario
     const nameEl = document.getElementById('user-name');
@@ -514,6 +517,215 @@ async function ejecutarBusqueda(termino, uid) {
 
 // Exponer cerrar para los onclick inline del HTML
 window.cerrarBusquedaGlobal = cerrarBusqueda;
+
+// ─── PANEL INICIO — DATOS REALES ─────────────────────────────────────────────
+// Lee Firestore en tiempo real y llena las stat-cards, alertas del día,
+// próximos eventos y acceso rápido con información real.
+
+function iniciarPanelInicio(uid) {
+  const hoy = new Date(); hoy.setHours(0,0,0,0);
+  const hoyStr     = hoy.toISOString().slice(0,10);
+  const manana     = new Date(hoy); manana.setDate(manana.getDate()+1);
+  const mananaStr  = manana.toISOString().slice(0,10);
+  const en3dias    = new Date(hoy); en3dias.setDate(en3dias.getDate()+3);
+  const en3Str     = en3dias.toISOString().slice(0,10);
+
+  function fmtFecha(str) {
+    if (!str) return "";
+    const [y,m,d] = str.split("-");
+    const meses = ["ene","feb","mar","abr","may","jun","jul","ago","sep","oct","nov","dic"];
+    return `${Number(d)} ${meses[Number(m)-1]}`;
+  }
+
+  // ── Agenda en tiempo real ────────────────────────────────────────────────
+  const agendaRef = collection(db, "usuarios", uid, "agenda");
+  onSnapshot(query(agendaRef, orderBy("fecha","asc")), (snap) => {
+    const todos = snap.docs.map(d => ({id:d.id,...d.data()}));
+
+    // — Stat card Agenda: eventos de hoy y mañana pendientes
+    const proximos = todos.filter(a =>
+      a.fecha && (a.fecha === hoyStr || a.fecha === mananaStr) && a.estado === "Pendiente"
+    );
+    const statAgenda = document.getElementById("inicio-stat-agenda");
+    const subAgenda  = document.getElementById("inicio-stat-agenda-sub");
+    if (statAgenda) statAgenda.textContent = proximos.length;
+    if (subAgenda) {
+      const hoyCount = proximos.filter(a => a.fecha === hoyStr).length;
+      const manCount = proximos.filter(a => a.fecha === mananaStr).length;
+      const partes = [];
+      if (hoyCount)  partes.push(`${hoyCount} hoy`);
+      if (manCount)  partes.push(`${manCount} mañana`);
+      subAgenda.innerHTML = `<span class="stat-dot dot-amber"></span>${partes.length ? partes.join(" · ") : "sin eventos próximos"}`;
+    }
+
+    // — Stat card Alertas: pendientes vencidas o ≤3 días
+    const alertasUrgentes = todos.filter(a => {
+      if (!a.fecha || a.estado !== "Pendiente") return false;
+      return a.fecha <= en3Str;
+    });
+    const vencidas = alertasUrgentes.filter(a => a.fecha < hoyStr);
+    const statAlerts = document.getElementById("inicio-stat-alertas");
+    const subAlerts  = document.getElementById("inicio-stat-alertas-sub");
+    if (statAlerts) statAlerts.textContent = alertasUrgentes.length;
+    if (subAlerts) {
+      const txt = vencidas.length
+        ? `${vencidas.length} vencida${vencidas.length>1?"s":""}`
+        : alertasUrgentes.length
+          ? `${alertasUrgentes.length} próxima${alertasUrgentes.length>1?"s":""}`
+          : "sin alertas urgentes";
+      const color = vencidas.length ? "dot-coral" : "dot-amber";
+      subAlerts.innerHTML = `<span class="stat-dot ${color}"></span>${txt}`;
+    }
+
+    // — Banner próxima reunión
+    const proxReunion = todos.find(a =>
+      a.tipo === "Reunión" && a.fecha && a.fecha >= hoyStr && a.estado === "Pendiente"
+    );
+    const ctxBtn  = document.getElementById("ctx-activate-btn");
+    const ctxTxt  = document.getElementById("ctx-activate-texto");
+    if (ctxBtn && ctxTxt) {
+      if (proxReunion) {
+        const cuando = proxReunion.fecha === hoyStr ? "hoy" : proxReunion.fecha === mananaStr ? "mañana" : fmtFecha(proxReunion.fecha);
+        ctxTxt.textContent = `Próxima reunión: ${proxReunion.titulo} — ${cuando}${proxReunion.hora && proxReunion.hora !== "pendiente" ? " " + proxReunion.hora : ""}`;
+        ctxBtn.style.display = "";
+      } else {
+        ctxBtn.style.display = "none";
+      }
+    }
+
+    // — Alertas del día
+    const listaEl = document.getElementById("inicio-alertas-lista");
+    if (listaEl) {
+      const alertasHoy = todos.filter(a => {
+        if (!a.fecha || a.estado !== "Pendiente") return false;
+        return a.fecha <= en3Str;
+      }).slice(0, 5);
+
+      if (alertasHoy.length === 0) {
+        listaEl.innerHTML = `<div class="alert-card alert-info" style="opacity:0.55">
+          <div class="alert-dot" style="background:var(--accent)"></div>
+          <div><div class="alert-label">Sin alertas urgentes</div>
+          <div class="alert-desc">No hay eventos pendientes en los próximos 3 días</div></div>
+        </div>`;
+      } else {
+        listaEl.innerHTML = alertasHoy.map(a => {
+          const esvencida = a.fecha < hoyStr;
+          const esHoy     = a.fecha === hoyStr;
+          const esMañana  = a.fecha === mananaStr;
+          const clase     = esvencida ? "alert-danger" : esHoy || esMañana ? "alert-warn" : "alert-info";
+          const color     = esvencida ? "var(--coral)" : esHoy || esMañana ? "var(--amber)" : "var(--accent)";
+          const cuando    = esvencida
+            ? `Vencida hace ${Math.ceil((hoy - new Date(a.fecha))/86400000)} día(s)`
+            : esHoy ? "Hoy" : esMañana ? "Mañana"
+            : `${fmtFecha(a.fecha)}`;
+          const tipo = a.tipo || "Actividad";
+          const icono = tipo === "Reunión" ? "📅" : tipo === "Evento" ? "🎓" : "✅";
+          return `<div class="alert-card ${clase}" style="cursor:pointer" onclick="goTo('agenda')">
+            <div class="alert-dot" style="background:${color}"></div>
+            <div>
+              <div class="alert-label">${icono} ${a.titulo}</div>
+              <div class="alert-desc">${cuando}${a.prioridad ? " · " + a.prioridad : ""}${a.asunto ? " · " + a.asunto.slice(0,60) + (a.asunto.length>60?"…":"") : ""}</div>
+            </div>
+          </div>`;
+        }).join("");
+      }
+    }
+
+    // — Próximos eventos (hasta 3, después de hoy)
+    const proximosEl = document.getElementById("inicio-proximos-lista");
+    if (proximosEl) {
+      const prox = todos.filter(a =>
+        a.fecha && a.fecha >= hoyStr && a.estado === "Pendiente"
+      ).slice(0, 3);
+      if (prox.length === 0) {
+        proximosEl.innerHTML = `<p class="lista-vacia" style="font-size:0.8rem">No hay eventos próximos registrados.</p>`;
+      } else {
+        proximosEl.innerHTML = prox.map(a => {
+          const tipo = a.tipo || "Reunión";
+          const icono = tipo === "Reunión" ? "📅" : tipo === "Evento" ? "🎓" : "✅";
+          const colorBg = tipo === "Reunión" ? "rgba(96,165,250,0.12)" : tipo === "Evento" ? "rgba(45,212,191,0.12)" : "rgba(124,106,245,0.12)";
+          const cuando = a.fecha === hoyStr ? "Hoy" : a.fecha === mananaStr ? "Mañana" : fmtFecha(a.fecha);
+          return `<div class="list-card" onclick="goTo('agenda')" style="margin-bottom:6px">
+            <div class="list-icon" style="background:${colorBg}">${icono}</div>
+            <div class="list-body">
+              <div class="list-title">${a.titulo}</div>
+              <div class="list-meta">${cuando}${a.hora && a.hora !== "pendiente" ? " · " + a.hora : ""}${a.ubicacion ? " · " + a.ubicacion : ""}</div>
+            </div>
+          </div>`;
+        }).join("");
+      }
+    }
+  });
+
+  // ── Análisis en tiempo real ──────────────────────────────────────────────
+  const analisisRef = collection(db, "usuarios", uid, "analisis");
+  onSnapshot(query(analisisRef, orderBy("creadoEn","desc")), (snap) => {
+    const todos = snap.docs.map(d => ({id:d.id,...d.data()}));
+    const abiertos = todos.filter(a => !a.estado || a.estado === "Abierto" || a.estado === "En proceso");
+
+    const statEl = document.getElementById("inicio-stat-analisis");
+    const subEl  = document.getElementById("inicio-stat-analisis-sub");
+    if (statEl) statEl.textContent = abiertos.length;
+    if (subEl)  subEl.innerHTML = `<span class="stat-dot dot-accent"></span>${abiertos.length ? "abiertos" : "sin análisis activos"}`;
+
+    // Acceso rápido — último análisis
+    const ultimo = todos[0];
+    const tituloEl = document.getElementById("inicio-ar-analisis-titulo");
+    const metaEl   = document.getElementById("inicio-ar-analisis-meta");
+    if (ultimo && tituloEl) {
+      tituloEl.textContent = ultimo.pregunta ? ultimo.pregunta.slice(0,45)+(ultimo.pregunta.length>45?"…":"") : "Análisis";
+      if (metaEl) metaEl.textContent = `${todos.length} análisis · ${abiertos.length} abiertos`;
+    } else if (tituloEl) {
+      tituloEl.textContent = "Análisis";
+      if (metaEl) metaEl.textContent = "Sin análisis registrados";
+    }
+  });
+
+  // ── Entidades (una sola lectura — no cambia tan seguido) ─────────────────
+  const entidadesRef = collection(db, "usuarios", uid, "entidades");
+  getDocs(query(entidadesRef, orderBy("creadoEn","desc"), limit(1))).then(snap => {
+    const tituloEl = document.getElementById("inicio-ar-entidad-titulo");
+    const metaEl   = document.getElementById("inicio-ar-entidad-meta");
+    if (snap.empty) return;
+    const ent = snap.docs[0].data();
+    if (tituloEl) tituloEl.textContent = (ent.siglas || ent.nombre || "Dependencia").slice(0,40);
+    if (metaEl)   metaEl.textContent   = "Última dependencia registrada";
+  }).catch(()=>{});
+
+  // Conteo total de entidades
+  getDocs(collection(db, "usuarios", uid, "entidades")).then(snap => {
+    const metaEl = document.getElementById("inicio-ar-entidad-meta");
+    if (metaEl) metaEl.textContent = `${snap.size} dependencia${snap.size !== 1 ? "s" : ""} registrada${snap.size !== 1 ? "s" : ""}`;
+  }).catch(()=>{});
+
+  // ── Normatividad (una sola lectura) ──────────────────────────────────────
+  const normasRef = collection(db, "usuarios", uid, "normatividad");
+  getDocs(query(normasRef, orderBy("creadoEn","desc"), limit(1))).then(snap => {
+    const tituloEl = document.getElementById("inicio-ar-norma-titulo");
+    const metaEl   = document.getElementById("inicio-ar-norma-meta");
+    if (snap.empty) return;
+    const norma = snap.docs[0].data();
+    if (tituloEl) tituloEl.textContent = (norma.nombre || "Norma").slice(0,45)+(norma.nombre?.length>45?"…":"");
+    if (metaEl)   metaEl.textContent   = `${norma.tipo || "Norma"} · ${norma.ambito || ""}`;
+  }).catch(()=>{});
+
+  getDocs(collection(db, "usuarios", uid, "normatividad")).then(snap => {
+    const metaEl = document.getElementById("inicio-ar-norma-meta");
+    if (metaEl) metaEl.textContent = `${snap.size} norma${snap.size!==1?"s":""} registrada${snap.size!==1?"s":""}`;
+  }).catch(()=>{});
+
+  // ── Procesos ─────────────────────────────────────────────────────────────
+  getDocs(collection(db, "usuarios", uid, "procesos")).then(snap => {
+    const tituloEl = document.getElementById("inicio-ar-proceso-titulo");
+    const metaEl   = document.getElementById("inicio-ar-proceso-meta");
+    if (tituloEl) tituloEl.textContent = "Procesos";
+    if (metaEl)   metaEl.textContent   = `${snap.size} proceso${snap.size!==1?"s":""} registrado${snap.size!==1?"s":""}`;
+    if (!snap.empty && tituloEl) {
+      const ultimo = snap.docs[snap.docs.length-1].data();
+      if (ultimo.nombre) tituloEl.textContent = ultimo.nombre.slice(0,40)+(ultimo.nombre.length>40?"…":"");
+    }
+  }).catch(()=>{});
+}
 // ─── BOTÓN "BRIEFING IA ↗" DEL TOPBAR ────────────────────────────────────────
 // Lleva al módulo Reuniones y hace scroll al formulario de nueva reunión.
 // Es un acceso directo rápido para registrar una reunión desde cualquier módulo.

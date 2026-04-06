@@ -647,9 +647,22 @@
               <label for="ua-nombre">Nombre de la Unidad</label>
               <input type="text" id="ua-nombre" placeholder="Ej. Dirección de Planeación y Evaluación">
             </div>
+            <div class="form-group">
+              <label for="ua-adscripcion">Adscripción</label>
+              <select id="ua-adscripcion">
+                <option value="">— Seleccionar adscripción —</option>
+                <option value="Staff">Staff</option>
+                <option value="Subsecretaría de Regularización de la Tenencia de la Tierra">Subsecretaría de Regularización de la Tenencia de la Tierra</option>
+                <option value="Subsecretaría de Desarrollo Urbano y Vivienda">Subsecretaría de Desarrollo Urbano y Vivienda</option>
+              </select>
+            </div>
+            <div class="form-group" id="ua-campo-titular-subsec" style="display:none">
+              <label for="ua-titular-subsec">Titular de la Subsecretaría</label>
+              <input type="text" id="ua-titular-subsec" placeholder="Ej. Lic. Juan Pérez">
+            </div>
             <div class="form-row">
               <div class="form-group">
-                <label for="ua-responsable">Responsable</label>
+                <label for="ua-responsable">Responsable de la Unidad</label>
                 <input type="text" id="ua-responsable" placeholder="Ej. Lic. María García">
               </div>
               <div class="form-group form-group--corto">

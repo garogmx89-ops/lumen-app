@@ -19,8 +19,12 @@ onAuthStateChanged(auth, (user) => {
 
   // ─── LIMPIAR FORMULARIO ───────────────────────────────────────────────
   function limpiarFormulario() {
-    ["ua-nombre", "ua-responsable", "ua-extension", "ua-atribuciones"]
+    ["ua-nombre", "ua-responsable", "ua-extension", "ua-atribuciones", "ua-titular-subsec"]
       .forEach(id => { const el = document.getElementById(id); if (el) el.value = ""; });
+    const selAdsc = document.getElementById("ua-adscripcion");
+    if (selAdsc) selAdsc.value = "";
+    const campoTitular = document.getElementById("ua-campo-titular-subsec");
+    if (campoTitular) campoTitular.style.display = "none";
 
     const titulo = document.querySelector("#panel-ua .reunion-form-card h2");
     if (titulo) titulo.textContent = "Nueva Unidad Administrativa";
@@ -35,10 +39,16 @@ onAuthStateChanged(auth, (user) => {
     if (!ua) return;
     modoEdicion = id;
 
-    document.getElementById("ua-nombre").value        = ua.nombre       || "";
-    document.getElementById("ua-responsable").value   = ua.responsable  || "";
-    document.getElementById("ua-extension").value     = ua.extension    || "";
-    document.getElementById("ua-atribuciones").value  = ua.atribuciones || "";
+    document.getElementById("ua-nombre").value        = ua.nombre        || "";
+    document.getElementById("ua-responsable").value   = ua.responsable   || "";
+    document.getElementById("ua-extension").value     = ua.extension     || "";
+    document.getElementById("ua-atribuciones").value  = ua.atribuciones  || "";
+    const selAdscEdit = document.getElementById("ua-adscripcion");
+    if (selAdscEdit) selAdscEdit.value = ua.adscripcion || "";
+    const titularSubsecEl = document.getElementById("ua-titular-subsec");
+    if (titularSubsecEl) titularSubsecEl.value = ua.titularSubsec || "";
+    const campoTitularEdit = document.getElementById("ua-campo-titular-subsec");
+    if (campoTitularEdit) campoTitularEdit.style.display = (ua.adscripcion && ua.adscripcion !== "Staff") ? "" : "none";
 
     const titulo = document.querySelector("#panel-ua .reunion-form-card h2");
     if (titulo) titulo.textContent = "Editar Unidad Administrativa";
@@ -54,19 +64,23 @@ onAuthStateChanged(auth, (user) => {
     btnGuardar.parentNode.replaceChild(btnNuevo, btnGuardar);
 
     btnNuevo.addEventListener("click", async () => {
-      const nombre       = document.getElementById("ua-nombre")?.value.trim();
-      const responsable  = document.getElementById("ua-responsable")?.value.trim()  || "";
-      const extension    = document.getElementById("ua-extension")?.value.trim()    || "";
-      const atribuciones = document.getElementById("ua-atribuciones")?.value.trim() || "";
+      const nombre        = document.getElementById("ua-nombre")?.value.trim();
+      const responsable   = document.getElementById("ua-responsable")?.value.trim()   || "";
+      const extension     = document.getElementById("ua-extension")?.value.trim()     || "";
+      const atribuciones  = document.getElementById("ua-atribuciones")?.value.trim()  || "";
+      const adscripcion   = document.getElementById("ua-adscripcion")?.value          || "";
+      const titularSubsec = document.getElementById("ua-titular-subsec")?.value.trim() || "";
 
       if (!nombre) { alert("El nombre de la unidad es obligatorio."); return; }
 
+      const datos = { nombre, responsable, extension, atribuciones, adscripcion,
+        titularSubsec: adscripcion !== "Staff" ? titularSubsec : "" };
+
       try {
         if (modoEdicion) {
-          await updateDoc(doc(db, "usuarios", user.uid, "ua", modoEdicion),
-            { nombre, responsable, extension, atribuciones });
+          await updateDoc(doc(db, "usuarios", user.uid, "ua", modoEdicion), datos);
         } else {
-          await addDoc(uaRef, { nombre, responsable, extension, atribuciones, creadoEn: serverTimestamp() });
+          await addDoc(uaRef, { ...datos, creadoEn: serverTimestamp() });
         }
         limpiarFormulario();
       } catch (err) {
@@ -78,6 +92,16 @@ onAuthStateChanged(auth, (user) => {
 
   // ─── BOTÓN CANCELAR ───────────────────────────────────────────────────
   document.getElementById("btn-cancelar-ua")?.addEventListener("click", () => limpiarFormulario());
+
+  // ─── TOGGLE CAMPO TITULAR SUBSECRETARÍA ─────────────────────────────────
+  document.getElementById("ua-adscripcion")?.addEventListener("change", (e) => {
+    const campo = document.getElementById("ua-campo-titular-subsec");
+    if (campo) campo.style.display = (e.target.value && e.target.value !== "Staff") ? "" : "none";
+    if (e.target.value === "Staff" || !e.target.value) {
+      const t = document.getElementById("ua-titular-subsec");
+      if (t) t.value = "";
+    }
+  });
 
   // ─── LEER EN TIEMPO REAL ──────────────────────────────────────────────
   onSnapshot(query(uaRef, orderBy("creadoEn", "asc")), (snap) => {
@@ -101,16 +125,26 @@ onAuthStateChanged(auth, (user) => {
           <div style="display:flex;align-items:center;gap:0.5rem;flex-wrap:wrap">
             <span style="font-size:0.9rem">🏢</span>
             <span class="reunion-card-titulo">${u.nombre}</span>
+            ${u.adscripcion ? (() => {
+              const color = u.adscripcion === "Staff" ? "#4A4A8A"
+                : u.adscripcion.includes("Regularización") ? "#2D6A4F"
+                : "#0077B6";
+              const label = u.adscripcion === "Staff" ? "Staff"
+                : u.adscripcion.includes("Regularización") ? "Subsec. Regularización"
+                : "Subsec. Des. Urbano";
+              return `<span style="background:${color};color:white;font-size:0.68rem;font-weight:700;padding:0.15rem 0.5rem;border-radius:20px">${label}</span>`;
+            })() : ""}
           </div>
           <div class="reunion-card-acciones">
             <button class="btn-editar"   data-id="${u.id}" title="Editar">✏️</button>
             <button class="btn-eliminar" data-id="${u.id}" title="Eliminar">🗑️</button>
           </div>
         </div>
-        ${(u.responsable || u.extension)
+        ${(u.responsable || u.extension || u.titularSubsec)
           ? `<div class="reunion-card-meta">
-              ${u.responsable ? `👤 ${u.responsable}` : ""}
-              ${u.extension   ? `· 📞 Ext. ${u.extension}` : ""}
+              ${u.titularSubsec ? `🏅 ${u.titularSubsec}` : ""}
+              ${u.responsable   ? `${u.titularSubsec ? "·" : ""} 👤 ${u.responsable}` : ""}
+              ${u.extension     ? `· 📞 Ext. ${u.extension}` : ""}
              </div>` : ""}
         ${u.atribuciones ? (() => {
             const LIMIT = 180;
@@ -170,9 +204,22 @@ onAuthStateChanged(auth, (user) => {
           padding:1.2rem 1.4rem 1rem;border-bottom:1px solid var(--border);
           position:sticky;top:0;background:var(--bg2);z-index:1;">
           <div>
-            <div style="font-size:1rem;font-weight:700;color:var(--text)">🏢 ${ua.nombre || "Sin nombre"}</div>
+            <div style="display:flex;align-items:center;gap:0.5rem;flex-wrap:wrap;margin-bottom:0.2rem">
+              <span style="font-size:1rem;font-weight:700;color:var(--text)">🏢 ${ua.nombre || "Sin nombre"}</span>
+              ${ua.adscripcion ? (() => {
+                const color = ua.adscripcion === "Staff" ? "#4A4A8A"
+                  : ua.adscripcion.includes("Regularización") ? "#2D6A4F" : "#0077B6";
+                const label = ua.adscripcion === "Staff" ? "Staff"
+                  : ua.adscripcion.includes("Regularización") ? "Subsec. Regularización"
+                  : "Subsec. Des. Urbano";
+                return `<span style="background:${color};color:white;font-size:0.7rem;font-weight:700;padding:0.2rem 0.55rem;border-radius:20px">${label}</span>`;
+              })() : ""}
+            </div>
+            ${ua.titularSubsec
+              ? `<div style="font-size:0.8rem;color:var(--text2);margin-top:0.1rem">🏅 Titular: ${ua.titularSubsec}</div>`
+              : ""}
             ${ua.responsable
-              ? `<div style="font-size:0.8rem;color:var(--text2);margin-top:0.2rem">
+              ? `<div style="font-size:0.8rem;color:var(--text2);margin-top:0.1rem">
                   👤 ${ua.responsable}${ua.extension ? " &nbsp;·&nbsp; 📞 Ext. " + ua.extension : ""}
                  </div>` : ""}
           </div>

@@ -7,10 +7,10 @@
   --bg3:          #1e2029;
   --bg4:          #252733;
   --surface:      #2a2d3e;
-  --border:       #2e3148;
-  --text:         #e8e9f0;
-  --text2:        #9496a8;
-  --text3:        #5a5c70;
+  --border:       #333650;
+  --text:         #ecedf5;          /* subido: era #e8e9f0 */
+  --text2:        #aeb0c8;          /* subido: era #9496a8 — mejora contraste sidebar */
+  --text3:        #71738a;          /* subido: era #5a5c70 — etiquetas sección legibles */
   --accent:       #7c6af5;
   --accent-soft:  #261f4a;
   --accent-hover: #9b8fff;
@@ -30,13 +30,13 @@
 body.light {
   --bg:           #f0f1f7;
   --bg2:          #ffffff;
-  --bg3:          #f7f8fc;
+  --bg3:          #f4f5fb;
   --bg4:          #edeef5;
-  --surface:      #e4e5f0;
-  --border:       #d0d1e0;
-  --text:         #1a1b2e;
-  --text2:        #5a5c78;
-  --text3:        #9496a8;
+  --surface:      #e6e7f2;
+  --border:       #c8c9dc;
+  --text:         #16172a;          /* más profundo para contraste fuerte */
+  --text2:        #42436a;          /* bajado: más oscuro sobre blanco = mejor ratio */
+  --text3:        #7476a0;          /* etiquetas sección sidebar visibles */
   --accent-soft:  #ede9ff;
   --shadow:       0 2px 16px rgba(0,0,0,0.08);
 }
@@ -44,89 +44,122 @@ body.light {
 /* ─── PALETAS DE COLOR ───────────────────────────────────────────────────────── */
 /* Fondos tintados suaves + acento fuerte. Modo claro con tinte muy sutil.       */
 
+/* Pizarra — azul grisáceo neutro */
 body.tema-carbon {
   --bg:           #111314;  --bg2:  #191c1e;  --bg3:  #202426;
-  --bg4:          #282d30;  --surface: #303538; --border: #3a4044;
-  --accent:       #78909C;  --accent-soft: #1e2729;
-  --accent-hover: #90A4AE;  --ctx: #90A4AE;
+  --bg4:          #282d30;  --surface: #303538; --border: #414850;
+  --text2:        #b0b4c4;  --text3: #737888;
+  --accent:       #7B9CB8;  --accent-soft: #192231;
+  --accent-hover: #96b4cc;  --ctx: #96b4cc;
 }
 body.light.tema-carbon {
   --bg: #f2f4f5; --bg2: #ffffff; --bg3: #f7f9fa; --bg4: #edf0f2;
-  --surface: #e4e8ea; --border: #cdd3d6;
-  --accent-soft: #cfd8dc;
+  --surface: #e4e8ea; --border: #c4cdd2;
+  --text2: #3e4f5c; --text3: #6a7d8a;
+  --accent-soft: #d0dde5;
 }
 
+/* Zafiro — azul profundo */
 body.tema-pan {
   --bg:           #0c0f18;  --bg2:  #111520;  --bg3:  #151b28;
-  --bg4:          #1a2232;  --surface: #1e283c; --border: #243050;
-  --accent:       #1E88E5;  --accent-soft: #0d1e3a;
-  --accent-hover: #42A5F5;  --ctx: #64B5F6;
+  --bg4:          #1a2232;  --surface: #1e283c; --border: #2a3860;
+  --text2:        #a8b4d4;  --text3: #6a789a;
+  --accent:       #4a8fd4;  --accent-soft: #0d1e3a;
+  --accent-hover: #6aaae8;  --ctx: #7bbcf8;
 }
 body.light.tema-pan {
   --bg: #f0f4fb; --bg2: #ffffff; --bg3: #f5f8fd; --bg4: #e8eef8;
-  --surface: #dce6f5; --border: #c5d5ee;
-  --accent-soft: #bbdefb;
+  --surface: #dce6f5; --border: #b8ccec;
+  --text2: #2a4070; --text3: #5068a0;
+  --accent-soft: #c8dff8;
 }
 
+/* Esmeralda — verde vibrante */
 body.tema-pvem {
-  --bg:           #0c130d;  --bg2:  #111a12;  --bg3:  #152016;
-  --bg4:          #1a281b;  --surface: #1e3020; --border: #243a26;
-  --accent:       #4CAF50;  --accent-soft: #0f2211;
-  --accent-hover: #66BB6A;  --ctx: #81C784;
+  --bg:           #0b1210;  --bg2:  #101a14;  --bg3:  #14201a;
+  --bg4:          #192a20;  --surface: #1d3225; --border: #233d2c;
+  --text2:        #90c4a0;  --text3: #5a8a6a;
+  --accent:       #3aaa5e;  --accent-soft: #0b2218;
+  --accent-hover: #52c478;  --ctx: #7dd8a0;
 }
 body.light.tema-pvem {
-  --bg: #f1f8f1; --bg2: #ffffff; --bg3: #f4fbf4; --bg4: #e6f4e6;
-  --surface: #d8efd8; --border: #c2e0c2;
-  --accent-soft: #c8e6c9;
+  --bg: #f0f9f3; --bg2: #ffffff; --bg3: #f4fbf6; --bg4: #e4f4e8;
+  --surface: #d4edda; --border: #b8dfc2;
+  --text2: #1e5e36; --text3: #3a7a50;
+  --accent-soft: #c2e8cc;
 }
 
+/* Rubí — rojo intenso */
 body.tema-morena {
   --bg:           #140c0c;  --bg2:  #1c1010;  --bg3:  #221414;
-  --bg4:          #2a1818;  --surface: #341e1e; --border: #442424;
-  --accent:       #C0392B;  --accent-soft: #2e0f0f;
-  --accent-hover: #E53935;  --ctx: #EF9A9A;
+  --bg4:          #2a1818;  --surface: #341e1e; --border: #4a2828;
+  --text2:        #c8a0a0;  --text3: #8a6060;
+  --accent:       #d44040;  --accent-soft: #2e0f0f;
+  --accent-hover: #e85858;  --ctx: #f4a0a0;
 }
 body.light.tema-morena {
   --bg: #faf2f2; --bg2: #ffffff; --bg3: #fdf5f5; --bg4: #f5e8e8;
-  --surface: #eed8d8; --border: #e0c0c0;
-  --accent-soft: #ffcdd2;
+  --surface: #eed8d8; --border: #dab8b8;
+  --text2: #6a2020; --text3: #904040;
+  --accent-soft: #ffd8d8;
 }
 
+/* Bosque — verde oscuro profundo */
 body.tema-pri {
-  --bg:           #0c130d;  --bg2:  #111a12;  --bg3:  #152016;
-  --bg4:          #1a281b;  --surface: #1e3020; --border: #243a26;
-  --accent:       #2E7D32;  --accent-soft: #0a1e0b;
-  --accent-hover: #43A047;  --ctx: #C62828;
+  --bg:           #090e0a;  --bg2:  #0e1610;  --bg3:  #121d14;
+  --bg4:          #172519;  --surface: #1b2e1e; --border: #1f3824;
+  --text2:        #84b094;  --text3: #4e7860;
+  --accent:       #2e8a3e;  --accent-soft: #092214;
+  --accent-hover: #3aaa50;  --ctx: #6abf7a;
 }
 body.light.tema-pri {
-  --bg: #f1f8f1; --bg2: #ffffff; --bg3: #f4fbf4; --bg4: #e6f4e6;
-  --surface: #d8efd8; --border: #c2e0c2;
-  --accent-soft: #c8e6c9;
+  --bg: #f0f8f1; --bg2: #ffffff; --bg3: #f3fbf4; --bg4: #e3f2e4;
+  --surface: #d2ebd4; --border: #b4d8b8;
+  --text2: #1a4a24; --text3: #2e6438;
+  --accent-soft: #bce8c0;
 }
 
+/* Ámbar — naranja cálido */
 body.tema-mc {
-  --bg:           #140e08;  --bg2:  #1c130c;  --bg3:  #231810;
-  --bg4:          #2c1e14;  --surface: #362518; --border: #452e1e;
-  --accent:       #E65100;  --accent-soft: #2a1200;
-  --accent-hover: #FF6D00;  --ctx: #FF8A50;
+  --bg:           #130e08;  --bg2:  #1a1208;  --bg3:  #21180c;
+  --bg4:          #2a1f12;  --surface: #342618; --border: #442f1a;
+  --text2:        #c8a070;  --text3: #8a6a40;
+  --accent:       #d4720a;  --accent-soft: #2a1400;
+  --accent-hover: #f08c28;  --ctx: #f4aa60;
 }
 body.light.tema-mc {
   --bg: #fdf4ee; --bg2: #ffffff; --bg3: #fdf7f2; --bg4: #f8ece0;
-  --surface: #f2dcc8; --border: #e8c9a8;
-  --accent-soft: #ffe0b2;
+  --surface: #f2dcc8; --border: #e0c098;
+  --text2: #6a3a08; --text3: #8a5020;
+  --accent-soft: #fde8c0;
 }
 
+/* Granate — vino profundo (Zacatecas) */
 body.tema-estatal {
   --bg:           #130c0d;  --bg2:  #1c1011;  --bg3:  #231416;
-  --bg4:          #2c191b;  --surface: #361f22; --border: #44262a;
-  --accent:       #8B1A1A;  --accent-soft: #220808;
-  --accent-hover: #B71C1C;  --ctx: #E8A0A0;
+  --bg4:          #2c191b;  --surface: #361f22; --border: #4a2a2e;
+  --text2:        #c09898;  --text3: #805858;
+  --accent:       #b83030;  --accent-soft: #2a0808;
+  --accent-hover: #d44848;  --ctx: #f0a8a8;
 }
 body.light.tema-estatal {
   --bg: #faf1f1; --bg2: #ffffff; --bg3: #fdf4f4; --bg4: #f5e6e6;
-  --surface: #ecd4d4; --border: #ddbebe;
-  --accent-soft: #ffcdd2;
+  --surface: #ecd4d4; --border: #d8b0b0;
+  --text2: #5e2020; --text3: #844040;
+  --accent-soft: #ffd8d8;
 }
+
+/* ─── MEJORAS DE LEGIBILIDAD GLOBAL — sidebar y nav ────────────────────────── */
+/* En modo claro, el sidebar usa texto más oscuro independientemente de la paleta */
+body.light .nav-item { color: var(--text2); }
+body.light .nav-item:hover { background: var(--surface); color: var(--text); }
+body.light .nav-item.active { color: var(--accent); background: var(--accent-soft); }
+body.light .nav-section-label { color: var(--text3); }
+body.light .logo-sub { color: var(--text3); }
+body.light .user-role { color: var(--text3); }
+/* Sidebar oscuro: items inactivos legibles */
+.nav-item { color: var(--text2); }
+.nav-section-label { color: var(--text3); }
 
 /* ─── BOTONES DE PALETA ──────────────────────────────────────────────────────── */
 .paleta-btn {

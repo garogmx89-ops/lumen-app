@@ -9,7 +9,7 @@ import { auth, db } from "./firebase-config.js";
 import { onAuthStateChanged } from "https://www.gstatic.com/firebasejs/10.12.0/firebase-auth.js";
 import {
   collection, addDoc, updateDoc, deleteDoc, doc, getDoc,
-  onSnapshot, orderBy, query, serverTimestamp, setDoc
+  onSnapshot, orderBy, query, serverTimestamp, setDoc, writeBatch
 } from "https://www.gstatic.com/firebasejs/10.12.0/firebase-firestore.js";
 
 // ── Nivel 0: Despacho + Subsecretarías (fijos) ──────────────────────────────
@@ -113,8 +113,11 @@ onAuthStateChanged(auth, (user) => {
           }
 
           return `
-            <div style="background:var(--bg);border:1px solid ${s.color}44;
-              border-top:3px solid ${s.color};border-radius:10px;padding:1rem 1.1rem;">
+            <div class="subsec-card-clickable" data-subsec-id="${s.id}"
+              style="background:var(--bg);border:1px solid ${s.color}44;
+              border-top:3px solid ${s.color};border-radius:10px;padding:1rem 1.1rem;cursor:pointer;
+              transition:background 0.15s"
+              onmouseenter="this.style.background='var(--bg2)'" onmouseleave="this.style.background='var(--bg)'">
               <div style="display:flex;align-items:flex-start;justify-content:space-between;gap:0.5rem">
                 <div style="flex:1;min-width:0">
                   <div style="display:flex;align-items:center;gap:0.5rem;margin-bottom:0.45rem">
@@ -155,7 +158,13 @@ onAuthStateChanged(auth, (user) => {
       </div>`;
 
     contenedor.querySelectorAll(".btn-editar-subsec").forEach(btn => {
-      btn.addEventListener("click", () => editarTitularSubsec(btn.dataset.subsecId));
+      btn.addEventListener("click", (e) => { e.stopPropagation(); editarTitularSubsec(btn.dataset.subsecId); });
+    });
+    contenedor.querySelectorAll(".subsec-card-clickable").forEach(card => {
+      card.addEventListener("click", (e) => {
+        if (e.target.closest("button")) return;
+        mostrarDetalleSubsec(card.dataset.subsecId);
+      });
     });
   }
 
@@ -181,8 +190,11 @@ onAuthStateChanged(auth, (user) => {
         lista.innerHTML = `<p style="font-size:0.78rem;color:var(--text3);font-style:italic;margin:0.2rem 0">Sin colaboradores.</p>`;
       } else {
         lista.innerHTML = colabs.map((c, i) => `
-          <div style="display:grid;grid-template-columns:1fr 90px 26px;gap:0.35rem;align-items:center;margin-bottom:0.3rem">
+          <div style="display:grid;grid-template-columns:1fr 120px 80px 26px;gap:0.35rem;align-items:center;margin-bottom:0.3rem">
             <input type="text" class="cs-nombre" data-i="${i}" value="${c.nombre||""}" placeholder="Nombre"
+              style="background:var(--bg3);border:1px solid var(--border);border-radius:6px;
+              padding:0.3rem 0.5rem;font-size:0.8rem;color:var(--text);font-family:inherit;width:100%">
+            <input type="text" class="cs-cargo" data-i="${i}" value="${c.cargo||""}" placeholder="Cargo"
               style="background:var(--bg3);border:1px solid var(--border);border-radius:6px;
               padding:0.3rem 0.5rem;font-size:0.8rem;color:var(--text);font-family:inherit;width:100%">
             <input type="text" class="cs-ext" data-i="${i}" value="${c.extension||""}" placeholder="Ext."
@@ -192,6 +204,7 @@ onAuthStateChanged(auth, (user) => {
               style="background:none;border:none;color:var(--text3);cursor:pointer;font-size:0.85rem;padding:0">✕</button>
           </div>`).join("");
         lista.querySelectorAll(".cs-nombre").forEach(inp => { inp.addEventListener("input", () => { colabs[+inp.dataset.i].nombre = inp.value; }); });
+        lista.querySelectorAll(".cs-cargo").forEach(inp => { inp.addEventListener("input", () => { colabs[+inp.dataset.i].cargo = inp.value; }); });
         lista.querySelectorAll(".cs-ext").forEach(inp => { inp.addEventListener("input", () => { colabs[+inp.dataset.i].extension = inp.value; }); });
         lista.querySelectorAll(".cs-quitar").forEach(btn => { btn.addEventListener("click", () => { colabs.splice(+btn.dataset.i, 1); renderColabsSubsec(); }); });
       }
@@ -276,6 +289,7 @@ onAuthStateChanged(auth, (user) => {
       const extension = document.getElementById("input-extension-subsec")?.value.trim() || "";
       // Recoger valores del DOM
       modal.querySelectorAll(".cs-nombre").forEach(inp => { colabs[+inp.dataset.i].nombre = inp.value.trim(); });
+      modal.querySelectorAll(".cs-cargo").forEach(inp => { colabs[+inp.dataset.i].cargo = inp.value.trim(); });
       modal.querySelectorAll(".cs-ext").forEach(inp => { colabs[+inp.dataset.i].extension = inp.value.trim(); });
       const colaboradoresFinal = colabs.filter(c => c.nombre);
       const btn = document.getElementById("btn-guardar-subsec");
@@ -307,9 +321,13 @@ onAuthStateChanged(auth, (user) => {
       return;
     }
     lista.innerHTML = colaboradores.map((c, i) => `
-      <div style="display:grid;grid-template-columns:1fr 100px 28px;gap:0.4rem;align-items:center;margin-bottom:0.35rem">
+      <div style="display:grid;grid-template-columns:1fr 130px 90px 28px;gap:0.4rem;align-items:center;margin-bottom:0.35rem">
         <input type="text" class="colab-nombre" data-index="${i}" value="${c.nombre || ""}"
-          placeholder="Nombre del colaborador"
+          placeholder="Nombre"
+          style="background:var(--bg3);border:1px solid var(--border);border-radius:6px;
+          padding:0.35rem 0.55rem;font-size:0.82rem;color:var(--text);font-family:inherit;width:100%">
+        <input type="text" class="colab-cargo" data-index="${i}" value="${c.cargo || ""}"
+          placeholder="Cargo"
           style="background:var(--bg3);border:1px solid var(--border);border-radius:6px;
           padding:0.35rem 0.55rem;font-size:0.82rem;color:var(--text);font-family:inherit;width:100%">
         <input type="text" class="colab-ext" data-index="${i}" value="${c.extension || ""}"
@@ -324,6 +342,9 @@ onAuthStateChanged(auth, (user) => {
 
     lista.querySelectorAll(".colab-nombre").forEach(inp => {
       inp.addEventListener("input", () => { colaboradores[+inp.dataset.index].nombre = inp.value; });
+    });
+    lista.querySelectorAll(".colab-cargo").forEach(inp => {
+      inp.addEventListener("input", () => { colaboradores[+inp.dataset.index].cargo = inp.value; });
     });
     lista.querySelectorAll(".colab-ext").forEach(inp => {
       inp.addEventListener("input", () => { colaboradores[+inp.dataset.index].extension = inp.value; });
@@ -400,16 +421,16 @@ onAuthStateChanged(auth, (user) => {
 
   // ── Limpiar formulario ───────────────────────────────────────────────────
   function limpiarFormulario() {
-    ["ua-nombre", "ua-responsable", "ua-extension", "ua-atribuciones"]
+    ["ua-nombre", "ua-responsable", "ua-extension", "ua-atribuciones", "ua-siplan", "ua-notas"]
       .forEach(id => { const el = document.getElementById(id); if (el) el.value = ""; });
+    const chk = document.getElementById("ua-validado-reglamento");
+    if (chk) chk.checked = false;
     const selTipo = document.getElementById("ua-tipo");
     if (selTipo) selTipo.value = "";
     const wrap = document.getElementById("ua-padre-wrap");
     if (wrap) wrap.style.display = "none";
-
     colaboradores = [];
     renderColaboradores();
-
     const titulo = document.getElementById("ua-form-titulo");
     if (titulo) titulo.textContent = "Nueva Unidad Administrativa";
     const btnCancelar = document.getElementById("btn-cancelar-ua");
@@ -427,7 +448,12 @@ onAuthStateChanged(auth, (user) => {
     document.getElementById("ua-responsable").value  = ua.responsable  || "";
     document.getElementById("ua-extension").value    = ua.extension    || "";
     document.getElementById("ua-atribuciones").value = ua.atribuciones || "";
-
+    const elSiplan = document.getElementById("ua-siplan");
+    if (elSiplan) elSiplan.value = ua.siplan || "";
+    const elNotas = document.getElementById("ua-notas");
+    if (elNotas) elNotas.value = ua.notas || "";
+    const chk = document.getElementById("ua-validado-reglamento");
+    if (chk) chk.checked = !!ua.validadoReglamento;
     colaboradores = Array.isArray(ua.colaboradores) ? ua.colaboradores.map(c => ({...c})) : [];
     renderColaboradores();
 
@@ -468,17 +494,20 @@ onAuthStateChanged(auth, (user) => {
           : (todasLasUA.find(u => u.id === padreId)?.nombre || "");
       }
 
-      // Recoger valores actuales del DOM (por si no se disparó el evento input)
-      document.querySelectorAll(".colab-nombre").forEach(inp => {
-        colaboradores[+inp.dataset.index].nombre = inp.value.trim();
-      });
-      document.querySelectorAll(".colab-ext").forEach(inp => {
-        colaboradores[+inp.dataset.index].extension = inp.value.trim();
-      });
+      const siplan           = document.getElementById("ua-siplan")?.value.trim()           || "";
+      const notas            = document.getElementById("ua-notas")?.value.trim()             || "";
+      const validadoReglamento = document.getElementById("ua-validado-reglamento")?.checked || false;
+
+      // Recoger valores actuales del DOM
+      document.querySelectorAll(".colab-nombre").forEach(inp => { colaboradores[+inp.dataset.index].nombre = inp.value.trim(); });
+      document.querySelectorAll(".colab-cargo").forEach(inp => { colaboradores[+inp.dataset.index].cargo = inp.value.trim(); });
+      document.querySelectorAll(".colab-ext").forEach(inp => { colaboradores[+inp.dataset.index].extension = inp.value.trim(); });
 
       const datos = { nombre, tipo, responsable, extension, atribuciones,
+        siplan, notas, validadoReglamento,
         padreColeccion, padreId, padreNombre,
-        colaboradores: colaboradores.filter(c => c.nombre) };
+        colaboradores: colaboradores.filter(c => c.nombre),
+        orden: modoEdicion ? (todasLasUA.find(u => u.id === modoEdicion)?.orden ?? 999) : 999 };
 
       try {
         if (modoEdicion) {
@@ -520,7 +549,9 @@ onAuthStateChanged(auth, (user) => {
     let html = "";
 
     SUBSECS.forEach(s => {
-      const hijos = todasLasUA.filter(u => u.padreId === s.id && u.padreColeccion === "ua_subsec");
+      const hijos = todasLasUA
+        .filter(u => u.padreId === s.id && u.padreColeccion === "ua_subsec")
+        .sort((a,b) => (a.orden??999) - (b.orden??999));
       if (!hijos.length) return;
       const dSub = todasLasSubsecs[s.id] || {};
 
@@ -552,6 +583,13 @@ onAuthStateChanged(auth, (user) => {
 
     contenedor.innerHTML = html;
 
+    // Botón flotante visible solo cuando hay UAs
+    const btnFlot = document.getElementById("btn-reordenar-ua");
+    if (btnFlot) btnFlot.style.display = todasLasUA.length > 0 ? "flex" : "none";
+
+    // Botones de exportación (solo se insertan una vez)
+    iniciarExportacion();
+
     contenedor.querySelectorAll(".ua-nodo-clickable").forEach(card => {
       card.addEventListener("click", (e) => {
         if (e.target.closest("button")) return;
@@ -581,7 +619,9 @@ onAuthStateChanged(auth, (user) => {
 
   function renderNodo(u, nivel) {
     const def    = TIPOS_UA[u.tipo] || { icono: "📄", color: "#777" };
-    const hijos  = todasLasUA.filter(h => h.padreId === u.id && h.padreColeccion === "ua");
+    const hijos  = todasLasUA
+      .filter(h => h.padreId === u.id && h.padreColeccion === "ua")
+      .sort((a,b) => (a.orden??999) - (b.orden??999));
     const indent = nivel * 1.25;
     const LIMIT  = 140;
 
@@ -598,10 +638,16 @@ onAuthStateChanged(auth, (user) => {
               <span style="font-size:0.85rem;font-weight:600;color:var(--text)">${u.nombre}</span>
               <span style="background:${def.color}22;color:${def.color};border:1px solid ${def.color}44;
                 font-size:0.62rem;font-weight:700;padding:0.06rem 0.38rem;border-radius:10px">${u.tipo || ""}</span>
+              ${u.siplan ? `<span style="background:var(--bg3);color:var(--text3);border:1px solid var(--border);font-size:0.62rem;padding:0.06rem 0.38rem;border-radius:10px">🗂 ${u.siplan}</span>` : ""}
+              ${u.validadoReglamento ? `<span style="background:var(--accent-soft);color:var(--accent);border:1px solid var(--accent)44;font-size:0.62rem;font-weight:700;padding:0.06rem 0.38rem;border-radius:10px">✓ RI</span>` : ""}
             </div>
             ${u.responsable
               ? `<div style="font-size:0.75rem;color:var(--text2)">
-                  👤 ${u.responsable}${u.extension ? ` · <span style="background:#1a6fa8;color:white;border-radius:5px;padding:0.05rem 0.4rem;font-size:0.7rem;font-weight:600">📞 ${u.extension}</span>` : ""}
+                  👤 ${u.responsable}${u.extension ? ` · <span style="background:var(--accent);color:white;border-radius:5px;padding:0.05rem 0.4rem;font-size:0.7rem;font-weight:600">📞 ${u.extension}</span>` : ""}
+                 </div>` : ""}
+            ${u.notas
+              ? `<div style="font-size:0.72rem;color:var(--amber);margin-top:0.1rem">
+                  📝 ${u.notas.length > 80 ? u.notas.slice(0,80)+"…" : u.notas}
                  </div>` : ""}
             ${u.atribuciones
               ? `<div style="font-size:0.72rem;color:var(--text3);margin-top:0.15rem;line-height:1.4">
@@ -670,28 +716,25 @@ onAuthStateChanged(auth, (user) => {
               <span style="font-size:1rem;font-weight:700;color:var(--text)">${ua.nombre || "Sin nombre"}</span>
               <span style="background:${def.color}22;color:${def.color};border:1px solid ${def.color}44;
                 font-size:0.7rem;font-weight:700;padding:0.15rem 0.5rem;border-radius:20px">${ua.tipo || ""}</span>
+              ${ua.siplan ? `<span style="background:var(--bg3);color:var(--text3);border:1px solid var(--border);font-size:0.68rem;padding:0.12rem 0.5rem;border-radius:10px">🗂 ${ua.siplan}</span>` : ""}
+              ${ua.validadoReglamento ? `<span style="background:var(--accent-soft);color:var(--accent);border:1px solid var(--accent)44;font-size:0.68rem;font-weight:700;padding:0.12rem 0.5rem;border-radius:10px">✓ Validado RI</span>` : ""}
             </div>
-            ${ruta.length
-              ? `<div style="font-size:0.72rem;color:var(--text3);margin-bottom:0.25rem">
-                  ${ruta.join(" › ")}
-                </div>` : ""}
-            ${subsec && dSub.titular
-              ? `<div style="font-size:0.75rem;color:var(--text2)">
-                  ${subsec.icono} ${subsec.nombre}
-                  · <span style="color:var(--text3)">${dSub.cargo || "Titular"}:</span>
-                  <strong style="color:var(--text)">${dSub.titular}</strong>
-                  ${dSub.extension ? ` · 📞 Ext. ${dSub.extension}` : ""}
-                 </div>` : ""}
+            ${ruta.length ? `<div style="font-size:0.72rem;color:var(--text3);margin-bottom:0.25rem">${ruta.join(" › ")}</div>` : ""}
             ${ua.responsable
               ? `<div style="font-size:0.75rem;color:var(--text2);margin-top:0.15rem">
-                  👤 Responsable: <strong style="color:var(--text)">${ua.responsable}</strong>
-                  ${ua.extension ? ` · 📞 Ext. ${ua.extension}` : ""}
+                  👤 <strong style="color:var(--text)">${ua.responsable}</strong>
+                  ${ua.extension ? ` · <span style="background:var(--accent);color:white;border-radius:5px;padding:0.05rem 0.45rem;font-size:0.72rem;font-weight:600">📞 ${ua.extension}</span>` : ""}
                  </div>` : ""}
           </div>
           <button id="detalle-ua-cerrar" style="background:none;border:none;color:var(--text2);
             font-size:1.1rem;cursor:pointer;padding:0.2rem;flex-shrink:0;margin-left:1rem;">✕</button>
         </div>
         <div style="padding:1.2rem 1.4rem;display:flex;flex-direction:column;gap:1rem;">
+          ${ua.notas
+            ? `<div style="background:var(--amber-soft,#FFF8E1);border-left:3px solid var(--amber,#F59E0B);
+                border-radius:0 8px 8px 0;padding:0.65rem 0.9rem;font-size:0.82rem;color:var(--text)">
+                📝 ${ua.notas}
+               </div>` : ""}
           ${ua.atribuciones
             ? `<div class="detalle-seccion">
                 <div class="detalle-seccion-titulo">📋 Atribuciones según Reglamento Interior</div>
@@ -700,15 +743,15 @@ onAuthStateChanged(auth, (user) => {
           ${(ua.colaboradores || []).length > 0
             ? `<div class="detalle-seccion">
                 <div class="detalle-seccion-titulo">👥 Colaboradores</div>
-                <div style="display:flex;flex-direction:column;gap:0.35rem;margin-top:0.4rem">
+                <div style="display:flex;flex-direction:column;gap:0.3rem;margin-top:0.4rem">
                   ${ua.colaboradores.map(c => `
-                    <div style="display:flex;align-items:center;gap:0.5rem;font-size:0.82rem">
-                      <span style="color:var(--text);flex:1">${c.nombre || ""}</span>
-                      ${c.extension
-                        ? `<span style="color:white;font-size:0.75rem;
-                            background:#1a6fa8;border-radius:6px;
-                            padding:0.1rem 0.5rem;font-weight:600">📞 ${c.extension}</span>`
-                        : ""}
+                    <div style="display:flex;align-items:center;gap:0.5rem;font-size:0.82rem;
+                      padding:0.3rem 0;border-bottom:1px solid var(--border)">
+                      <div style="flex:1;min-width:0">
+                        <span style="font-weight:600;color:var(--text)">${c.nombre || ""}</span>
+                        ${c.cargo ? `<span style="font-size:0.72rem;color:var(--text3);margin-left:0.4rem">${c.cargo}</span>` : ""}
+                      </div>
+                      ${c.extension ? `<span style="background:var(--accent);color:white;border-radius:5px;padding:0.05rem 0.45rem;font-size:0.72rem;font-weight:600">📞 ${c.extension}</span>` : ""}
                     </div>`).join("")}
                 </div>
                </div>` : ""}
@@ -730,5 +773,229 @@ onAuthStateChanged(auth, (user) => {
     });
     modal.style.display = "flex";
   }
+
+  // ══════════════════════════════════════════════════════════════════════════
+  // MODAL DETALLE SUBSECRETARÍA / DESPACHO
+  // ══════════════════════════════════════════════════════════════════════════
+  function mostrarDetalleSubsec(subsecId) {
+    const s     = SUBSECS.find(x => x.id === subsecId);
+    const datos = todasLasSubsecs[subsecId] || {};
+    const colabs = datos.colaboradores || [];
+
+    let modal = document.getElementById("detalle-subsec-modal");
+    if (!modal) {
+      modal = document.createElement("div");
+      modal.id = "detalle-subsec-modal";
+      modal.style.cssText = "position:fixed;inset:0;background:rgba(0,0,0,0.6);display:flex;align-items:center;justify-content:center;z-index:800;padding:1rem;";
+      document.body.appendChild(modal);
+    }
+
+    modal.innerHTML = `
+      <div style="background:var(--bg2);border:1px solid var(--border);border-radius:14px;
+        width:100%;max-width:520px;max-height:85vh;overflow-y:auto;box-shadow:var(--shadow);">
+        <div style="padding:1.2rem 1.4rem 1rem;border-bottom:1px solid var(--border);
+          border-top:3px solid ${s?.color || "var(--accent)"};border-radius:14px 14px 0 0;
+          position:sticky;top:0;background:var(--bg2);z-index:1;
+          display:flex;justify-content:space-between;align-items:flex-start">
+          <div>
+            <div style="display:flex;align-items:center;gap:0.5rem;margin-bottom:0.3rem">
+              <span style="font-size:1.1rem">${s?.icono || "🏛️"}</span>
+              <span style="font-size:0.95rem;font-weight:700;color:var(--text)">${s?.nombre || subsecId}</span>
+            </div>
+            ${datos.titular
+              ? `<div style="font-size:0.8rem;color:var(--text2)">
+                  <span style="background:${s?.color}22;color:${s?.color};border:1px solid ${s?.color}44;
+                    border-radius:10px;padding:0.08rem 0.4rem;font-size:0.65rem;font-weight:700;
+                    margin-right:0.4rem">${datos.cargo || "Titular"}</span>
+                  <strong style="color:var(--text)">${datos.titular}</strong>
+                  ${datos.extension ? ` · <span style="background:var(--accent);color:white;border-radius:5px;padding:0.05rem 0.4rem;font-size:0.72rem;font-weight:600">📞 ${datos.extension}</span>` : ""}
+                </div>`
+              : `<div style="font-size:0.78rem;color:var(--text3);font-style:italic">Sin titular registrado</div>`}
+          </div>
+          <button id="det-subsec-cerrar" style="background:none;border:none;color:var(--text2);font-size:1.1rem;cursor:pointer;padding:0.2rem;flex-shrink:0;margin-left:1rem">✕</button>
+        </div>
+        <div style="padding:1.2rem 1.4rem;display:flex;flex-direction:column;gap:1rem">
+          ${colabs.length > 0
+            ? `<div class="detalle-seccion">
+                <div class="detalle-seccion-titulo">👥 Colaboradores</div>
+                <div style="display:flex;flex-direction:column;gap:0.4rem;margin-top:0.5rem">
+                  ${colabs.map(c => `
+                    <div style="display:flex;align-items:center;gap:0.5rem;font-size:0.82rem;padding:0.35rem 0;border-bottom:1px solid var(--border)">
+                      <div style="flex:1">
+                        <span style="font-weight:600;color:var(--text)">${c.nombre || ""}</span>
+                        ${c.cargo ? `<span style="font-size:0.72rem;color:var(--text3);margin-left:0.4rem">${c.cargo}</span>` : ""}
+                      </div>
+                      ${c.extension ? `<span style="background:var(--accent);color:white;border-radius:5px;padding:0.05rem 0.45rem;font-size:0.72rem;font-weight:600">📞 ${c.extension}</span>` : ""}
+                    </div>`).join("")}
+                </div>
+               </div>`
+            : `<p style="font-size:0.82rem;color:var(--text3);font-style:italic;margin:0">Sin colaboradores registrados.</p>`}
+        </div>
+        <div style="padding:1rem 1.4rem;border-top:1px solid var(--border);display:flex;justify-content:flex-end;position:sticky;bottom:0;background:var(--bg2)">
+          <button id="det-subsec-editar" style="background:var(--accent);color:white;border:none;border-radius:8px;padding:0.55rem 1.2rem;font-size:0.875rem;cursor:pointer;font-family:inherit;font-weight:600">✏️ Editar</button>
+        </div>
+      </div>`;
+
+    document.getElementById("det-subsec-cerrar").addEventListener("click", () => { modal.style.display = "none"; });
+    modal.addEventListener("click", (e) => { if (e.target === modal) modal.style.display = "none"; });
+    document.getElementById("det-subsec-editar").addEventListener("click", () => { modal.style.display = "none"; editarTitularSubsec(subsecId); });
+    modal.style.display = "flex";
+  }
+
+  // ══════════════════════════════════════════════════════════════════════════
+  // EXPORTACIÓN EXCEL Y PDF
+  // ══════════════════════════════════════════════════════════════════════════
+  const XLSX_CDN  = "https://cdnjs.cloudflare.com/ajax/libs/xlsx/0.18.5/xlsx.full.min.js";
+  const JSPDF_CDN = "https://cdnjs.cloudflare.com/ajax/libs/jspdf/2.5.1/jspdf.umd.min.js";
+  const AUTOTAB   = "https://cdnjs.cloudflare.com/ajax/libs/jspdf-autotable/3.5.28/jspdf.plugin.autotable.min.js";
+
+  function cargarScript(src) {
+    return new Promise((res, rej) => {
+      if (document.querySelector(`script[src="${src}"]`)) { res(); return; }
+      const s = document.createElement("script"); s.src = src; s.onload = res; s.onerror = rej;
+      document.head.appendChild(s);
+    });
+  }
+
+  // Agregar botones de exportación a la sección de UAs
+  function iniciarExportacion() {
+    const hdr = document.querySelector("#panel-ua .reuniones-lista > h2");
+    if (!hdr || document.getElementById("ua-export-bar")) return;
+    const bar = document.createElement("div");
+    bar.id = "ua-export-bar";
+    bar.style.cssText = "display:flex;gap:0.5rem;margin-bottom:0.75rem";
+    bar.innerHTML = `
+      <button id="btn-ua-xls" style="background:none;border:1px solid var(--border);color:var(--text2);border-radius:8px;padding:0.4rem 0.9rem;font-size:0.8rem;cursor:pointer;font-family:inherit">📊 Excel</button>
+      <button id="btn-ua-pdf" style="background:none;border:1px solid var(--border);color:var(--text2);border-radius:8px;padding:0.4rem 0.9rem;font-size:0.8rem;cursor:pointer;font-family:inherit">📄 PDF</button>`;
+    hdr.after(bar);
+    document.getElementById("btn-ua-xls").addEventListener("click", exportarExcel);
+    document.getElementById("btn-ua-pdf").addEventListener("click", exportarPDF);
+  }
+
+  async function exportarExcel() {
+    await cargarScript(XLSX_CDN);
+    const filas = [];
+    // Nivel 0
+    SUBSECS.forEach(s => {
+      const d = todasLasSubsecs[s.id] || {};
+      filas.push({ Tipo: "Despacho/Subsecretaría", Nombre: s.nombre, Responsable: d.titular || "", Cargo: d.cargo || "Titular", Extensión: d.extension || "", SIPLAN: "", Adscripción: "", Validado: "" });
+      (d.colaboradores || []).forEach(c => {
+        filas.push({ Tipo: "Colaborador", Nombre: c.nombre, Responsable: "", Cargo: c.cargo || "", Extensión: c.extension || "", SIPLAN: "", Adscripción: s.nombre, Validado: "" });
+      });
+    });
+    // Niveles 1+
+    function agregarUA(u, adscripcion) {
+      filas.push({ Tipo: u.tipo || "", Nombre: u.nombre, Responsable: u.responsable || "", Cargo: "", Extensión: u.extension || "", SIPLAN: u.siplan || "", Adscripción: adscripcion, Validado: u.validadoReglamento ? "Sí" : "No" });
+      (u.colaboradores || []).forEach(c => {
+        filas.push({ Tipo: "Colaborador", Nombre: c.nombre, Responsable: "", Cargo: c.cargo || "", Extensión: c.extension || "", SIPLAN: "", Adscripción: u.nombre, Validado: "" });
+      });
+      todasLasUA.filter(h => h.padreId === u.id && h.padreColeccion === "ua").sort((a,b)=>(a.orden??999)-(b.orden??999)).forEach(h => agregarUA(h, u.nombre));
+    }
+    SUBSECS.forEach(s => {
+      todasLasUA.filter(u => u.padreId === s.id && u.padreColeccion === "ua_subsec").sort((a,b)=>(a.orden??999)-(b.orden??999)).forEach(u => agregarUA(u, s.nombre));
+    });
+    const ws = window.XLSX.utils.json_to_sheet(filas);
+    const wb = window.XLSX.utils.book_new();
+    window.XLSX.utils.book_append_sheet(wb, ws, "Estructura UA");
+    window.XLSX.writeFile(wb, "Estructura_UA_SEDUVOT.xlsx");
+  }
+
+  async function exportarPDF() {
+    await cargarScript(JSPDF_CDN);
+    await cargarScript(AUTOTAB);
+    const { jsPDF } = window.jspdf;
+    const doc = new jsPDF();
+    doc.setFontSize(13); doc.setFont("helvetica","bold");
+    doc.text("Estructura Organizacional SEDUVOT", 14, 16);
+    doc.setFontSize(8); doc.setFont("helvetica","normal");
+    doc.text("Lumen · " + new Date().toLocaleDateString("es-MX"), 14, 22);
+    const body = [];
+    SUBSECS.forEach(s => {
+      const d = todasLasSubsecs[s.id] || {};
+      body.push([s.nombre, "Subsecretaría/Despacho", d.titular||"", d.extension||"", "", ""]);
+      function addUA(u, nivel) {
+        body.push([" ".repeat(nivel*2)+u.nombre, u.tipo||"", u.responsable||"", u.extension||"", u.siplan||"", u.validadoReglamento?"✓":""]);
+        todasLasUA.filter(h=>h.padreId===u.id&&h.padreColeccion==="ua").sort((a,b)=>(a.orden??999)-(b.orden??999)).forEach(h=>addUA(h,nivel+1));
+      }
+      todasLasUA.filter(u=>u.padreId===s.id&&u.padreColeccion==="ua_subsec").sort((a,b)=>(a.orden??999)-(b.orden??999)).forEach(u=>addUA(u,1));
+    });
+    doc.autoTable({ startY:28, head:[["Nombre","Tipo","Responsable","Ext.","SIPLAN","RI"]], body, styles:{fontSize:7}, headStyles:{fillColor:[74,74,138]} });
+    doc.save("Estructura_UA_SEDUVOT.pdf");
+  }
+
+  // ══════════════════════════════════════════════════════════════════════════
+  // REORDENAMIENTO (drag & drop en panel flotante)
+  // ══════════════════════════════════════════════════════════════════════════
+  let ordenTemporal = []; // copia local mientras el panel está abierto
+  let draggingId    = null;
+
+  function abrirReorderPanel() {
+    const overlay = document.getElementById("ua-reorder-overlay");
+    const lista   = document.getElementById("ua-reorder-lista");
+    if (!overlay || !lista) return;
+
+    // Construir lista plana ordenada para reordenar
+    ordenTemporal = [...todasLasUA].sort((a,b) => (a.orden??999)-(b.orden??999));
+
+    function renderLista() {
+      lista.innerHTML = ordenTemporal.map((u, i) => {
+        const def = TIPOS_UA[u.tipo] || { icono:"📄", color:"#777" };
+        return `<div class="reorder-item" data-id="${u.id}" draggable="true"
+          style="display:flex;align-items:center;gap:0.6rem;padding:0.55rem 0.7rem;
+          margin-bottom:0.3rem;background:var(--bg);border:1px solid var(--border);
+          border-left:3px solid ${def.color};border-radius:8px;cursor:grab;user-select:none">
+          <span style="color:var(--text3);font-size:0.9rem;flex-shrink:0">⠿</span>
+          <span style="font-size:0.8rem;flex:1;min-width:0">
+            <span style="font-weight:600;color:var(--text)">${u.nombre}</span>
+            <span style="font-size:0.68rem;color:var(--text3);margin-left:0.3rem">${u.tipo||""}</span>
+            ${u.padreNombre ? `<span style="font-size:0.65rem;color:var(--text3);display:block">${u.padreNombre}</span>` : ""}
+          </span>
+        </div>`;
+      }).join("");
+
+      lista.querySelectorAll(".reorder-item").forEach(item => {
+        item.addEventListener("dragstart", () => { draggingId = item.dataset.id; item.style.opacity = "0.4"; });
+        item.addEventListener("dragend",   () => { draggingId = null; item.style.opacity = "1"; });
+        item.addEventListener("dragover",  (e) => { e.preventDefault(); item.style.background = "var(--accent-soft)"; });
+        item.addEventListener("dragleave", () => { item.style.background = "var(--bg)"; });
+        item.addEventListener("drop", (e) => {
+          e.preventDefault();
+          item.style.background = "var(--bg)";
+          if (!draggingId || draggingId === item.dataset.id) return;
+          const fromIdx = ordenTemporal.findIndex(u => u.id === draggingId);
+          const toIdx   = ordenTemporal.findIndex(u => u.id === item.dataset.id);
+          const [moved] = ordenTemporal.splice(fromIdx, 1);
+          ordenTemporal.splice(toIdx, 0, moved);
+          renderLista();
+        });
+      });
+    }
+
+    renderLista();
+    overlay.style.display = "block";
+  }
+
+  document.getElementById("btn-reordenar-ua")?.addEventListener("click", abrirReorderPanel);
+  document.getElementById("btn-cerrar-reorder")?.addEventListener("click", () => { document.getElementById("ua-reorder-overlay").style.display = "none"; });
+  document.getElementById("btn-reorder-cancelar")?.addEventListener("click", () => { document.getElementById("ua-reorder-overlay").style.display = "none"; });
+  document.getElementById("ua-reorder-overlay")?.addEventListener("click", (e) => { if (e.target.id === "ua-reorder-overlay") e.target.style.display = "none"; });
+
+  document.getElementById("btn-reorder-guardar")?.addEventListener("click", async () => {
+    const btn = document.getElementById("btn-reorder-guardar");
+    btn.disabled = true; btn.textContent = "Guardando...";
+    try {
+      const batch = writeBatch(db);
+      ordenTemporal.forEach((u, i) => {
+        batch.update(doc(db, "usuarios", user.uid, "ua", u.id), { orden: i });
+      });
+      await batch.commit();
+      document.getElementById("ua-reorder-overlay").style.display = "none";
+    } catch (err) {
+      console.error("Error guardando orden:", err);
+      alert("No se pudo guardar el orden.");
+    } finally {
+      btn.disabled = false; btn.textContent = "Guardar orden";
+    }
+  });
 
 }); // fin onAuthStateChanged

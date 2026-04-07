@@ -21,16 +21,16 @@ const SUBSECS = [
 
 // ── Tipos de UA y sus padres permitidos ─────────────────────────────────────
 const TIPOS_UA = {
-  "Dirección":    { padresPermitidos: ["ua_subsec"],        icono: "📁", color: "#5C6BC0" },
-  "Subdirección": { padresPermitidos: ["ua"],               icono: "📂", color: "#3F7FC1" },
-  "Unidad":       { padresPermitidos: ["ua_subsec", "ua"],  icono: "📂", color: "#0097A7" },
-  "Coordinación": { padresPermitidos: ["ua_subsec", "ua"],  icono: "🔗", color: "#7B4F9E" },
-  "Departamento": { padresPermitidos: ["ua"],               icono: "📄", color: "#6D4C41" },
-  "Área":         { padresPermitidos: ["ua_subsec", "ua"],  icono: "📌", color: "#D4720A" },
-  "Otro":         { padresPermitidos: ["ua_subsec", "ua"],  icono: "⚙️", color: "#555"    },
+  "Dirección":    { padresPermitidos: ["ua_subsec"],        icono: "🗂️",  color: "var(--accent)" },
+  "Subdirección": { padresPermitidos: ["ua"],               icono: "🗂️",  color: "var(--accent)" },
+  "Unidad":       { padresPermitidos: ["ua_subsec", "ua"],  icono: "🗃️",  color: "var(--accent)" },
+  "Coordinación": { padresPermitidos: ["ua_subsec", "ua"],  icono: "🗂️",  color: "var(--accent)" },
+  "Departamento": { padresPermitidos: ["ua"],               icono: "📌",  color: "var(--accent)" },
+  "Área":         { padresPermitidos: ["ua_subsec", "ua"],  icono: "🗂️",  color: "var(--accent)" },
+  "Otro":         { padresPermitidos: ["ua_subsec", "ua"],  icono: "⚖️",  color: "var(--accent)" },
 };
 
-// Tipos que pueden ser padre de Departamento (además de Dirección y Unidad)
+// Tipos que pueden ser padre de Departamento
 const PADRES_DEPARTAMENTO = ["Dirección", "Subdirección", "Unidad", "Coordinación"];
 
 // ── Estado ───────────────────────────────────────────────────────────────────
@@ -131,7 +131,7 @@ onAuthStateChanged(auth, (user) => {
                           margin-right:0.35rem">${d.cargo || "Titular"}</span>
                         <strong style="color:var(--text)">${titular}</strong>
                         ${d.extension
-                          ? `<span style="color:var(--text3);display:block;margin-top:0.05rem">📞 Ext. ${d.extension}</span>`
+                          ? `<span style="color:var(--text3);display:block;margin-top:0.05rem">Ext. ${d.extension}</span>`
                           : ""}
                       </div>`
                     : `<div style="font-size:0.75rem;color:var(--text3);font-style:italic">Sin titular registrado</div>`}
@@ -618,57 +618,59 @@ onAuthStateChanged(auth, (user) => {
   }
 
   function renderNodo(u, nivel) {
-    const def    = TIPOS_UA[u.tipo] || { icono: "📄", color: "#777" };
+    const def    = TIPOS_UA[u.tipo] || { icono: "⚖️", color: "var(--accent)" };
     const hijos  = todasLasUA
       .filter(h => h.padreId === u.id && h.padreColeccion === "ua")
       .sort((a,b) => (a.orden??999) - (b.orden??999));
     const indent = nivel * 1.25;
-    const LIMIT  = 140;
+    const LIMIT  = 120;
 
     return `
-      <div style="margin-left:${indent}rem;margin-bottom:0.35rem">
+      <div style="margin-left:${indent}rem;margin-bottom:0.3rem">
         <div class="ua-nodo-clickable" data-id="${u.id}"
           style="background:var(--bg2);border:1px solid var(--border);
-          border-left:3px solid ${def.color};border-radius:8px;
-          padding:0.65rem 0.9rem;cursor:pointer;
-          display:flex;align-items:flex-start;gap:0.6rem">
-          <span style="font-size:0.9rem;flex-shrink:0;margin-top:0.05rem">${def.icono}</span>
+          border-left:3px solid var(--accent);border-radius:8px;
+          padding:0.6rem 0.85rem;cursor:pointer;
+          display:flex;align-items:flex-start;gap:0.55rem;
+          transition:background 0.12s"
+          onmouseenter="this.style.background='var(--bg3)'"
+          onmouseleave="this.style.background='var(--bg2)'">
+          <span style="font-size:0.95rem;flex-shrink:0;margin-top:0.05rem;opacity:0.85">${def.icono}</span>
           <div style="flex:1;min-width:0">
-            <div style="display:flex;align-items:center;gap:0.4rem;flex-wrap:wrap;margin-bottom:0.1rem">
+            <div style="display:flex;align-items:baseline;gap:0.45rem;flex-wrap:wrap;margin-bottom:0.15rem">
               <span style="font-size:0.85rem;font-weight:600;color:var(--text)">${u.nombre}</span>
-              <span style="background:${def.color}22;color:${def.color};border:1px solid ${def.color}44;
-                font-size:0.62rem;font-weight:700;padding:0.06rem 0.38rem;border-radius:10px">${u.tipo || ""}</span>
-              ${u.siplan ? `<span style="background:var(--bg3);color:var(--text3);border:1px solid var(--border);font-size:0.62rem;padding:0.06rem 0.38rem;border-radius:10px">🗂 ${u.siplan}</span>` : ""}
-              ${u.validadoReglamento ? `<span style="background:var(--accent-soft);color:var(--accent);border:1px solid var(--accent)44;font-size:0.62rem;font-weight:700;padding:0.06rem 0.38rem;border-radius:10px">✓ RI</span>` : ""}
+              <span style="font-size:0.68rem;color:var(--text3)">${u.tipo || ""}</span>
+              ${u.siplan ? `<span style="font-size:0.68rem;color:var(--text3)">· ${u.siplan}</span>` : ""}
+              ${u.validadoReglamento ? `<span style="font-size:0.68rem;color:var(--accent);font-weight:600">· ✓ RI</span>` : ""}
             </div>
             ${u.responsable
-              ? `<div style="font-size:0.75rem;color:var(--text2)">
-                  👤 ${u.responsable}${u.extension ? ` · <span style="background:var(--accent);color:white;border-radius:5px;padding:0.05rem 0.4rem;font-size:0.7rem;font-weight:600">📞 ${u.extension}</span>` : ""}
+              ? `<div style="font-size:0.76rem;color:var(--text2);display:flex;align-items:center;gap:0.35rem">
+                  <span>👤</span>
+                  <span>${u.responsable}</span>
+                  ${u.extension ? `<span style="color:var(--text3)">· Ext. ${u.extension}</span>` : ""}
                  </div>` : ""}
             ${u.notas
-              ? `<div style="font-size:0.72rem;color:var(--amber);margin-top:0.1rem">
-                  📝 ${u.notas.length > 80 ? u.notas.slice(0,80)+"…" : u.notas}
+              ? `<div style="font-size:0.72rem;color:var(--text3);margin-top:0.1rem;font-style:italic">
+                  ${u.notas.length > 80 ? u.notas.slice(0,80)+"…" : u.notas}
                  </div>` : ""}
             ${u.atribuciones
-              ? `<div style="font-size:0.72rem;color:var(--text3);margin-top:0.15rem;line-height:1.4">
+              ? `<div style="font-size:0.71rem;color:var(--text3);margin-top:0.12rem;line-height:1.4">
                   ${u.atribuciones.length > LIMIT ? u.atribuciones.slice(0, LIMIT) + "…" : u.atribuciones}
                  </div>` : ""}
-            ${hijos.length
-              ? `<div style="font-size:0.67rem;color:var(--text3);margin-top:0.2rem">
-                  ↳ ${hijos.length} subordinada${hijos.length > 1 ? "s" : ""}
-                 </div>` : ""}
-            ${(u.colaboradores || []).length > 0
-              ? `<div style="font-size:0.67rem;color:var(--text3);margin-top:0.15rem">
-                  👥 ${u.colaboradores.length} colaborador${u.colaboradores.length > 1 ? "es" : ""}
+            ${(hijos.length || (u.colaboradores||[]).length)
+              ? `<div style="display:flex;gap:0.7rem;margin-top:0.2rem">
+                  ${hijos.length ? `<span style="font-size:0.67rem;color:var(--text3)">↳ ${hijos.length} subordinada${hijos.length>1?"s":""}</span>` : ""}
+                  ${(u.colaboradores||[]).length ? `<span style="font-size:0.67rem;color:var(--text3)">👥 ${u.colaboradores.length} colaborador${u.colaboradores.length>1?"es":""}</span>` : ""}
                  </div>` : ""}
           </div>
-          <div style="display:flex;gap:0.3rem;flex-shrink:0">
+          <div style="display:flex;gap:0.25rem;flex-shrink:0;opacity:0.5;transition:opacity 0.12s"
+            onmouseenter="this.style.opacity='1'" onmouseleave="this.style.opacity='0.5'">
             <button class="btn-editar" data-id="${u.id}"
-              style="background:none;border:none;cursor:pointer;font-size:0.85rem;
+              style="background:none;border:none;cursor:pointer;font-size:0.82rem;
               color:var(--text3);padding:0.15rem 0.3rem;border-radius:4px"
               title="Editar">✏️</button>
             <button class="btn-eliminar" data-id="${u.id}"
-              style="background:none;border:none;cursor:pointer;font-size:0.85rem;
+              style="background:none;border:none;cursor:pointer;font-size:0.82rem;
               color:var(--text3);padding:0.15rem 0.3rem;border-radius:4px"
               title="Eliminar">🗑️</button>
           </div>
@@ -705,63 +707,79 @@ onAuthStateChanged(auth, (user) => {
 
     modal.innerHTML = `
       <div style="background:var(--bg2);border:1px solid var(--border);border-radius:14px;
-        width:100%;max-width:540px;max-height:85vh;overflow-y:auto;box-shadow:var(--shadow);">
-        <div style="display:flex;justify-content:space-between;align-items:flex-start;
-          padding:1.2rem 1.4rem 1rem;border-bottom:1px solid var(--border);
+        width:100%;max-width:520px;max-height:85vh;overflow-y:auto;box-shadow:var(--shadow);">
+        <div style="padding:1.2rem 1.4rem 1rem;border-bottom:1px solid var(--border);
           position:sticky;top:0;background:var(--bg2);z-index:1;
-          border-top:3px solid ${def.color};border-radius:14px 14px 0 0">
+          border-top:3px solid var(--accent);border-radius:14px 14px 0 0;
+          display:flex;justify-content:space-between;align-items:flex-start">
           <div style="flex:1;min-width:0">
-            <div style="display:flex;align-items:center;gap:0.5rem;flex-wrap:wrap;margin-bottom:0.3rem">
-              <span style="font-size:1rem">${def.icono}</span>
-              <span style="font-size:1rem;font-weight:700;color:var(--text)">${ua.nombre || "Sin nombre"}</span>
-              <span style="background:${def.color}22;color:${def.color};border:1px solid ${def.color}44;
-                font-size:0.7rem;font-weight:700;padding:0.15rem 0.5rem;border-radius:20px">${ua.tipo || ""}</span>
-              ${ua.siplan ? `<span style="background:var(--bg3);color:var(--text3);border:1px solid var(--border);font-size:0.68rem;padding:0.12rem 0.5rem;border-radius:10px">🗂 ${ua.siplan}</span>` : ""}
-              ${ua.validadoReglamento ? `<span style="background:var(--accent-soft);color:var(--accent);border:1px solid var(--accent)44;font-size:0.68rem;font-weight:700;padding:0.12rem 0.5rem;border-radius:10px">✓ Validado RI</span>` : ""}
+            <div style="display:flex;align-items:baseline;gap:0.5rem;flex-wrap:wrap;margin-bottom:0.25rem">
+              <span style="font-size:1rem;opacity:0.85">${def.icono}</span>
+              <span style="font-size:0.95rem;font-weight:700;color:var(--text)">${ua.nombre || "Sin nombre"}</span>
+              <span style="font-size:0.72rem;color:var(--text3)">${ua.tipo || ""}</span>
+              ${ua.siplan ? `<span style="font-size:0.72rem;color:var(--text3)">· ${ua.siplan}</span>` : ""}
             </div>
-            ${ruta.length ? `<div style="font-size:0.72rem;color:var(--text3);margin-bottom:0.25rem">${ruta.join(" › ")}</div>` : ""}
+            ${ruta.length ? `<div style="font-size:0.72rem;color:var(--text3);margin-bottom:0.2rem">${ruta.join(" › ")}</div>` : ""}
             ${ua.responsable
-              ? `<div style="font-size:0.75rem;color:var(--text2);margin-top:0.15rem">
-                  👤 <strong style="color:var(--text)">${ua.responsable}</strong>
-                  ${ua.extension ? ` · <span style="background:var(--accent);color:white;border-radius:5px;padding:0.05rem 0.45rem;font-size:0.72rem;font-weight:600">📞 ${ua.extension}</span>` : ""}
+              ? `<div style="font-size:0.78rem;color:var(--text2);display:flex;align-items:center;gap:0.35rem">
+                  <span>👤</span>
+                  <span style="font-weight:600;color:var(--text)">${ua.responsable}</span>
+                  ${ua.extension ? `<span style="color:var(--text3)">· Ext. ${ua.extension}</span>` : ""}
                  </div>` : ""}
           </div>
-          <button id="detalle-ua-cerrar" style="background:none;border:none;color:var(--text2);
-            font-size:1.1rem;cursor:pointer;padding:0.2rem;flex-shrink:0;margin-left:1rem;">✕</button>
+          <button id="detalle-ua-cerrar" style="background:none;border:none;color:var(--text3);
+            font-size:1rem;cursor:pointer;padding:0.2rem;flex-shrink:0;margin-left:1rem;line-height:1">✕</button>
         </div>
-        <div style="padding:1.2rem 1.4rem;display:flex;flex-direction:column;gap:1rem;">
+
+        <div style="padding:1.1rem 1.4rem;display:flex;flex-direction:column;gap:0.9rem">
+
           ${ua.notas
-            ? `<div style="background:var(--amber-soft,#FFF8E1);border-left:3px solid var(--amber,#F59E0B);
-                border-radius:0 8px 8px 0;padding:0.65rem 0.9rem;font-size:0.82rem;color:var(--text)">
-                📝 ${ua.notas}
+            ? `<div style="border-left:2px solid var(--border);padding:0.5rem 0.75rem;
+                font-size:0.8rem;color:var(--text2);font-style:italic;line-height:1.5">
+                ${ua.notas}
                </div>` : ""}
+
           ${ua.atribuciones
-            ? `<div class="detalle-seccion">
-                <div class="detalle-seccion-titulo">📋 Atribuciones según Reglamento Interior</div>
-                <div class="detalle-seccion-texto" style="white-space:pre-line">${ua.atribuciones}</div>
-               </div>` : ""}
+            ? `<div>
+                <div style="font-size:0.7rem;font-weight:600;color:var(--text3);text-transform:uppercase;
+                  letter-spacing:0.06em;margin-bottom:0.4rem">Atribuciones</div>
+                <div style="font-size:0.82rem;color:var(--text2);line-height:1.6;white-space:pre-line">${ua.atribuciones}</div>
+                ${ua.validadoReglamento
+                  ? `<div style="margin-top:0.5rem;font-size:0.72rem;color:var(--accent);font-weight:600">✓ Validado con Reglamento Interior</div>`
+                  : ""}
+               </div>`
+            : ua.validadoReglamento
+              ? `<div style="font-size:0.72rem;color:var(--accent);font-weight:600">✓ Validado con Reglamento Interior</div>`
+              : ""}
+
           ${(ua.colaboradores || []).length > 0
-            ? `<div class="detalle-seccion">
-                <div class="detalle-seccion-titulo">👥 Colaboradores</div>
-                <div style="display:flex;flex-direction:column;gap:0.3rem;margin-top:0.4rem">
-                  ${ua.colaboradores.map(c => `
-                    <div style="display:flex;align-items:center;gap:0.5rem;font-size:0.82rem;
-                      padding:0.3rem 0;border-bottom:1px solid var(--border)">
-                      <div style="flex:1;min-width:0">
-                        <span style="font-weight:600;color:var(--text)">${c.nombre || ""}</span>
-                        ${c.cargo ? `<span style="font-size:0.72rem;color:var(--text3);margin-left:0.4rem">${c.cargo}</span>` : ""}
+            ? `<div>
+                <div style="font-size:0.7rem;font-weight:600;color:var(--text3);text-transform:uppercase;
+                  letter-spacing:0.06em;margin-bottom:0.5rem">Colaboradores</div>
+                <div style="display:flex;flex-direction:column;gap:0">
+                  ${ua.colaboradores.map((c, i) => `
+                    <div style="display:grid;grid-template-columns:1fr auto;align-items:center;
+                      gap:0.5rem;padding:0.5rem 0;
+                      ${i < ua.colaboradores.length-1 ? "border-bottom:1px solid var(--border)" : ""}">
+                      <div>
+                        <div style="font-size:0.82rem;font-weight:600;color:var(--text)">${c.nombre || ""}</div>
+                        ${c.cargo ? `<div style="font-size:0.72rem;color:var(--text3);margin-top:0.05rem">${c.cargo}</div>` : ""}
                       </div>
-                      ${c.extension ? `<span style="background:var(--accent);color:white;border-radius:5px;padding:0.05rem 0.45rem;font-size:0.72rem;font-weight:600">📞 ${c.extension}</span>` : ""}
+                      ${c.extension
+                        ? `<div style="font-size:0.75rem;color:var(--text3);white-space:nowrap">Ext. ${c.extension}</div>`
+                        : ""}
                     </div>`).join("")}
                 </div>
                </div>` : ""}
+
         </div>
-        <div style="padding:1rem 1.4rem;border-top:1px solid var(--border);
-          display:flex;gap:0.75rem;justify-content:flex-end;
+
+        <div style="padding:0.9rem 1.4rem;border-top:1px solid var(--border);
+          display:flex;justify-content:flex-end;
           position:sticky;bottom:0;background:var(--bg2);">
           <button id="detalle-ua-editar" style="background:var(--accent);color:white;border:none;
-            border-radius:8px;padding:0.55rem 1.2rem;font-size:0.875rem;cursor:pointer;
-            font-family:inherit;font-weight:600;">✏️ Editar</button>
+            border-radius:8px;padding:0.5rem 1.1rem;font-size:0.85rem;cursor:pointer;
+            font-family:inherit;font-weight:600">✏️ Editar</button>
         </div>
       </div>`;
 
@@ -792,47 +810,53 @@ onAuthStateChanged(auth, (user) => {
 
     modal.innerHTML = `
       <div style="background:var(--bg2);border:1px solid var(--border);border-radius:14px;
-        width:100%;max-width:520px;max-height:85vh;overflow-y:auto;box-shadow:var(--shadow);">
+        width:100%;max-width:500px;max-height:85vh;overflow-y:auto;box-shadow:var(--shadow);">
         <div style="padding:1.2rem 1.4rem 1rem;border-bottom:1px solid var(--border);
           border-top:3px solid ${s?.color || "var(--accent)"};border-radius:14px 14px 0 0;
           position:sticky;top:0;background:var(--bg2);z-index:1;
           display:flex;justify-content:space-between;align-items:flex-start">
           <div>
-            <div style="display:flex;align-items:center;gap:0.5rem;margin-bottom:0.3rem">
-              <span style="font-size:1.1rem">${s?.icono || "🏛️"}</span>
+            <div style="display:flex;align-items:center;gap:0.5rem;margin-bottom:0.25rem">
+              <span style="font-size:1.05rem">${s?.icono || "🏛️"}</span>
               <span style="font-size:0.95rem;font-weight:700;color:var(--text)">${s?.nombre || subsecId}</span>
             </div>
             ${datos.titular
-              ? `<div style="font-size:0.8rem;color:var(--text2)">
-                  <span style="background:${s?.color}22;color:${s?.color};border:1px solid ${s?.color}44;
-                    border-radius:10px;padding:0.08rem 0.4rem;font-size:0.65rem;font-weight:700;
-                    margin-right:0.4rem">${datos.cargo || "Titular"}</span>
-                  <strong style="color:var(--text)">${datos.titular}</strong>
-                  ${datos.extension ? ` · <span style="background:var(--accent);color:white;border-radius:5px;padding:0.05rem 0.4rem;font-size:0.72rem;font-weight:600">📞 ${datos.extension}</span>` : ""}
-                </div>`
-              : `<div style="font-size:0.78rem;color:var(--text3);font-style:italic">Sin titular registrado</div>`}
+              ? `<div style="font-size:0.78rem;color:var(--text2);display:flex;align-items:center;gap:0.35rem">
+                  <span style="font-size:0.68rem;color:var(--text3)">${datos.cargo || "Titular"}</span>
+                  <span style="font-weight:600;color:var(--text)">${datos.titular}</span>
+                  ${datos.extension ? `<span style="color:var(--text3)">· Ext. ${datos.extension}</span>` : ""}
+                 </div>`
+              : `<div style="font-size:0.76rem;color:var(--text3);font-style:italic">Sin titular registrado</div>`}
           </div>
-          <button id="det-subsec-cerrar" style="background:none;border:none;color:var(--text2);font-size:1.1rem;cursor:pointer;padding:0.2rem;flex-shrink:0;margin-left:1rem">✕</button>
+          <button id="det-subsec-cerrar" style="background:none;border:none;color:var(--text3);
+            font-size:1rem;cursor:pointer;padding:0.2rem;flex-shrink:0;margin-left:1rem;line-height:1">✕</button>
         </div>
-        <div style="padding:1.2rem 1.4rem;display:flex;flex-direction:column;gap:1rem">
+
+        <div style="padding:1.1rem 1.4rem">
           ${colabs.length > 0
-            ? `<div class="detalle-seccion">
-                <div class="detalle-seccion-titulo">👥 Colaboradores</div>
-                <div style="display:flex;flex-direction:column;gap:0.4rem;margin-top:0.5rem">
-                  ${colabs.map(c => `
-                    <div style="display:flex;align-items:center;gap:0.5rem;font-size:0.82rem;padding:0.35rem 0;border-bottom:1px solid var(--border)">
-                      <div style="flex:1">
-                        <span style="font-weight:600;color:var(--text)">${c.nombre || ""}</span>
-                        ${c.cargo ? `<span style="font-size:0.72rem;color:var(--text3);margin-left:0.4rem">${c.cargo}</span>` : ""}
-                      </div>
-                      ${c.extension ? `<span style="background:var(--accent);color:white;border-radius:5px;padding:0.05rem 0.45rem;font-size:0.72rem;font-weight:600">📞 ${c.extension}</span>` : ""}
-                    </div>`).join("")}
-                </div>
+            ? `<div style="font-size:0.7rem;font-weight:600;color:var(--text3);text-transform:uppercase;
+                letter-spacing:0.06em;margin-bottom:0.5rem">Colaboradores</div>
+               <div style="display:flex;flex-direction:column;gap:0">
+                ${colabs.map((c, i) => `
+                  <div style="display:grid;grid-template-columns:1fr auto;align-items:center;
+                    gap:0.5rem;padding:0.5rem 0;
+                    ${i < colabs.length-1 ? "border-bottom:1px solid var(--border)" : ""}">
+                    <div>
+                      <div style="font-size:0.82rem;font-weight:600;color:var(--text)">${c.nombre || ""}</div>
+                      ${c.cargo ? `<div style="font-size:0.72rem;color:var(--text3);margin-top:0.05rem">${c.cargo}</div>` : ""}
+                    </div>
+                    ${c.extension ? `<div style="font-size:0.75rem;color:var(--text3);white-space:nowrap">Ext. ${c.extension}</div>` : ""}
+                  </div>`).join("")}
                </div>`
             : `<p style="font-size:0.82rem;color:var(--text3);font-style:italic;margin:0">Sin colaboradores registrados.</p>`}
         </div>
-        <div style="padding:1rem 1.4rem;border-top:1px solid var(--border);display:flex;justify-content:flex-end;position:sticky;bottom:0;background:var(--bg2)">
-          <button id="det-subsec-editar" style="background:var(--accent);color:white;border:none;border-radius:8px;padding:0.55rem 1.2rem;font-size:0.875rem;cursor:pointer;font-family:inherit;font-weight:600">✏️ Editar</button>
+
+        <div style="padding:0.9rem 1.4rem;border-top:1px solid var(--border);
+          display:flex;justify-content:flex-end;
+          position:sticky;bottom:0;background:var(--bg2)">
+          <button id="det-subsec-editar" style="background:var(--accent);color:white;border:none;
+            border-radius:8px;padding:0.5rem 1.1rem;font-size:0.85rem;cursor:pointer;
+            font-family:inherit;font-weight:600">✏️ Editar</button>
         </div>
       </div>`;
 

@@ -21,14 +21,17 @@ const SUBSECS = [
 
 // ── Tipos de UA y sus padres permitidos ─────────────────────────────────────
 const TIPOS_UA = {
-  "Dirección":        { padresPermitidos: ["ua_subsec"],        icono: "📁", color: "#5C6BC0" },
-  "Unidad":           { padresPermitidos: ["ua_subsec", "ua"],  icono: "📂", color: "#0097A7" },
-  "Departamento":     { padresPermitidos: ["ua"],               icono: "📄", color: "#6D4C41" },
-  "Coordinación":     { padresPermitidos: ["ua_subsec", "ua"],  icono: "🔗", color: "#7B4F9E" },
-  "Área":             { padresPermitidos: ["ua_subsec", "ua"],  icono: "📌", color: "#D4720A" },
-  "Secretaría Técnica": { padresPermitidos: ["ua_subsec", "ua"], icono: "📋", color: "#2D7A4F" },
-  "Otro":             { padresPermitidos: ["ua_subsec", "ua"],  icono: "⚙️", color: "#555" },
+  "Dirección":    { padresPermitidos: ["ua_subsec"],        icono: "📁", color: "#5C6BC0" },
+  "Subdirección": { padresPermitidos: ["ua"],               icono: "📂", color: "#3F7FC1" },
+  "Unidad":       { padresPermitidos: ["ua_subsec", "ua"],  icono: "📂", color: "#0097A7" },
+  "Coordinación": { padresPermitidos: ["ua_subsec", "ua"],  icono: "🔗", color: "#7B4F9E" },
+  "Departamento": { padresPermitidos: ["ua"],               icono: "📄", color: "#6D4C41" },
+  "Área":         { padresPermitidos: ["ua_subsec", "ua"],  icono: "📌", color: "#D4720A" },
+  "Otro":         { padresPermitidos: ["ua_subsec", "ua"],  icono: "⚙️", color: "#555"    },
 };
+
+// Tipos que pueden ser padre de Departamento (además de Dirección y Unidad)
+const PADRES_DEPARTAMENTO = ["Dirección", "Subdirección", "Unidad", "Coordinación"];
 
 // ── Estado ───────────────────────────────────────────────────────────────────
 let todasLasUA      = [];
@@ -60,27 +63,55 @@ onAuthStateChanged(auth, (user) => {
   onSnapshot(query(subsecRef), (snap) => {
     snap.docs.forEach(d => {
       todasLasSubsecs[d.id] = {
-        nombre:    d.data().nombre,
-        titular:   d.data().titular   || "",
-        cargo:     d.data().cargo     || "Titular",
-        extension: d.data().extension || ""
+        nombre:        d.data().nombre,
+        titular:       d.data().titular       || "",
+        cargo:         d.data().cargo         || "Titular",
+        extension:     d.data().extension     || "",
+        colaboradores: d.data().colaboradores || [],
       };
     });
     renderEstructura();
     actualizarSelectorPadre();
   });
 
-  // ── Fichas institucionales (rediseño) ────────────────────────────────────
+  // ── Fichas institucionales ───────────────────────────────────────────────
   function renderEstructura() {
     const contenedor = document.getElementById("ua-subsecs-contenido");
     if (!contenedor) return;
+
+    // Función recursiva para contar toda la descendencia de un nodo
+    function contarDescendencia(padreId, padreColeccion, tipos) {
+      const hijos = todasLasUA.filter(u => u.padreId === padreId && u.padreColeccion === padreColeccion);
+      let cuenta = hijos.filter(u => tipos.includes(u.tipo)).length;
+      hijos.forEach(h => { cuenta += contarDescendencia(h.id, "ua", tipos); });
+      return cuenta;
+    }
 
     contenedor.innerHTML = `
       <div style="display:grid;grid-template-columns:repeat(auto-fit,minmax(260px,1fr));gap:0.75rem">
         ${SUBSECS.map(s => {
           const d       = todasLasSubsecs[s.id] || {};
           const titular = d.titular || "";
-          const nHijos  = todasLasUA.filter(u => u.padreId === s.id && u.padreColeccion === "ua_subsec").length;
+          const colabs  = d.colaboradores || [];
+
+          // Conteos diferenciados
+          const esDespacho = s.id === "staff";
+          const tiposNivel1 = ["Dirección","Coordinación","Unidad","Área","Subdirección","Secretaría Técnica","Otro"];
+          const tiposDep    = ["Departamento"];
+
+          let linea1 = "", linea2 = "";
+          if (esDespacho) {
+            const nUA   = contarDescendencia(s.id, "ua_subsec", tiposNivel1);
+            const nDep  = contarDescendencia(s.id, "ua_subsec", tiposDep);
+            linea1 = nUA  > 0 ? `${nUA} unidad${nUA  > 1 ? "es administrativas" : " administrativa"}` : "";
+            linea2 = nDep > 0 ? `${nDep} departamento${nDep > 1 ? "s" : ""}` : "";
+          } else {
+            const nDir  = contarDescendencia(s.id, "ua_subsec", tiposNivel1);
+            const nDep  = contarDescendencia(s.id, "ua_subsec", tiposDep);
+            linea1 = nDir > 0 ? `${nDir} dirección${nDir > 1 ? "es / unidades" : ""}` : "";
+            linea2 = nDep > 0 ? `${nDep} departamento${nDep > 1 ? "s" : ""}` : "";
+          }
+
           return `
             <div style="background:var(--bg);border:1px solid ${s.color}44;
               border-top:3px solid ${s.color};border-radius:10px;padding:1rem 1.1rem;">
@@ -101,11 +132,17 @@ onAuthStateChanged(auth, (user) => {
                           : ""}
                       </div>`
                     : `<div style="font-size:0.75rem;color:var(--text3);font-style:italic">Sin titular registrado</div>`}
-                  ${nHijos > 0
-                    ? `<div style="font-size:0.67rem;color:var(--text3);margin-top:0.45rem;border-top:1px solid var(--border);padding-top:0.35rem">
-                        ${nHijos} dirección${nHijos > 1 ? "es / unidades" : ""} directa${nHijos > 1 ? "s" : ""}
-                      </div>`
-                    : ""}
+                  ${colabs.length > 0
+                    ? `<div style="font-size:0.68rem;color:var(--text3);margin-top:0.25rem">
+                        👥 ${colabs.length} colaborador${colabs.length > 1 ? "es" : ""}
+                      </div>` : ""}
+                  ${(linea1 || linea2)
+                    ? `<div style="font-size:0.67rem;color:var(--text3);margin-top:0.45rem;
+                        border-top:1px solid var(--border);padding-top:0.35rem;
+                        display:flex;flex-direction:column;gap:0.1rem">
+                        ${linea1 ? `<span>${linea1}</span>` : ""}
+                        ${linea2 ? `<span>${linea2}</span>` : ""}
+                      </div>` : ""}
                 </div>
                 <button class="btn-editar-subsec" data-subsec-id="${s.id}"
                   title="Editar titular"
@@ -126,6 +163,7 @@ onAuthStateChanged(auth, (user) => {
   function editarTitularSubsec(subsecId) {
     const s     = SUBSECS.find(x => x.id === subsecId);
     const datos = todasLasSubsecs[subsecId] || {};
+    let colabs  = Array.isArray(datos.colaboradores) ? datos.colaboradores.map(c => ({...c})) : [];
 
     let modal = document.getElementById("modal-editar-subsec");
     if (!modal) {
@@ -136,16 +174,39 @@ onAuthStateChanged(auth, (user) => {
       document.body.appendChild(modal);
     }
 
+    function renderColabsSubsec() {
+      const lista = modal.querySelector("#colabs-subsec-lista");
+      if (!lista) return;
+      if (colabs.length === 0) {
+        lista.innerHTML = `<p style="font-size:0.78rem;color:var(--text3);font-style:italic;margin:0.2rem 0">Sin colaboradores.</p>`;
+      } else {
+        lista.innerHTML = colabs.map((c, i) => `
+          <div style="display:grid;grid-template-columns:1fr 90px 26px;gap:0.35rem;align-items:center;margin-bottom:0.3rem">
+            <input type="text" class="cs-nombre" data-i="${i}" value="${c.nombre||""}" placeholder="Nombre"
+              style="background:var(--bg3);border:1px solid var(--border);border-radius:6px;
+              padding:0.3rem 0.5rem;font-size:0.8rem;color:var(--text);font-family:inherit;width:100%">
+            <input type="text" class="cs-ext" data-i="${i}" value="${c.extension||""}" placeholder="Ext."
+              style="background:var(--bg3);border:1px solid var(--border);border-radius:6px;
+              padding:0.3rem 0.5rem;font-size:0.8rem;color:var(--text);font-family:inherit;width:100%;text-align:center">
+            <button type="button" class="cs-quitar" data-i="${i}"
+              style="background:none;border:none;color:var(--text3);cursor:pointer;font-size:0.85rem;padding:0">✕</button>
+          </div>`).join("");
+        lista.querySelectorAll(".cs-nombre").forEach(inp => { inp.addEventListener("input", () => { colabs[+inp.dataset.i].nombre = inp.value; }); });
+        lista.querySelectorAll(".cs-ext").forEach(inp => { inp.addEventListener("input", () => { colabs[+inp.dataset.i].extension = inp.value; }); });
+        lista.querySelectorAll(".cs-quitar").forEach(btn => { btn.addEventListener("click", () => { colabs.splice(+btn.dataset.i, 1); renderColabsSubsec(); }); });
+      }
+    }
+
     modal.innerHTML = `
       <div style="background:var(--bg2);border:1px solid var(--border);border-radius:14px;
-        width:100%;max-width:420px;box-shadow:var(--shadow);padding:1.5rem;">
+        width:100%;max-width:460px;max-height:85vh;overflow-y:auto;box-shadow:var(--shadow);padding:1.5rem;">
         <div style="display:flex;align-items:center;gap:0.5rem;margin-bottom:0.15rem">
           <span style="font-size:1.1rem">${s?.icono || "🏛️"}</span>
           <span style="font-size:0.95rem;font-weight:700;color:var(--text)">${s?.nombre || subsecId}</span>
         </div>
-        <div style="font-size:0.78rem;color:var(--text2);margin-bottom:1.1rem">Registrar o actualizar titular</div>
+        <div style="font-size:0.78rem;color:var(--text2);margin-bottom:1.1rem">Registrar o actualizar titular y colaboradores</div>
         <div class="form-group" style="margin-bottom:0.85rem">
-          <label style="font-size:0.82rem;color:var(--text2);font-weight:500">Nombre</label>
+          <label style="font-size:0.82rem;color:var(--text2);font-weight:500">Nombre del titular</label>
           <input type="text" id="input-titular-subsec" value="${datos.titular || ""}"
             placeholder="Ej. Arq. Luz Eugenia Pérez Haro"
             style="background:var(--bg3);border:1px solid var(--border);border-radius:8px;
@@ -172,6 +233,16 @@ onAuthStateChanged(auth, (user) => {
               width:100%;margin-top:0.4rem;outline:none">
           </div>
         </div>
+        <!-- Colaboradores -->
+        <div style="border-top:1px solid var(--border);padding-top:1rem;margin-bottom:1rem">
+          <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:0.6rem">
+            <span style="font-size:0.82rem;font-weight:600;color:var(--text2)">Colaboradores</span>
+            <button id="btn-agregar-colab-subsec"
+              style="background:none;border:1px solid var(--border);color:var(--text2);
+              border-radius:6px;padding:0.18rem 0.6rem;font-size:0.75rem;cursor:pointer;font-family:inherit">+ Agregar</button>
+          </div>
+          <div id="colabs-subsec-lista"></div>
+        </div>
         <div style="display:flex;gap:0.75rem;justify-content:flex-end">
           <button id="btn-cancelar-subsec"
             style="background:none;border:1px solid var(--border);color:var(--text2);
@@ -187,9 +258,15 @@ onAuthStateChanged(auth, (user) => {
         </div>
       </div>`;
 
+    renderColabsSubsec();
     modal.style.display = "flex";
     setTimeout(() => document.getElementById("input-titular-subsec")?.focus(), 80);
 
+    document.getElementById("btn-agregar-colab-subsec").addEventListener("click", () => {
+      colabs.push({ nombre: "", extension: "" });
+      renderColabsSubsec();
+      setTimeout(() => { const ins = modal.querySelectorAll(".cs-nombre"); if (ins.length) ins[ins.length-1].focus(); }, 50);
+    });
     document.getElementById("btn-cancelar-subsec").addEventListener("click", () => { modal.style.display = "none"; });
     modal.addEventListener("click", (e) => { if (e.target === modal) modal.style.display = "none"; });
 
@@ -197,10 +274,14 @@ onAuthStateChanged(auth, (user) => {
       const titular   = document.getElementById("input-titular-subsec")?.value.trim()   || "";
       const cargo     = document.getElementById("input-cargo-subsec")?.value             || "Titular";
       const extension = document.getElementById("input-extension-subsec")?.value.trim() || "";
-      const btn       = document.getElementById("btn-guardar-subsec");
+      // Recoger valores del DOM
+      modal.querySelectorAll(".cs-nombre").forEach(inp => { colabs[+inp.dataset.i].nombre = inp.value.trim(); });
+      modal.querySelectorAll(".cs-ext").forEach(inp => { colabs[+inp.dataset.i].extension = inp.value.trim(); });
+      const colaboradoresFinal = colabs.filter(c => c.nombre);
+      const btn = document.getElementById("btn-guardar-subsec");
       btn.disabled = true; btn.textContent = "Guardando...";
       try {
-        await updateDoc(doc(db, "usuarios", user.uid, "ua_subsec", subsecId), { titular, cargo, extension });
+        await updateDoc(doc(db, "usuarios", user.uid, "ua_subsec", subsecId), { titular, cargo, extension, colaboradores: colaboradoresFinal });
         modal.style.display = "none";
       } catch (err) {
         console.error("Error guardando titular:", err);
@@ -290,7 +371,9 @@ onAuthStateChanged(auth, (user) => {
     }
 
     if (def.padresPermitidos.includes("ua")) {
-      const tiposPadre = tipo === "Departamento" ? ["Dirección", "Unidad"] : ["Dirección"];
+      const tiposPadre = (tipo === "Departamento" || tipo === "Área")
+        ? PADRES_DEPARTAMENTO
+        : ["Dirección"];
       tiposPadre.forEach(tipoPadre => {
         const candidatos = todasLasUA.filter(u => u.tipo === tipoPadre && u.id !== modoEdicion);
         if (!candidatos.length) return;
@@ -518,7 +601,7 @@ onAuthStateChanged(auth, (user) => {
             </div>
             ${u.responsable
               ? `<div style="font-size:0.75rem;color:var(--text2)">
-                  👤 ${u.responsable}${u.extension ? ` · 📞 Ext. ${u.extension}` : ""}
+                  👤 ${u.responsable}${u.extension ? ` · <span style="background:#1a6fa8;color:white;border-radius:5px;padding:0.05rem 0.4rem;font-size:0.7rem;font-weight:600">📞 ${u.extension}</span>` : ""}
                  </div>` : ""}
             ${u.atribuciones
               ? `<div style="font-size:0.72rem;color:var(--text3);margin-top:0.15rem;line-height:1.4">
@@ -622,9 +705,9 @@ onAuthStateChanged(auth, (user) => {
                     <div style="display:flex;align-items:center;gap:0.5rem;font-size:0.82rem">
                       <span style="color:var(--text);flex:1">${c.nombre || ""}</span>
                       ${c.extension
-                        ? `<span style="color:var(--text3);font-size:0.75rem;
-                            background:var(--bg3);border:1px solid var(--border);
-                            border-radius:6px;padding:0.1rem 0.5rem">📞 Ext. ${c.extension}</span>`
+                        ? `<span style="color:white;font-size:0.75rem;
+                            background:#1a6fa8;border-radius:6px;
+                            padding:0.1rem 0.5rem;font-weight:600">📞 ${c.extension}</span>`
                         : ""}
                     </div>`).join("")}
                 </div>

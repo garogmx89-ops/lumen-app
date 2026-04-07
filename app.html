@@ -701,6 +701,10 @@
                   <option value="Dirección">📁 Dirección</option>
                   <option value="Unidad">📂 Unidad</option>
                   <option value="Departamento">📄 Departamento</option>
+                  <option value="Coordinación">🔗 Coordinación</option>
+                  <option value="Área">📌 Área</option>
+                  <option value="Secretaría Técnica">📋 Secretaría Técnica</option>
+                  <option value="Otro">⚙️ Otro</option>
                 </select>
               </div>
             </div>
@@ -732,6 +736,18 @@
               <label for="ua-atribuciones">Atribuciones según Reglamento Interior</label>
               <textarea id="ua-atribuciones" rows="4"
                 placeholder="Ej. Coordinar la formulación del Plan Estatal de Desarrollo Urbano..."></textarea>
+            </div>
+
+            <!-- Colaboradores -->
+            <div class="form-group">
+              <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:0.5rem">
+                <label style="margin:0">Colaboradores</label>
+                <button type="button" id="btn-agregar-colaborador"
+                  style="background:none;border:1px solid var(--border);color:var(--text2);
+                  border-radius:6px;padding:0.2rem 0.7rem;font-size:0.78rem;cursor:pointer;
+                  font-family:inherit">+ Agregar</button>
+              </div>
+              <div id="ua-colaboradores-lista"></div>
             </div>
 
             <button class="btn-primary" id="btn-guardar-ua">Guardar</button>

@@ -21,15 +21,20 @@ const SUBSECS = [
 
 // ── Tipos de UA y sus padres permitidos ─────────────────────────────────────
 const TIPOS_UA = {
-  "Dirección":    { padresPermitidos: ["ua_subsec"],        icono: "📁", color: "#5C6BC0" },
-  "Unidad":       { padresPermitidos: ["ua_subsec", "ua"],  icono: "📂", color: "#0097A7" },
-  "Departamento": { padresPermitidos: ["ua"],               icono: "📄", color: "#6D4C41" },
+  "Dirección":        { padresPermitidos: ["ua_subsec"],        icono: "📁", color: "#5C6BC0" },
+  "Unidad":           { padresPermitidos: ["ua_subsec", "ua"],  icono: "📂", color: "#0097A7" },
+  "Departamento":     { padresPermitidos: ["ua"],               icono: "📄", color: "#6D4C41" },
+  "Coordinación":     { padresPermitidos: ["ua_subsec", "ua"],  icono: "🔗", color: "#7B4F9E" },
+  "Área":             { padresPermitidos: ["ua_subsec", "ua"],  icono: "📌", color: "#D4720A" },
+  "Secretaría Técnica": { padresPermitidos: ["ua_subsec", "ua"], icono: "📋", color: "#2D7A4F" },
+  "Otro":             { padresPermitidos: ["ua_subsec", "ua"],  icono: "⚙️", color: "#555" },
 };
 
 // ── Estado ───────────────────────────────────────────────────────────────────
 let todasLasUA      = [];
 let todasLasSubsecs = {};
 let modoEdicion     = null;
+let colaboradores   = [];   // [{ nombre, extension }]
 
 onAuthStateChanged(auth, (user) => {
   if (!user) return;
@@ -212,6 +217,53 @@ onAuthStateChanged(auth, (user) => {
   // ── Selector de padre dinámico según tipo ────────────────────────────────
   document.getElementById("ua-tipo")?.addEventListener("change", () => actualizarSelectorPadre());
 
+  // ── Colaboradores ────────────────────────────────────────────────────────
+  function renderColaboradores() {
+    const lista = document.getElementById("ua-colaboradores-lista");
+    if (!lista) return;
+    if (colaboradores.length === 0) {
+      lista.innerHTML = `<p style="font-size:0.78rem;color:var(--text3);font-style:italic;margin:0.2rem 0">Sin colaboradores registrados.</p>`;
+      return;
+    }
+    lista.innerHTML = colaboradores.map((c, i) => `
+      <div style="display:grid;grid-template-columns:1fr 100px 28px;gap:0.4rem;align-items:center;margin-bottom:0.35rem">
+        <input type="text" class="colab-nombre" data-index="${i}" value="${c.nombre || ""}"
+          placeholder="Nombre del colaborador"
+          style="background:var(--bg3);border:1px solid var(--border);border-radius:6px;
+          padding:0.35rem 0.55rem;font-size:0.82rem;color:var(--text);font-family:inherit;width:100%">
+        <input type="text" class="colab-ext" data-index="${i}" value="${c.extension || ""}"
+          placeholder="Ext."
+          style="background:var(--bg3);border:1px solid var(--border);border-radius:6px;
+          padding:0.35rem 0.55rem;font-size:0.82rem;color:var(--text);font-family:inherit;
+          width:100%;text-align:center">
+        <button type="button" class="colab-quitar" data-index="${i}"
+          style="background:none;border:none;color:var(--text3);cursor:pointer;
+          font-size:0.9rem;padding:0;line-height:1;border-radius:4px">✕</button>
+      </div>`).join("");
+
+    lista.querySelectorAll(".colab-nombre").forEach(inp => {
+      inp.addEventListener("input", () => { colaboradores[+inp.dataset.index].nombre = inp.value; });
+    });
+    lista.querySelectorAll(".colab-ext").forEach(inp => {
+      inp.addEventListener("input", () => { colaboradores[+inp.dataset.index].extension = inp.value; });
+    });
+    lista.querySelectorAll(".colab-quitar").forEach(btn => {
+      btn.addEventListener("click", () => { colaboradores.splice(+btn.dataset.index, 1); renderColaboradores(); });
+    });
+  }
+
+  document.getElementById("btn-agregar-colaborador")?.addEventListener("click", () => {
+    colaboradores.push({ nombre: "", extension: "" });
+    renderColaboradores();
+    // Focus en el último input de nombre
+    setTimeout(() => {
+      const inputs = document.querySelectorAll(".colab-nombre");
+      if (inputs.length) inputs[inputs.length - 1].focus();
+    }, 50);
+  });
+
+  renderColaboradores(); // estado inicial vacío
+
   function actualizarSelectorPadre() {
     const tipo = document.getElementById("ua-tipo")?.value || "";
     const sel  = document.getElementById("ua-padre-select");
@@ -272,6 +324,9 @@ onAuthStateChanged(auth, (user) => {
     const wrap = document.getElementById("ua-padre-wrap");
     if (wrap) wrap.style.display = "none";
 
+    colaboradores = [];
+    renderColaboradores();
+
     const titulo = document.getElementById("ua-form-titulo");
     if (titulo) titulo.textContent = "Nueva Unidad Administrativa";
     const btnCancelar = document.getElementById("btn-cancelar-ua");
@@ -289,6 +344,9 @@ onAuthStateChanged(auth, (user) => {
     document.getElementById("ua-responsable").value  = ua.responsable  || "";
     document.getElementById("ua-extension").value    = ua.extension    || "";
     document.getElementById("ua-atribuciones").value = ua.atribuciones || "";
+
+    colaboradores = Array.isArray(ua.colaboradores) ? ua.colaboradores.map(c => ({...c})) : [];
+    renderColaboradores();
 
     const selTipo = document.getElementById("ua-tipo");
     if (selTipo) selTipo.value = ua.tipo || "";
@@ -327,8 +385,17 @@ onAuthStateChanged(auth, (user) => {
           : (todasLasUA.find(u => u.id === padreId)?.nombre || "");
       }
 
+      // Recoger valores actuales del DOM (por si no se disparó el evento input)
+      document.querySelectorAll(".colab-nombre").forEach(inp => {
+        colaboradores[+inp.dataset.index].nombre = inp.value.trim();
+      });
+      document.querySelectorAll(".colab-ext").forEach(inp => {
+        colaboradores[+inp.dataset.index].extension = inp.value.trim();
+      });
+
       const datos = { nombre, tipo, responsable, extension, atribuciones,
-        padreColeccion, padreId, padreNombre };
+        padreColeccion, padreId, padreNombre,
+        colaboradores: colaboradores.filter(c => c.nombre) };
 
       try {
         if (modoEdicion) {
@@ -461,6 +528,10 @@ onAuthStateChanged(auth, (user) => {
               ? `<div style="font-size:0.67rem;color:var(--text3);margin-top:0.2rem">
                   ↳ ${hijos.length} subordinada${hijos.length > 1 ? "s" : ""}
                  </div>` : ""}
+            ${(u.colaboradores || []).length > 0
+              ? `<div style="font-size:0.67rem;color:var(--text3);margin-top:0.15rem">
+                  👥 ${u.colaboradores.length} colaborador${u.colaboradores.length > 1 ? "es" : ""}
+                 </div>` : ""}
           </div>
           <div style="display:flex;gap:0.3rem;flex-shrink:0">
             <button class="btn-editar" data-id="${u.id}"
@@ -542,6 +613,21 @@ onAuthStateChanged(auth, (user) => {
             ? `<div class="detalle-seccion">
                 <div class="detalle-seccion-titulo">📋 Atribuciones según Reglamento Interior</div>
                 <div class="detalle-seccion-texto" style="white-space:pre-line">${ua.atribuciones}</div>
+               </div>` : ""}
+          ${(ua.colaboradores || []).length > 0
+            ? `<div class="detalle-seccion">
+                <div class="detalle-seccion-titulo">👥 Colaboradores</div>
+                <div style="display:flex;flex-direction:column;gap:0.35rem;margin-top:0.4rem">
+                  ${ua.colaboradores.map(c => `
+                    <div style="display:flex;align-items:center;gap:0.5rem;font-size:0.82rem">
+                      <span style="color:var(--text);flex:1">${c.nombre || ""}</span>
+                      ${c.extension
+                        ? `<span style="color:var(--text3);font-size:0.75rem;
+                            background:var(--bg3);border:1px solid var(--border);
+                            border-radius:6px;padding:0.1rem 0.5rem">📞 Ext. ${c.extension}</span>`
+                        : ""}
+                    </div>`).join("")}
+                </div>
                </div>` : ""}
         </div>
         <div style="padding:1rem 1.4rem;border-top:1px solid var(--border);

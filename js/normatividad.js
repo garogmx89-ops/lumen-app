@@ -806,7 +806,10 @@ onAuthStateChanged(auth, (user) => {
   onSnapshot(q, (snapshot) => {
     todasLasNormas = snapshot.docs.map(d => ({ id: d.id, ...d.data() }));
     poblarSelectoresVinculacion();
-    cargarConteoRelevantes().then(() => renderNormas());
+    cargarConteoRelevantes().then(() => {
+      renderNormas();
+      renderBannerBorradores(); // Sprint D2 — borradores desde Lumen Codex
+    });
   });
 
   async function cargarConteoRelevantes() {
@@ -2550,6 +2553,242 @@ onAuthStateChanged(auth, (user) => {
       document.head.appendChild(s);
     });
   }
+
+
+  // ══════════════════════════════════════════════════════════════════
+  // SPRINT D2 — BORRADORES DESDE LUMEN CODEX
+  // ══════════════════════════════════════════════════════════════════
+  // Lumen Codex (lumen-prep-garo.web.app) escribe documentos en
+  // usuarios/{uid}/normatividad con estado:"borrador_lumenprep".
+  // Este bloque los detecta en tiempo real y muestra un banner
+  // destacado para que el usuario los importe como normas activas.
+  // Al importar se mapean los campos de Codex al esquema de Lumen
+  // y se migran los artículos a la subcolección /articulos.
+  // ══════════════════════════════════════════════════════════════════
+
+  // ── Escuchar borradores en tiempo real ───────────────────────────
+  // Filtramos solo los docs con estado:"borrador_lumenprep" usando
+  // onSnapshot sobre la misma colección normasRef — sin query extra,
+  // para no crear un índice compuesto en Firestore.
+  // Los borradores se filtran del array todasLasNormas en el render.
+
+  function renderBannerBorradores() {
+    // Buscar el contenedor del banner — lo creamos si no existe,
+    // justo antes de normatividad-contenido (la lista de normas).
+    let banner = document.getElementById("codex-borradores-banner");
+    if (!banner) {
+      banner = document.createElement("div");
+      banner.id = "codex-borradores-banner";
+      // Insertar antes de la lista de normas
+      const lista = document.querySelector("#panel-normatividad .reuniones-lista");
+      if (lista) lista.parentNode.insertBefore(banner, lista);
+      else return; // panel no está visible todavía — salir sin error
+    }
+
+    const borradores = todasLasNormas.filter(n => n.estado === "borrador_lumenprep");
+
+    if (borradores.length === 0) {
+      banner.innerHTML = "";
+      banner.style.display = "none";
+      return;
+    }
+
+    banner.style.display = "block";
+    banner.innerHTML = `
+      <div style="
+        background: color-mix(in srgb, var(--accent) 8%, transparent);
+        border: 1px solid color-mix(in srgb, var(--accent) 35%, transparent);
+        border-radius: 10px;
+        padding: 0.9rem 1rem;
+        margin-bottom: 1rem;
+      ">
+        <div style="display:flex;align-items:center;gap:0.5rem;margin-bottom:0.6rem">
+          <span style="font-size:1rem">📥</span>
+          <strong style="font-size:0.85rem;color:var(--text)">
+            ${borradores.length === 1
+              ? "1 documento enviado desde Lumen Codex"
+              : `${borradores.length} documentos enviados desde Lumen Codex`}
+          </strong>
+          <span style="font-size:0.75rem;color:var(--text2);margin-left:auto">
+            Listos para importar
+          </span>
+        </div>
+        <div style="display:flex;flex-direction:column;gap:0.5rem">
+          ${borradores.map(b => `
+            <div style="
+              display:flex;align-items:center;gap:0.6rem;
+              background:var(--surface2,var(--bg2));
+              border-radius:8px;padding:0.55rem 0.75rem;
+            ">
+              <span style="font-size:0.8rem;flex:1;color:var(--text)">
+                <strong>${b.titulo || b.nombre || "Sin título"}</strong>
+                ${b.ambito ? `<span style="font-size:0.72rem;color:var(--text2);margin-left:0.4rem">· ${b.ambito}</span>` : ""}
+                ${b.meta?.totalArticulos ? `<span style="font-size:0.72rem;color:var(--text2);margin-left:0.4rem">· ${b.meta.totalArticulos} arts.</span>` : ""}
+              </span>
+              <span style="
+                font-size:0.68rem;font-weight:700;
+                background:color-mix(in srgb,var(--accent) 20%,transparent);
+                color:var(--accent);border-radius:20px;padding:0.15rem 0.5rem;
+                flex-shrink:0
+              ">CODEX</span>
+              <button
+                class="btn-importar-borrador"
+                data-id="${b.id}"
+                style="
+                  background:var(--accent);color:white;border:none;
+                  border-radius:7px;padding:0.3rem 0.75rem;font-size:0.78rem;
+                  cursor:pointer;font-family:inherit;font-weight:600;flex-shrink:0;
+                "
+              >Importar →</button>
+            </div>
+          `).join("")}
+        </div>
+      </div>`;
+
+    // Eventos de los botones Importar
+    banner.querySelectorAll(".btn-importar-borrador").forEach(btn => {
+      btn.addEventListener("click", () => importarBorradorCodex(btn.dataset.id, btn));
+    });
+  }
+
+
+  // ── Importar borrador: mapeo de campos + migración de artículos ──
+  async function importarBorradorCodex(docId, btnEl) {
+    const borrador = todasLasNormas.find(n => n.id === docId);
+    if (!borrador) return;
+
+    if (!confirm(
+      `¿Importar "${borrador.titulo || borrador.nombre}" como norma activa en Lumen?\n\n` +
+      `Esto creará la norma con sus artículos en tu repositorio legal.`
+    )) return;
+
+    if (btnEl) { btnEl.disabled = true; btnEl.textContent = "⏳ Importando..."; }
+
+    try {
+      // ── 1. Mapeo de campos Codex → esquema Lumen ─────────────────
+      // Codex usa "titulo"; Lumen usa "nombre".
+      // Codex guarda fechas como texto libre ("27 de junio de 2006");
+      // Lumen espera formato "YYYY-MM-DD" para el semáforo.
+      // Intentamos parsear la fecha de última reforma del campo
+      // ultimaReforma (formato "DD-MM-YYYY" del DOF).
+      const nombre = borrador.titulo || borrador.nombre || "Documento sin título";
+
+      // Capitalizar tipo: "ley" → "Ley"
+      const tipoRaw = borrador.tipo || "ley";
+      const tipo = tipoRaw.charAt(0).toUpperCase() + tipoRaw.slice(1);
+
+      // Fecha de última reforma: Codex la guarda como "15-01-2026"
+      // Lumen la necesita como "2026-01-15"
+      let fechaReforma = "";
+      if (borrador.ultimaReforma) {
+        const partes = borrador.ultimaReforma.split("-");
+        if (partes.length === 3) {
+          // DOF usa DD-MM-YYYY
+          fechaReforma = `${partes[2]}-${partes[1]}-${partes[0]}`;
+        }
+      }
+
+      const datosMapeados = {
+        nombre,
+        tipo,
+        ambito:       borrador.ambito       || "",
+        origen:       borrador.origen        || "",
+        fecha:        "",            // fecha de publicación original (texto libre, no parseable con certeza)
+        fechaReforma,
+        resumen:      `Importado desde Lumen Codex. ${borrador.meta?.totalArticulos || 0} artículos procesados.`,
+        anotaciones:  "",
+        urlFuente:    "",
+        pdfUrl:       null,
+        padreId:      null,
+        relacionadas: [],
+        tieneTexto:   false,         // se actualiza a true si hay artículos
+        totalArticulos: borrador.meta?.totalArticulos || 0,
+        temas:        borrador.temas || [],
+        estado:       "activo",      // ya no es borrador
+        fuenteImport: "lumen_codex",
+        creadoEn:     serverTimestamp()
+      };
+
+      // ── 2. Actualizar el documento existente en Firestore ─────────
+      // En lugar de crear uno nuevo, actualizamos el mismo documento
+      // que Codex creó — así conservamos el ID y la subcolección
+      // de artículos que vamos a crear en el siguiente paso.
+      const normaRef = doc(db, "usuarios", user.uid, "normatividad", docId);
+      await updateDoc(normaRef, datosMapeados);
+
+      // ── 3. Migrar artículos a la subcolección /articulos ──────────
+      // Codex guarda los artículos como array en el campo "articulos"
+      // del documento raíz. Lumen los necesita en la subcolección
+      // /articulos con campos compatibles con el explorador.
+      const arts = borrador.articulos || [];
+      if (arts.length > 0) {
+        const articulosRef = collection(db, "usuarios", user.uid, "normatividad", docId, "articulos");
+
+        // Borrar artículos previos si los hubiera (evitar duplicados)
+        const snapExistentes = await getDocs(articulosRef);
+        if (!snapExistentes.empty) {
+          const batch0 = writeBatch(db);
+          snapExistentes.docs.forEach(d => batch0.delete(d.ref));
+          await batch0.commit();
+        }
+
+        // Guardar artículos en lotes de 400 (límite de writeBatch: 500)
+        const LOTE = 400;
+        for (let i = 0; i < arts.length; i += LOTE) {
+          const batch = writeBatch(db);
+          arts.slice(i, i + LOTE).forEach((art, offset) => {
+            const artRef = doc(articulosRef);
+            batch.set(artRef, {
+              // Campos que el explorador de Lumen necesita
+              articulo:         art.articulo  || art.numero || `Art. ${i + offset + 1}`,
+              contenido:        art.contenido || art.texto  || "",
+              introduccion:     art.introduccion || "",
+              seccion:          art.seccion   || "",
+              capitulo:         art.capitulo  || "",
+              estado:           art.estado    || "vigente",
+              reformas:         art.reformas  || [],
+              instruccion_agente: art.instruccion_agente || "",
+              indice:           i + offset,
+              // Metadatos de origen
+              tipo:             art.tipo      || "articulo",
+              fuenteImport:     "lumen_codex"
+            });
+          });
+          await batch.commit();
+        }
+
+        // Marcar la norma como que ya tiene texto cargado
+        await updateDoc(normaRef, {
+          tieneTexto:     true,
+          totalArticulos: arts.length
+        });
+      }
+
+      // ── 4. Guardar el preámbulo si existe ─────────────────────────
+      const intro = borrador.introduccion;
+      if (intro && intro.contenido) {
+        const preambRef = doc(db, "usuarios", user.uid, "normatividad", docId, "articulos", "_preambulo");
+        await setDoc(preambRef, {
+          articulo:    "_preambulo",
+          contenido:   intro.contenido,
+          tipo:        "introduccion",
+          indice:      -1,
+          fuenteImport: "lumen_codex"
+        });
+      }
+
+      // onSnapshot detectará el cambio y rerenderizará la lista
+      // El banner desaparecerá automáticamente porque estado ya no es borrador_lumenprep
+
+    } catch (err) {
+      console.error("Error al importar borrador de Codex:", err);
+      alert("No se pudo importar el documento. Revisa la consola.\n\n" + err.message);
+      if (btnEl) { btnEl.disabled = false; btnEl.textContent = "Importar →"; }
+    }
+  }
+
+
+
 
 }); // fin onAuthStateChanged
 

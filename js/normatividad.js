@@ -883,7 +883,7 @@ onAuthStateChanged(auth, (user) => {
             <div class="norma-card-nombre" style="flex-wrap:wrap;gap:0.3rem">
               ${n.tipo ? `<span class="norma-tipo-badge" style="background:${color}">${n.tipo}</span>` : ""}
               ${semaforoHtml}${ambitoBadge}
-              <span class="reunion-card-titulo">${n.nombre || n.titulo || "Sin nombre"}</span>
+              <span class="reunion-card-titulo">${n.nombre}</span>
               ${vincBadge}${textoBadge}
             </div>
             <div class="reunion-card-acciones">
@@ -1346,9 +1346,13 @@ onAuthStateChanged(auth, (user) => {
 
     try {
       const articulosRef = collection(db, "usuarios", user.uid, "normatividad", norma.id, "articulos");
-      const snap = await getDocs(query(articulosRef, orderBy("indice", "asc")));
+      // Ordenamos en memoria para evitar requerir índice compuesto en Firestore.
+      // Esto soporta tanto artículos guardados manualmente como los importados desde Codex.
+      const snap = await getDocs(articulosRef);
       // Separar preámbulo del resto de artículos
-      const todosLsDocs = snap.docs.map(d => ({ id: d.id, ...d.data() }));
+      const todosLsDocs = snap.docs
+        .map(d => ({ id: d.id, ...d.data() }))
+        .sort((a, b) => (a.indice ?? 999) - (b.indice ?? 999));
       const preambulo   = todosLsDocs.find(d => d.id === "_preambulo");
       _exploArticulos   = todosLsDocs.filter(d => d.id !== "_preambulo");
       _exploFiltrados   = _exploArticulos;
@@ -2573,17 +2577,16 @@ onAuthStateChanged(auth, (user) => {
   // Los borradores se filtran del array todasLasNormas en el render.
 
   function renderBannerBorradores() {
-    // El banner vive justo encima de #normatividad-contenido.
-    // Usamos el mismo contenedor padre que renderNormas para garantizar
-    // que el DOM ya esté listo cuando se llame desde onSnapshot.
-    const contenedorNormas = document.getElementById("normatividad-contenido");
-    if (!contenedorNormas) return; // panel no montado todavía
+    // Buscar el contenedor del banner — lo creamos si no existe,
+    // justo antes de normatividad-contenido (la lista de normas).
     let banner = document.getElementById("codex-borradores-banner");
     if (!banner) {
       banner = document.createElement("div");
       banner.id = "codex-borradores-banner";
-      // Insertar justo antes del contenedor de normas
-      contenedorNormas.parentNode.insertBefore(banner, contenedorNormas);
+      // Insertar antes de la lista de normas
+      const lista = document.querySelector("#panel-normatividad .reuniones-lista");
+      if (lista) lista.parentNode.insertBefore(banner, lista);
+      else return; // panel no está visible todavía — salir sin error
     }
 
     const borradores = todasLasNormas.filter(n => n.estado === "borrador_lumenprep");

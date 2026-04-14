@@ -1351,7 +1351,13 @@ onAuthStateChanged(auth, (user) => {
       const snap = await getDocs(articulosRef);
       // Separar preámbulo del resto de artículos
       const todosLsDocs = snap.docs
-        .map(d => ({ id: d.id, ...d.data() }))
+        .map(d => {
+          const data = d.data();
+          // Normalizar: Codex guarda "contenido", el explorador espera "texto"
+          if (!data.texto && data.contenido) data.texto = data.contenido;
+          if (!data.texto) data.texto = "";
+          return { id: d.id, ...data };
+        })
         .sort((a, b) => (a.indice ?? 999) - (b.indice ?? 999));
       const preambulo   = todosLsDocs.find(d => d.id === "_preambulo");
       _exploArticulos   = todosLsDocs.filter(d => d.id !== "_preambulo");

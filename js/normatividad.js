@@ -2691,17 +2691,12 @@ onAuthStateChanged(auth, (user) => {
         const txt = (fr.contenido || fr.texto || "").trim();
         if (num || txt) partes.push((num + (num && txt ? " " : "") + txt).trim());
       });
-      texto = partes.join("
-
-");
+      texto = partes.join("\n\n");
     }
 
     // 2. Limpiar marcadores §NOTA§...§/NOTA§ del texto —
     //    las reformas se guardan en campo separado "reformas[]"
-    texto = texto.replace(/§NOTA§[\s\S]*?§\/NOTA§/g, "").replace(/
-{3,}/g, "
-
-").trim();
+    texto = texto.replace(/§NOTA§[\s\S]*?§\/NOTA§/g, "").replace(/\n{3,}/g, "\n\n").trim();
 
     // 3. Extraer número limpio: "ARTÍCULO 4.-" → "4"
     const mNum = (art.articulo || "").match(/\d+/);

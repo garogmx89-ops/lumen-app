@@ -1354,17 +1354,38 @@ onAuthStateChanged(auth, (user) => {
         .map(d => {
           const data = d.data();
           // Normalizar campos de Codex al esquema del explorador de Lumen:
-          // 1. "contenido" → "texto"
-          if (!data.texto && data.contenido) data.texto = data.contenido;
-          if (!data.texto) data.texto = "";
-          // 2. Convertir notas de reforma §NOTA§...§/NOTA§ en texto visible
+          // Codex tiene 3 variantes de texto:
+          // A) "contenido" — artículo de párrafo continuo (72 arts)
+          // B) "introduccion" + "fracciones" — artículo con fracciones (25 arts)
+          // C) ninguno — elemento vacío
+          if (!data.texto) {
+            if (data.contenido) {
+              // Variante A: párrafo continuo
+              data.texto = data.contenido;
+            } else if (data.introduccion || data.fracciones) {
+              // Variante B: reconstruir desde introduccion + fracciones
+              var partes = [];
+              if (data.introduccion) partes.push(data.introduccion);
+              if (data.fracciones && data.fracciones.length) {
+                data.fracciones.forEach(function(fr) {
+                  var num = fr.fraccion || fr.numero || "";
+                  var txt = fr.contenido || fr.texto || "";
+                  if (num || txt) partes.push((num + " " + txt).trim());
+                });
+              }
+              data.texto = partes.join("\n\n");
+            } else {
+              data.texto = "";
+            }
+          }
+          // Convertir notas de reforma §NOTA§...§/NOTA§ en texto visible
           data.texto = data.texto.replace(/§NOTA§([\s\S]*?)§\/NOTA§/g, function(m, nota) {
             var n = nota.trim(); return n ? ("\n\n[Reforma] " + n) : "";
           }).trim();
-          // 3. "articulo" (ej. "ARTÍCULO 1.-") → "numero" (ej. "1")
+          // "articulo" (ej. "ARTÍCULO 1.-") → "numero" (ej. "1")
           if (!data.numero && data.articulo) {
-            const m = data.articulo.match(/\d+/);
-            data.numero = m ? m[0] : data.articulo;
+            var mNum = data.articulo.match(/\d+/);
+            data.numero = mNum ? mNum[0] : data.articulo;
           }
           if (!data.numero) data.numero = "";
           return { id: d.id, ...data };

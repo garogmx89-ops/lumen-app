@@ -1357,20 +1357,10 @@ onAuthStateChanged(auth, (user) => {
           // 1. "contenido" → "texto"
           if (!data.texto && data.contenido) data.texto = data.contenido;
           if (!data.texto) data.texto = "";
-          // 2. Limpiar marcadores §NOTA§...§NOTAS§ del texto visible
-          //    (son marcadores internos de Codex para notas de reforma)
-          // Convertir marcadores §NOTA§...§/NOTA§ en líneas de texto plano con prefijo 🔄
-          // formatearTextoArticulo escapa HTML, así que no podemos inyectar <span>.
-          // Las notas quedan como párrafos separados: "
-
-🔄 Párrafo reformado DOF..."
-          data.texto = data.texto.replace(
-            /§NOTA§([\s\S]*?)§\/NOTA§/g,
-            (_, nota) => {
-              const n = nota.trim();
-              return n ? ("\n\n🔄 " + n) : "";
-            }
-          ).trim();
+          // 2. Convertir notas de reforma §NOTA§...§/NOTA§ en texto visible
+          data.texto = data.texto.replace(/§NOTA§([\s\S]*?)§\/NOTA§/g, function(m, nota) {
+            var n = nota.trim(); return n ? ("\n\n[Reforma] " + n) : "";
+          }).trim();
           // 3. "articulo" (ej. "ARTÍCULO 1.-") → "numero" (ej. "1")
           if (!data.numero && data.articulo) {
             const m = data.articulo.match(/\d+/);

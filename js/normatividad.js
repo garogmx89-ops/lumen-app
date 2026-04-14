@@ -1353,40 +1353,10 @@ onAuthStateChanged(auth, (user) => {
       const todosLsDocs = snap.docs
         .map(d => {
           const data = d.data();
-          // Normalizar campos de Codex al esquema del explorador de Lumen:
-          // Codex tiene 3 variantes de texto:
-          // A) "contenido" — artículo de párrafo continuo (72 arts)
-          // B) "introduccion" + "fracciones" — artículo con fracciones (25 arts)
-          // C) ninguno — elemento vacío
-          if (!data.texto) {
-            if (data.contenido) {
-              // Variante A: párrafo continuo
-              data.texto = data.contenido;
-            } else if (data.introduccion || data.fracciones) {
-              // Variante B: reconstruir desde introduccion + fracciones
-              var partes = [];
-              if (data.introduccion) partes.push(data.introduccion);
-              if (data.fracciones && data.fracciones.length) {
-                data.fracciones.forEach(function(fr) {
-                  var num = fr.fraccion || fr.numero || "";
-                  var txt = fr.contenido || fr.texto || "";
-                  if (num || txt) partes.push((num + " " + txt).trim());
-                });
-              }
-              data.texto = partes.join("\n\n");
-            } else {
-              data.texto = "";
-            }
-          }
-          // Convertir notas de reforma §NOTA§...§/NOTA§ en texto visible
-          data.texto = data.texto.replace(/§NOTA§([\s\S]*?)§\/NOTA§/g, function(m, nota) {
-            var n = nota.trim(); return n ? ("\n\n[Reforma] " + n) : "";
-          }).trim();
-          // "articulo" (ej. "ARTÍCULO 1.-") → "numero" (ej. "1")
-          if (!data.numero && data.articulo) {
-            var mNum = data.articulo.match(/\d+/);
-            data.numero = mNum ? mNum[0] : data.articulo;
-          }
+          // Los artículos importados desde Codex ya vienen con el esquema
+          // canónico de Lumen (texto, numero, derogado, reformas).
+          // Solo garantizamos valores por defecto para artículos legacy.
+          if (!data.texto) data.texto = "";
           if (!data.numero) data.numero = "";
           return { id: d.id, ...data };
         })
@@ -1500,8 +1470,16 @@ onAuthStateChanged(auth, (user) => {
 
     const cuerpoHtml = formatearTextoArticulo(textoRender, termino);
 
-    const notasHtml = (a.notasReforma && a.notasReforma.length > 0)
-      ? `<div style="margin-top:0.4rem;font-size:0.72rem;color:var(--text3);font-style:italic;padding-left:0.5rem">🔄 ${a.notasReforma.join(" · ")}</div>`
+    // Mostrar historial de reformas: campo "reformas" (Codex) o "notasReforma" (legacy)
+    const _reformas = (a.reformas && a.reformas.length > 0) ? a.reformas
+                    : (a.notasReforma && a.notasReforma.length > 0) ? a.notasReforma
+                    : [];
+    const notasHtml = _reformas.length > 0
+      ? `<div style="margin-top:0.5rem;display:flex;flex-wrap:wrap;gap:0.3rem">
+          ${_reformas.map(r => `<span style="font-size:0.68rem;color:var(--text2);font-style:italic;
+            background:var(--bg2,var(--surface));border:1px solid var(--border);
+            border-radius:10px;padding:0.1rem 0.5rem;white-space:nowrap">🔄 ${escHtml(r)}</span>`).join("")}
+        </div>`
       : "";
 
     const esRelevante = _exploRelevantes.has(a.id);
@@ -2695,78 +2673,146 @@ onAuthStateChanged(auth, (user) => {
 
 
   // ── Importar borrador: mapeo de campos + migración de artículos ──
+  // ── Función auxiliar: transformar artículo de Codex al esquema canónico de Lumen ──
+  // Esta transformación ocurre UNA SOLA VEZ al importar — los datos
+  // quedan limpios en Firestore y el explorador los lee sin normalización.
+  function _codexArtALumen(art, indice) {
+    // 1. Reconstruir texto completo según variante de Codex:
+    //    A) art.contenido — párrafo continuo (mayoría de artículos)
+    //    B) art.introduccion + art.fracciones[] — artículo con fracciones
+    let texto = "";
+    if (art.contenido && art.contenido.trim()) {
+      texto = art.contenido.trim();
+    } else if (art.introduccion || (art.fracciones && art.fracciones.length)) {
+      const partes = [];
+      if (art.introduccion) partes.push(art.introduccion.trim());
+      (art.fracciones || []).forEach(fr => {
+        const num = (fr.fraccion || fr.numero || "").trim();
+        const txt = (fr.contenido || fr.texto || "").trim();
+        if (num || txt) partes.push((num + (num && txt ? " " : "") + txt).trim());
+      });
+      texto = partes.join("
+
+");
+    }
+
+    // 2. Limpiar marcadores §NOTA§...§/NOTA§ del texto —
+    //    las reformas se guardan en campo separado "reformas[]"
+    texto = texto.replace(/§NOTA§[\s\S]*?§\/NOTA§/g, "").replace(/
+{3,}/g, "
+
+").trim();
+
+    // 3. Extraer número limpio: "ARTÍCULO 4.-" → "4"
+    const mNum = (art.articulo || "").match(/\d+/);
+    const numero = mNum ? mNum[0] : (art.articulo || String(indice + 1));
+
+    // 4. Estado jurídico → campo derogado booleano (compatible con el explorador)
+    const derogado = art.estado === "derogado";
+
+    // 5. Reformas como array limpio (ya vienen así desde Codex)
+    const reformas = Array.isArray(art.reformas) ? art.reformas : [];
+
+    return {
+      // Campos canónicos del explorador de Lumen
+      texto,
+      numero,
+      seccion:            art.seccion      || "",
+      capitulo:           art.capitulo     || "",
+      derogado,
+      reformas,
+      // Campos de enriquecimiento para Sprint D4 (agente IA)
+      instruccion_agente: art.instruccion_agente || "",
+      estado_juridico:    art.estado       || "vigente",
+      // Metadatos
+      articulo_original:  art.articulo     || "",   // conservar el original por referencia
+      indice,
+      tipo:               art.tipo         || "articulo",
+      fuenteImport:       "lumen_codex"
+    };
+  }
+
   async function importarBorradorCodex(docId, btnEl) {
     const borrador = todasLasNormas.find(n => n.id === docId);
     if (!borrador) return;
 
-    if (!confirm(
-      `¿Importar "${borrador.titulo || borrador.nombre}" como norma activa en Lumen?\n\n` +
-      `Esto creará la norma con sus artículos en tu repositorio legal.`
-    )) return;
+    // Detectar re-importación por hash
+    const yaImportado = todasLasNormas.find(
+      n => n.id !== docId &&
+           n.hashContenido &&
+           n.hashContenido === borrador.hashContenido &&
+           n.estado !== "borrador_lumenprep"
+    );
+    if (yaImportado) {
+      if (!confirm(
+        `"${borrador.titulo || borrador.nombre}" ya existe en Lumen (importado previamente).
+
+` +
+        `¿Quieres actualizar la versión existente con los datos de Codex?`
+      )) return;
+    } else {
+      if (!confirm(
+        `¿Importar "${borrador.titulo || borrador.nombre}" como norma activa en Lumen?
+
+` +
+        `Se importarán ${borrador.meta?.totalArticulos || 0} artículos con estado jurídico, ` +
+        `reformas e instrucciones para el agente IA.`
+      )) return;
+    }
 
     if (btnEl) { btnEl.disabled = true; btnEl.textContent = "⏳ Importando..."; }
 
     try {
-      // ── 1. Mapeo de campos Codex → esquema Lumen ─────────────────
-      // Codex usa "titulo"; Lumen usa "nombre".
-      // Codex guarda fechas como texto libre ("27 de junio de 2006");
-      // Lumen espera formato "YYYY-MM-DD" para el semáforo.
-      // Intentamos parsear la fecha de última reforma del campo
-      // ultimaReforma (formato "DD-MM-YYYY" del DOF).
       const nombre = borrador.titulo || borrador.nombre || "Documento sin título";
-
-      // Capitalizar tipo: "ley" → "Ley"
       const tipoRaw = borrador.tipo || "ley";
       const tipo = tipoRaw.charAt(0).toUpperCase() + tipoRaw.slice(1);
 
-      // Fecha de última reforma: Codex la guarda como "15-01-2026"
-      // Lumen la necesita como "2026-01-15"
+      // Fecha última reforma DOF: "15-01-2026" → "2026-01-15"
       let fechaReforma = "";
       if (borrador.ultimaReforma) {
-        const partes = borrador.ultimaReforma.split("-");
-        if (partes.length === 3) {
-          // DOF usa DD-MM-YYYY
-          fechaReforma = `${partes[2]}-${partes[1]}-${partes[0]}`;
-        }
+        const p = borrador.ultimaReforma.split("-");
+        if (p.length === 3) fechaReforma = `${p[2]}-${p[1]}-${p[0]}`;
       }
+
+      // Conteos para el resumen
+      const arts = borrador.articulos || [];
+      const nDerogados  = arts.filter(a => a.estado === "derogado").length;
+      const nReformados = arts.filter(a => a.reformas && a.reformas.length > 0).length;
+      const temas       = (borrador.temas || []).join(", ");
 
       const datosMapeados = {
         nombre,
         tipo,
-        ambito:       borrador.ambito       || "",
-        origen:       borrador.origen        || "",
-        fecha:        "",            // fecha de publicación original (texto libre, no parseable con certeza)
+        ambito:         borrador.ambito  || "",
+        origen:         borrador.origen  || "",
+        fecha:          "",
         fechaReforma,
-        resumen:      `Importado desde Lumen Codex. ${borrador.meta?.totalArticulos || 0} artículos procesados.`,
-        anotaciones:  "",
-        urlFuente:    "",
-        pdfUrl:       null,
-        padreId:      null,
-        relacionadas: [],
-        tieneTexto:   false,         // se actualiza a true si hay artículos
-        totalArticulos: borrador.meta?.totalArticulos || 0,
-        temas:        borrador.temas || [],
-        estado:       "activo",      // ya no es borrador
-        fuenteImport: "lumen_codex",
-        creadoEn:     serverTimestamp()
+        resumen:        `Importado desde Lumen Codex. ${arts.length} artículos` +
+                        (nDerogados  ? ` · ${nDerogados} derogados`  : "") +
+                        (nReformados ? ` · ${nReformados} reformados` : "") + ".",
+        anotaciones:    temas ? `Temas: ${temas}` : "",
+        urlFuente:      "",
+        pdfUrl:         null,
+        padreId:        null,
+        relacionadas:   [],
+        tieneTexto:     false,
+        totalArticulos: arts.length,
+        totalDerogados: nDerogados,
+        temas:          borrador.temas || [],
+        hashContenido:  borrador.hashContenido || borrador.meta?.hashContenido || "",
+        estado:         "activo",
+        fuenteImport:   "lumen_codex",
+        creadoEn:       serverTimestamp()
       };
 
-      // ── 2. Actualizar el documento existente en Firestore ─────────
-      // En lugar de crear uno nuevo, actualizamos el mismo documento
-      // que Codex creó — así conservamos el ID y la subcolección
-      // de artículos que vamos a crear en el siguiente paso.
       const normaRef = doc(db, "usuarios", user.uid, "normatividad", docId);
       await updateDoc(normaRef, datosMapeados);
 
-      // ── 3. Migrar artículos a la subcolección /articulos ──────────
-      // Codex guarda los artículos como array en el campo "articulos"
-      // del documento raíz. Lumen los necesita en la subcolección
-      // /articulos con campos compatibles con el explorador.
-      const arts = borrador.articulos || [];
+      // ── Migrar artículos con transformación canónica ──────────────
       if (arts.length > 0) {
         const articulosRef = collection(db, "usuarios", user.uid, "normatividad", docId, "articulos");
 
-        // Borrar artículos previos si los hubiera (evitar duplicados)
+        // Borrar artículos previos (re-importación limpia)
         const snapExistentes = await getDocs(articulosRef);
         if (!snapExistentes.empty) {
           const batch0 = writeBatch(db);
@@ -2774,53 +2820,32 @@ onAuthStateChanged(auth, (user) => {
           await batch0.commit();
         }
 
-        // Guardar artículos en lotes de 400 (límite de writeBatch: 500)
+        // Transformar y guardar en lotes de 400
         const LOTE = 400;
         for (let i = 0; i < arts.length; i += LOTE) {
           const batch = writeBatch(db);
           arts.slice(i, i + LOTE).forEach((art, offset) => {
-            const artRef = doc(articulosRef);
-            batch.set(artRef, {
-              // Campos que el explorador de Lumen necesita
-              articulo:         art.articulo  || art.numero || `Art. ${i + offset + 1}`,
-              contenido:        art.contenido || art.texto  || "",
-              introduccion:     art.introduccion || "",
-              seccion:          art.seccion   || "",
-              capitulo:         art.capitulo  || "",
-              estado:           art.estado    || "vigente",
-              reformas:         art.reformas  || [],
-              instruccion_agente: art.instruccion_agente || "",
-              indice:           i + offset,
-              // Metadatos de origen
-              tipo:             art.tipo      || "articulo",
-              fuenteImport:     "lumen_codex"
-            });
+            const artLumen = _codexArtALumen(art, i + offset);
+            batch.set(doc(articulosRef), artLumen);
           });
           await batch.commit();
         }
 
-        // Marcar la norma como que ya tiene texto cargado
-        await updateDoc(normaRef, {
-          tieneTexto:     true,
-          totalArticulos: arts.length
-        });
+        await updateDoc(normaRef, { tieneTexto: true, totalArticulos: arts.length });
       }
 
-      // ── 4. Guardar el preámbulo si existe ─────────────────────────
+      // ── Preámbulo ─────────────────────────────────────────────────
       const intro = borrador.introduccion;
       if (intro && intro.contenido) {
         const preambRef = doc(db, "usuarios", user.uid, "normatividad", docId, "articulos", "_preambulo");
         await setDoc(preambRef, {
-          articulo:    "_preambulo",
-          contenido:   intro.contenido,
-          tipo:        "introduccion",
-          indice:      -1,
+          texto:        intro.contenido.replace(/§NOTA§[\s\S]*?§\/NOTA§/g, "").trim(),
+          numero:       "_preambulo",
+          tipo:         "introduccion",
+          indice:       -1,
           fuenteImport: "lumen_codex"
         });
       }
-
-      // onSnapshot detectará el cambio y rerenderizará la lista
-      // El banner desaparecerá automáticamente porque estado ya no es borrador_lumenprep
 
     } catch (err) {
       console.error("Error al importar borrador de Codex:", err);

@@ -2712,8 +2712,8 @@ onAuthStateChanged(auth, (user) => {
       // Campos canónicos del explorador de Lumen
       texto,
       numero,
-      seccion:            art.seccion      || "",
-      capitulo:           art.capitulo     || "",
+      seccion:            art._seccionAsignada  || art.seccion  || "",
+      capitulo:           art._capituloAsignado || art.capitulo || "",
       derogado,
       reformas,
       // Campos de enriquecimiento para Sprint D4 (agente IA)
@@ -2802,6 +2802,36 @@ onAuthStateChanged(auth, (user) => {
 
       const normaRef = doc(db, "usuarios", user.uid, "normatividad", docId);
       await updateDoc(normaRef, datosMapeados);
+
+      // ── Pre-asignar seccion/capitulo a cada artículo desde el contenido de Codex ──
+      // Codex envía los artículos sin seccion/capitulo asignados, pero el array
+      // borrador.contenido tiene elementos tipo "seccion" intercalados que definen
+      // la estructura jerárquica. Recorremos en orden y propagamos la sección actual.
+      const contenidoCompleto = borrador.contenido || [];
+      if (contenidoCompleto.length > 0) {
+        let secActual = "";
+        let capActual = "";
+        // Mapa articuloOriginal → {seccion, capitulo}
+        const mapaSeccion = {};
+        contenidoCompleto.forEach(function(elem) {
+          if (elem.tipo === "seccion") {
+            const lineas = (elem.contenido || "").split("\n").map(function(l) { return l.trim(); }).filter(Boolean);
+            lineas.forEach(function(l) {
+              if (/^T[ÍI]TULO\s/i.test(l)) secActual = l;
+              else if (/^CAP[ÍI]TULO\s/i.test(l) || /^Cap[ií]tulo\s/i.test(l)) capActual = l;
+            });
+          } else if (elem.tipo === "articulo" && elem.articulo) {
+            mapaSeccion[elem.articulo] = { seccion: secActual, capitulo: capActual };
+          }
+        });
+        // Asignar a cada artículo del array arts
+        arts.forEach(function(art) {
+          if (art.articulo && mapaSeccion[art.articulo]) {
+            art._seccionAsignada  = mapaSeccion[art.articulo].seccion;
+            art._capituloAsignado = mapaSeccion[art.articulo].capitulo;
+          }
+        });
+      }
 
       // ── Migrar artículos con transformación canónica ──────────────
       if (arts.length > 0) {

@@ -883,7 +883,7 @@ onAuthStateChanged(auth, (user) => {
             <div class="norma-card-nombre" style="flex-wrap:wrap;gap:0.3rem">
               ${n.tipo ? `<span class="norma-tipo-badge" style="background:${color}">${n.tipo}</span>` : ""}
               ${semaforoHtml}${ambitoBadge}
-              <span class="reunion-card-titulo">${n.nombre}</span>
+              <span class="reunion-card-titulo">${n.nombre || n.titulo || "Sin nombre"}</span>
               ${vincBadge}${textoBadge}
             </div>
             <div class="reunion-card-acciones">
@@ -2573,16 +2573,17 @@ onAuthStateChanged(auth, (user) => {
   // Los borradores se filtran del array todasLasNormas en el render.
 
   function renderBannerBorradores() {
-    // Buscar el contenedor del banner — lo creamos si no existe,
-    // justo antes de normatividad-contenido (la lista de normas).
+    // El banner vive justo encima de #normatividad-contenido.
+    // Usamos el mismo contenedor padre que renderNormas para garantizar
+    // que el DOM ya esté listo cuando se llame desde onSnapshot.
+    const contenedorNormas = document.getElementById("normatividad-contenido");
+    if (!contenedorNormas) return; // panel no montado todavía
     let banner = document.getElementById("codex-borradores-banner");
     if (!banner) {
       banner = document.createElement("div");
       banner.id = "codex-borradores-banner";
-      // Insertar antes de la lista de normas
-      const lista = document.querySelector("#panel-normatividad .reuniones-lista");
-      if (lista) lista.parentNode.insertBefore(banner, lista);
-      else return; // panel no está visible todavía — salir sin error
+      // Insertar justo antes del contenedor de normas
+      contenedorNormas.parentNode.insertBefore(banner, contenedorNormas);
     }
 
     const borradores = todasLasNormas.filter(n => n.estado === "borrador_lumenprep");

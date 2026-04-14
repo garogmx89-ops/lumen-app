@@ -1478,7 +1478,7 @@ onAuthStateChanged(auth, (user) => {
       ? `<div style="margin-top:0.5rem;display:flex;flex-wrap:wrap;gap:0.3rem">
           ${_reformas.map(r => `<span style="font-size:0.68rem;color:var(--text2);font-style:italic;
             background:var(--bg2,var(--surface));border:1px solid var(--border);
-            border-radius:10px;padding:0.1rem 0.5rem;white-space:nowrap">🔄 ${escHtml(r)}</span>`).join("")}
+            border-radius:10px;padding:0.1rem 0.5rem;white-space:nowrap">🔄 ${r.replace(/&/g,"&amp;").replace(/</g,"&lt;").replace(/>/g,"&gt;")}</span>`).join("")}
         </div>`
       : "";
 

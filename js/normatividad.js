@@ -1353,9 +1353,19 @@ onAuthStateChanged(auth, (user) => {
       const todosLsDocs = snap.docs
         .map(d => {
           const data = d.data();
-          // Normalizar: Codex guarda "contenido", el explorador espera "texto"
+          // Normalizar campos de Codex al esquema del explorador de Lumen:
+          // 1. "contenido" → "texto"
           if (!data.texto && data.contenido) data.texto = data.contenido;
           if (!data.texto) data.texto = "";
+          // 2. Limpiar marcadores §NOTA§...§NOTAS§ del texto visible
+          //    (son marcadores internos de Codex para notas de reforma)
+          data.texto = data.texto.replace(/§NOTA§[\s\S]*?§NOTAS§/g, "").trim();
+          // 3. "articulo" (ej. "ARTÍCULO 1.-") → "numero" (ej. "1")
+          if (!data.numero && data.articulo) {
+            const m = data.articulo.match(/\d+/);
+            data.numero = m ? m[0] : data.articulo;
+          }
+          if (!data.numero) data.numero = "";
           return { id: d.id, ...data };
         })
         .sort((a, b) => (a.indice ?? 999) - (b.indice ?? 999));

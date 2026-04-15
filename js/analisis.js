@@ -40,9 +40,12 @@ onAuthStateChanged(auth, (user) => {
     select.innerHTML = '<option value="">— Agregar norma del catálogo —</option>';
     snapshot.docs.forEach(d => {
       const n = d.data();
+      // Excluir borradores pendientes de importación
+      if (n.estado === "borrador_lumenprep") return;
       const option = document.createElement("option");
-      option.value = n.nombre;
-      option.textContent = n.tipo ? `[${n.tipo}] ${n.nombre}` : n.nombre;
+      option.value = n.nombre || n.titulo || "";
+      option.dataset.id = d.id;
+      option.textContent = n.tipo ? `[${n.tipo}] ${n.nombre || n.titulo}` : (n.nombre || n.titulo || "Sin nombre");
       select.appendChild(option);
     });
   });
@@ -351,13 +354,28 @@ onAuthStateChanged(auth, (user) => {
               .map(d => ({ id: d.id, ...d.data() }))
               .filter(a => a.id !== "_preambulo" && !a.derogado);
             // Priorizar artículos marcados como relevantes; si no hay, tomar los primeros 30
-            const relevantes = validos.filter(a => a.relevante);
+            // D3: usar a.favorito (campo actual de Lumen) con fallback a a.relevante (legacy)
+            const relevantes = validos.filter(a => a.favorito || a.relevante);
             const paraPrompt = relevantes.length > 0 ? relevantes : validos.slice(0, 30);
             if (paraPrompt.length > 0) {
               normasTexto += `\n### ${n.nombre}\n`;
-              normasTexto += paraPrompt
-                .map(a => `${a.numero ? a.numero + ".- " : ""}${a.texto || ""}`.trim())
-                .filter(Boolean).join("\n\n");
+              normasTexto += paraPrompt.map(a => {
+                // D3: reconstruir texto con fracciones si existen
+                const cabecera = a.articulo_original || (a.numero ? a.numero + ".-" : "");
+                let cuerpo = "";
+                if (a.fracciones && a.fracciones.length) {
+                  const intro = a.introduccion ? a.introduccion + "\n" : "";
+                  const fracs = a.fracciones
+                    .map(f => `${f.num || ""} ${(f.txt || "").replace(/§NOTA§[\s\S]*?§\/NOTA§/g,"").trim()}`.trim())
+                    .join("\n");
+                  cuerpo = intro + fracs;
+                } else {
+                  cuerpo = (a.texto || "").replace(/§NOTA§[\s\S]*?§\/NOTA§/g,"").trim();
+                }
+                // Agregar nota del usuario si existe — enriquece el contexto
+                const notaCtx = a.nota_usuario ? `\n[Nota: ${a.nota_usuario}]` : "";
+                return `${cabecera} ${cuerpo}${notaCtx}`.trim();
+              }).filter(Boolean).join("\n\n");
               normasTexto += "\n";
             } else {
               normasTexto += `${n.nombre} (sin artículos vigentes cargados)\n`;

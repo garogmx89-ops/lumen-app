@@ -215,11 +215,14 @@ window._importarBorrador = async function(docId, btnEl) {
   const arts   = borrador.articulos || [];
 
   const msg = yaImportado
-    ? `"${titulo}" ya existe en Lumen.\n\n¿Actualizar con los datos más recientes de Codex?`
+    ? `"${titulo}" ya fue importada anteriormente.\n\n¿Actualizar la versión existente con los datos más recientes de Codex?\n(Los artículos existentes serán reemplazados)`
     : `¿Importar "${titulo}" como norma activa?\n\n${arts.length} artículos · ${borrador.ambito || ""} · ${borrador.tipo || ""}`;
 
   if (!confirm(msg)) return;
   if (btnEl) { btnEl.disabled = true; btnEl.textContent = "⏳ Importando..."; }
+
+  // D1: si ya existe versión importada, trabajar sobre ese docId en lugar del borrador
+  const targetId = yaImportado ? yaImportado.id : docId;
 
   try {
     // ── 1. Actualizar documento raíz ────────────────────
@@ -233,7 +236,7 @@ window._importarBorrador = async function(docId, btnEl) {
     const nDerogados  = arts.filter(a => a.estado === "derogado").length;
     const nReformados = arts.filter(a => a.reformas?.length > 0).length;
 
-    await updateDoc(doc(db, "usuarios", _user.uid, "normatividad", docId), {
+    await updateDoc(doc(db, "usuarios", _user.uid, "normatividad", targetId), {
       nombre:        titulo,
       tipo,
       ambito:        borrador.ambito  || "",
@@ -253,7 +256,7 @@ window._importarBorrador = async function(docId, btnEl) {
     });
 
     // ── 2. Borrar artículos previos ──────────────────────
-    const artsRef  = collection(db, "usuarios", _user.uid, "normatividad", docId, "articulos");
+    const artsRef  = collection(db, "usuarios", _user.uid, "normatividad", targetId, "articulos");
     const snapPrev = await getDocs(artsRef);
     if (!snapPrev.empty) {
       const b0 = writeBatch(db);
@@ -281,7 +284,7 @@ window._importarBorrador = async function(docId, btnEl) {
     const intro = borrador.introduccion;
     if (intro?.contenido) {
       await setDoc(
-        doc(db, "usuarios", _user.uid, "normatividad", docId, "articulos", "_preambulo"),
+        doc(db, "usuarios", _user.uid, "normatividad", targetId, "articulos", "_preambulo"),
         {
           texto:        _limpiarNotas(intro.contenido),
           numero:       "_preambulo",
@@ -307,6 +310,13 @@ window._importarBorrador = async function(docId, btnEl) {
         });
       });
       await bT.commit();
+    }
+
+    // D1: si importamos sobre versión existente, eliminar el borrador original
+    if (yaImportado && targetId !== docId) {
+      try {
+        await deleteDoc(doc(db, "usuarios", _user.uid, "normatividad", docId));
+      } catch(_) {}
     }
 
   } catch (err) {
@@ -552,7 +562,15 @@ function _renderArticulos() {
     if (filtro === "ley"        && a.tipo === "transitorio")       return false;
     if (filtro === "transitorio"&& a.tipo !== "transitorio")       return false;
     if (filtro === "derogado"   && !_exploDerogados.has(a.id))     return false;
-    if (termino && !(a.texto || "").toLowerCase().includes(termino)) return false;
+    if (termino) {
+      // D2: buscar también en fracciones estructuradas
+      const haystack = [
+        a.texto || "",
+        a.introduccion || "",
+        ...(a.fracciones || []).map(f => f.txt || "")
+      ].join(" ").toLowerCase();
+      if (!haystack.includes(termino)) return false;
+    }
     return true;
   });
 
@@ -572,18 +590,22 @@ function _renderArticulos() {
 
   for (const sec of grupos) {
     if (sec.titulo) {
+      // C2: mostrar subtítulo de sección ("DE LAS DISPOSICIONES GENERALES")
+      const subTitulo = sec.subtitulo ? `<div style="font-size:0.72rem;font-weight:600;color:#ffffff99;margin-top:0.1rem;letter-spacing:0.02em;">${_esc(sec.subtitulo)}</div>` : "";
       html += `<div style="background:var(--accent);color:#fff;font-weight:700;font-size:0.8rem;
         padding:0.45rem 0.85rem;border-radius:8px;margin:1rem 0 0.4rem;letter-spacing:0.03em;">
-        ${_esc(sec.titulo)}
+        ${_esc(sec.titulo)}${subTitulo}
       </div>`;
     }
     for (const cap of sec.caps) {
       if (cap.titulo) {
+        // C2: mostrar nombre del capítulo ("De los lineamientos")
+        const capNombreHtml = cap.nombre ? `<span style="font-weight:400;color:var(--text3);font-style:italic;"> · ${_esc(cap.nombre)}</span>` : "";
         html += `<div style="font-size:0.78rem;font-weight:600;color:var(--text2);
           padding:0.3rem 0.6rem;border-left:2px solid var(--border);margin:0.5rem 0 0.25rem;
-          display:flex;justify-content:space-between;">
-          <span>${_esc(cap.titulo)}</span>
-          <span style="font-weight:400;color:var(--text3);">${cap.arts.length} art.</span>
+          display:flex;justify-content:space-between;align-items:baseline;">
+          <span>${_esc(cap.titulo)}${capNombreHtml}</span>
+          <span style="font-weight:400;color:var(--text3);flex-shrink:0;margin-left:0.5rem;">${cap.arts.length} art.</span>
         </div>`;
       }
       for (const art of cap.arts) {
@@ -604,6 +626,35 @@ function _renderArticulos() {
     }
   }
 
+  // C3: decreto historial al final si existe
+  if (_exploNorma?.decreto_historial) {
+    const dh = _exploNorma.decreto_historial;
+    const dhTexto = _limpiarNotas(dh.contenido || dh.texto || "");
+    if (dhTexto) {
+      html += `<div style="margin-top:1.5rem;background:var(--surface);border:1px solid var(--border);
+        border-radius:10px;overflow:hidden;">
+        <div style="display:flex;align-items:center;justify-content:space-between;
+          padding:0.6rem 1rem;cursor:pointer;border-bottom:1px solid transparent;"
+          id="dh-header"
+          onclick="const b=document.getElementById('dh-body');const h=document.getElementById('dh-header');
+          const open=b.style.display!=='none';
+          b.style.display=open?'none':'block';
+          h.style.borderBottomColor=open?'transparent':'var(--border)';">
+          <div style="display:flex;align-items:center;gap:0.5rem;">
+            <span style="font-size:0.72rem;font-weight:700;color:var(--text2);letter-spacing:0.04em;">
+              HISTORIAL DE DECRETOS DE REFORMA
+            </span>
+          </div>
+          <span style="font-size:0.75rem;color:var(--text3);">▼</span>
+        </div>
+        <div id="dh-body" style="display:none;padding:0.75rem 1rem;font-size:0.75rem;
+          color:var(--text2);line-height:1.7;white-space:pre-wrap;max-height:400px;overflow-y:auto;">
+          ${_esc(dhTexto)}
+        </div>
+      </div>`;
+    }
+  }
+
   el.innerHTML = html;
 }
 
@@ -620,22 +671,31 @@ function _agruparPorJerarquia(lista) {
     const capKey = art.capitulo || "__sin_capitulo__";
 
     if (!mapaSec.has(secKey)) {
-      const entrada = { titulo: art.seccion || "", caps: new Map() };
+      const entrada = {
+        titulo:    art.seccion || "",
+        subtitulo: art.seccion_subtitulo || "",  // C2
+        caps: new Map()
+      };
       mapaSec.set(secKey, entrada);
       grupos.push(entrada);
     }
     const sec = mapaSec.get(secKey);
 
     if (!sec.caps.has(capKey)) {
-      sec.caps.set(capKey, { titulo: art.capitulo || "", arts: [] });
+      sec.caps.set(capKey, {
+        titulo:  art.capitulo || "",
+        nombre:  art.capitulo_nombre || "",  // C2
+        arts: []
+      });
     }
     sec.caps.get(capKey).arts.push(art);
   }
 
-  // Convertir Maps a arrays para render
+  // C2: incluir subtítulo de sección y nombre de capítulo
   return grupos.map(s => ({
-    titulo: s.titulo,
-    caps:   [...s.caps.values()]
+    titulo:   s.titulo,
+    subtitulo: s.subtitulo || "",
+    caps:     [...s.caps.values()]
   }));
 }
 
@@ -735,11 +795,51 @@ function _renderArticulo(a, termino = "") {
           style="background:none;border:1px solid ${notaTexto ? "var(--accent)" : "var(--border)"};
           border-radius:6px;padding:0.15rem 0.4rem;font-size:0.8rem;cursor:pointer;
           color:${notaTexto ? "var(--accent)" : "var(--text3)"};font-family:inherit;">📝</button>
+        <button class="norm-btn-ia" data-art-id="${a.id}"
+          title="Consultar agente IA sobre este artículo"
+          style="background:none;border:1px solid var(--border);border-radius:6px;
+          padding:0.15rem 0.4rem;font-size:0.8rem;cursor:pointer;
+          color:var(--text3);font-family:inherit;">🤖</button>
       </div>
     </div>
     <div style="font-size:0.83rem;color:var(--text);line-height:1.7;">${cuerpoHtml}</div>
     ${notasHtml}
     ${notaPanel}
+    <div class="norm-ia-panel" id="ia-panel-${a.id}"
+      style="display:none;margin-top:0.5rem;border:1px solid var(--border);
+      border-left:2px solid var(--accent);border-radius:8px;overflow:hidden;">
+      <div style="padding:0.5rem 0.75rem;background:var(--surface);border-bottom:1px solid var(--border);
+        display:flex;align-items:center;gap:0.5rem;">
+        <span style="font-size:0.7rem;font-weight:700;color:var(--accent);">🤖 Consultar agente IA</span>
+        <span style="font-size:0.68rem;color:var(--text3);font-style:italic;">
+          Responde solo sobre este artículo
+        </span>
+      </div>
+      <div style="padding:0.6rem 0.75rem;">
+        <textarea class="norm-ia-pregunta" data-art-id="${a.id}"
+          style="width:100%;min-height:52px;background:var(--bg);border:1px solid var(--border);
+          border-radius:6px;padding:0.4rem 0.5rem;font-size:0.8rem;color:var(--text);
+          font-family:inherit;resize:vertical;line-height:1.5;"
+          placeholder="Escribe tu pregunta sobre este artículo..."></textarea>
+        <div style="display:flex;justify-content:flex-end;gap:0.4rem;margin-top:0.35rem;">
+          <button class="norm-ia-limpiar" data-art-id="${a.id}"
+            style="background:none;border:1px solid var(--border);color:var(--text3);
+            border-radius:6px;padding:0.25rem 0.65rem;font-size:0.75rem;cursor:pointer;font-family:inherit;">
+            Limpiar
+          </button>
+          <button class="norm-ia-enviar" data-art-id="${a.id}"
+            style="background:var(--accent);border:none;color:#fff;border-radius:6px;
+            padding:0.25rem 0.8rem;font-size:0.75rem;cursor:pointer;font-family:inherit;font-weight:600;">
+            Consultar →
+          </button>
+        </div>
+        <div class="norm-ia-respuesta" id="ia-resp-${a.id}"
+          style="display:none;margin-top:0.5rem;padding:0.6rem 0.7rem;
+          background:var(--bg);border:1px solid var(--border);border-radius:6px;
+          font-size:0.8rem;color:var(--text);line-height:1.7;white-space:pre-wrap;">
+        </div>
+      </div>
+    </div>
   </div>`;
 }
 
@@ -985,6 +1085,97 @@ function _initExploradorEventos() {
       if (panel) panel.style.display = panel.style.display === "none" ? "block" : "none";
     }
 
+    // ── Sprint E: mostrar/ocultar panel de consulta IA ──
+    if (btn.classList.contains("norm-btn-ia")) {
+      const panel = document.getElementById(`ia-panel-${artId}`);
+      if (!panel) return;
+      const visible = panel.style.display !== "none";
+      panel.style.display = visible ? "none" : "block";
+      if (!visible) {
+        const ta = panel.querySelector(".norm-ia-pregunta");
+        if (ta) setTimeout(() => ta.focus(), 50);
+      }
+    }
+
+    // ── Sprint E: enviar consulta al agente ──
+    if (btn.classList.contains("norm-ia-enviar")) {
+      const panel   = document.getElementById(`ia-panel-${artId}`);
+      const ta      = panel?.querySelector(".norm-ia-pregunta");
+      const respEl  = document.getElementById(`ia-resp-${artId}`);
+      const pregunta = ta?.value?.trim();
+      if (!pregunta || !respEl) return;
+
+      // Deshabilitar botón mientras espera
+      btn.disabled = true;
+      btn.textContent = "⏳";
+      respEl.style.display = "block";
+      respEl.textContent = "Consultando…";
+
+      // Construir contexto del artículo
+      const art = _exploArticulos.find(a => a.id === artId);
+      if (!art) { btn.disabled = false; btn.textContent = "Consultar →"; return; }
+
+      // Texto completo del artículo sin §NOTA§
+      let textoArt = "";
+      if (art.fracciones && art.fracciones.length) {
+        if (art.introduccion) textoArt += art.introduccion + "
+
+";
+        art.fracciones.forEach(f => {
+          textoArt += `${f.num || ""} ${(f.txt || "").replace(/§NOTA§[\s\S]*?§\/NOTA§/g, "").trim()}
+`;
+        });
+      } else {
+        textoArt = (art.texto || "").replace(/§NOTA§[\s\S]*?§\/NOTA§/g, "").trim();
+      }
+
+      const norma   = _exploNorma?.nombre || _exploNorma?.titulo || "Norma";
+      const artNum  = art.articulo_original || `Artículo ${art.numero}`;
+
+      const prompt = `Eres un asesor jurídico-administrativo especializado en normativa mexicana aplicable a SEDUVOT Zacatecas.
+
+REGLA ESTRICTA: Solo puedes responder basándote en el texto del artículo proporcionado. Si la respuesta no está en ese texto, dilo explícitamente. No inferas ni extrapoles.
+
+ARTÍCULO DE REFERENCIA:
+${norma} — ${artNum}
+
+${textoArt}
+
+PREGUNTA:
+${pregunta}
+
+Responde de forma concisa y cita la fracción o párrafo específico del artículo cuando sea relevante.`;
+
+      try {
+        const res = await fetch("https://lumen-briefing.garogmx89.workers.dev", {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({
+            model: "claude-sonnet-4-20250514",
+            max_tokens: 600,
+            messages: [{ role: "user", content: prompt }]
+          })
+        });
+        const data = await res.json();
+        const texto = (data.content?.[0]?.text || "Sin respuesta").trim();
+        respEl.textContent = texto;
+      } catch (e) {
+        respEl.textContent = "Error al consultar: " + e.message;
+      } finally {
+        btn.disabled = false;
+        btn.textContent = "Consultar →";
+      }
+    }
+
+    // ── Sprint E: limpiar panel IA ──
+    if (btn.classList.contains("norm-ia-limpiar")) {
+      const panel  = document.getElementById(`ia-panel-${artId}`);
+      const ta     = panel?.querySelector(".norm-ia-pregunta");
+      const respEl = document.getElementById(`ia-resp-${artId}`);
+      if (ta)     ta.value = "";
+      if (respEl) { respEl.style.display = "none"; respEl.textContent = ""; }
+    }
+
     // ── Guardar nota ──
     if (btn.classList.contains("norm-nota-guardar")) {
       const card  = document.getElementById(`art-card-${artId}`);
@@ -1189,5 +1380,57 @@ function _fmtFecha(f) {
   } catch { return f; }
 }
 
-// Exportar funciones que otros módulos pueden necesitar
+// ── Exportar funciones para otros módulos ───────────────
 export function getNormas() { return _normas.filter(n => n.estado !== "borrador_lumenprep"); }
+
+// D3: construir contexto normativo desde artículos favoritos de una norma
+// Usado por analisis.js para pre-cargar fundamento legal en nuevos análisis
+export async function getContextoFavoritos(normaId) {
+  if (!_user) return "";
+  try {
+    const snap = await getDocs(
+      collection(db, "usuarios", _user.uid, "normatividad", normaId, "articulos")
+    );
+    const norma = _normas.find(n => n.id === normaId);
+    const titulo = norma?.nombre || norma?.titulo || "Norma";
+    const favs = snap.docs
+      .filter(d => d.data().favorito)
+      .map(d => d.data())
+      .sort((a, b) => (a.indice ?? 999) - (b.indice ?? 999));
+
+    if (!favs.length) return "";
+
+    let ctx = `## ${titulo}\n\n`;
+    favs.forEach(a => {
+      ctx += `**${a.articulo_original || "Artículo " + a.numero}**\n`;
+      if (a.instruccion_agente) ctx += `> ${a.instruccion_agente}\n`;
+      // Texto limpio sin §NOTA§
+      const texto = (a.texto || "").replace(/§NOTA§[\s\S]*?§\/NOTA§/g, "").trim();
+      if (texto) ctx += texto + "\n";
+      if (a.nota_usuario) ctx += `_Nota: ${a.nota_usuario}_\n`;
+      ctx += "\n";
+    });
+    return ctx;
+  } catch(e) {
+    console.error("Error getContextoFavoritos:", e);
+    return "";
+  }
+}
+
+// D3: poblar el select de normas en módulo Análisis
+// analisis.js debe llamar esta función al iniciar
+export function poblarSelectNormas(selectId) {
+  const sel = document.getElementById(selectId);
+  if (!sel) return;
+  const normas = getNormas();
+  // Preservar opción vacía inicial
+  const placeholder = sel.options[0];
+  sel.innerHTML = "";
+  if (placeholder) sel.appendChild(placeholder);
+  normas.forEach(n => {
+    const opt = document.createElement("option");
+    opt.value = n.id;
+    opt.textContent = n.nombre || n.titulo || "Sin nombre";
+    sel.appendChild(opt);
+  });
+}

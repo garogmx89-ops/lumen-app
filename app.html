@@ -858,107 +858,18 @@
 <!-- NORMATIVIDAD -->
         <div class="panel" id="panel-normatividad">
 
-          <!-- Formulario para registrar norma -->
-          <div class="reunion-form-card">
-            <h2 class="panel-title">Nueva Norma</h2>
+          <!-- ── Banner borradores pendientes de Codex ── -->
+          <div id="norm-banner-borradores" style="display:none;"></div>
 
-            <div class="form-group">
-              <label for="norma-nombre">Nombre del documento</label>
-              <input type="text" id="norma-nombre" placeholder="Ej. Ley General de Asentamientos Humanos">
-            </div>
-
-            <div class="form-row">
-              <div class="form-group">
-                <label for="norma-tipo">Tipo</label>
-                <select id="norma-tipo">
-                  <option value="">— Seleccionar tipo —</option>
-                  <option value="Ley">Ley</option>
-                  <option value="Reglamento">Reglamento</option>
-                  <option value="Lineamiento">Lineamiento</option>
-                  <option value="Reglas de Operación">Reglas de Operación</option>
-                  <option value="Acuerdo">Acuerdo</option>
-                </select>
-              </div>
-              <div class="form-group">
-                <label for="norma-ambito">Ambito</label>
-                <select id="norma-ambito">
-                  <option value="">— Seleccionar ambito —</option>
-                  <option value="Federal">Federal</option>
-                  <option value="Estatal">Estatal</option>
-                  <option value="Municipal">Municipal</option>
-                </select>
-              </div>
-            <div class="form-group">
-              <label for="norma-fecha">Fecha de publicación original</label>
-              <input type="date" id="norma-fecha">
-            </div>
-            <div class="form-group">
-              <label for="norma-fecha-reforma">Última reforma o actualización</label>
-              <input type="date" id="norma-fecha-reforma">
-            </div>
-            </div>
-
-            <div class="form-group">
-              <label for="norma-resumen">Resumen o descripción</label>
-              <textarea id="norma-resumen" rows="2" placeholder="Ej. Regula el ordenamiento territorial y los usos de suelo a nivel nacional"></textarea>
-            </div>
-
-            <div class="form-group">
-              <label for="norma-anotaciones">Anotaciones / notas de aplicación</label>
-              <textarea id="norma-anotaciones" rows="3" placeholder="Ej. Aplica para validar dictámenes de cambio de uso de suelo en zonas urbanas"></textarea>
-            </div>
-
-            <div class="form-group">
-              <label for="norma-url">URL fuente oficial <span style="color:var(--text2);font-weight:400;">(opcional)</span></label>
-              <input type="url" id="norma-url" placeholder="Ej. https://www.diputados.gob.mx/LeyesBiblio/pdf/LViv.pdf">
-            </div>
-
-<!-- Jerarquía: norma padre -->
-<div class="form-group" id="campo-norma-padre">
-  <label for="norma-padre-select">Deriva de (norma padre)</label>
-  <select id="norma-padre-select" class="participantes-select">
-    <option value="">— Sin norma padre —</option>
-  </select>
-  <div id="norma-padre-seleccionada" style="margin-top:0.4rem;"></div>
-</div>
-
-<!-- Normas relacionadas/complementarias -->
-<div class="form-group" id="campo-normas-relacionadas">
-  <label>Normas relacionadas o complementarias</label>
-  <div class="participantes-selector">
-    <div id="norma-relacionadas-seleccionadas" class="participantes-seleccionados"></div>
-    <select id="norma-relacionada-select" class="participantes-select">
-      <option value="">— Agregar norma relacionada —</option>
-    </select>
-  </div>
-</div>
-
-            <div class="form-group">
-              <label for="norma-pdf">Documento PDF <span style="color:var(--text2);font-weight:400;">(opcional)</span></label>
-              <input type="file" id="norma-pdf" accept=".pdf">
-            <div id="norma-pdf-actual" style="display:none;" class="norma-pdf-actual">
-             📎 <span id="norma-pdf-nombre"></span>
-             <button type="button" id="btn-quitar-pdf" class="btn-quitar-pdf">✕ Quitar</button>
-          </div>
-            <div id="norma-pdf-subiendo" style="display:none;" class="norma-pdf-subiendo">
-              ⏳ Subiendo PDF...
-  </div>
-</div>
-
-<button class="btn-primary" id="btn-guardar-norma">Guardar norma</button>
-<button class="btn-secondary" id="btn-cancelar-norma" style="display:none;">Cancelar edición</button>
-          </div>
-
-          <!-- Buscador local -->
+          <!-- ── Filtros y buscador ── -->
           <div class="norma-busqueda-wrap">
             <svg viewBox="0 0 20 20" fill="none" class="search-icon" style="width:15px;height:15px;color:var(--text2);flex-shrink:0">
               <circle cx="8.5" cy="8.5" r="5" stroke="currentColor" stroke-width="1.5"/>
               <line x1="12.5" y1="12.5" x2="17" y2="17" stroke="currentColor" stroke-width="1.5" stroke-linecap="round"/>
             </svg>
-            <input type="text" id="norma-busqueda" placeholder="Buscar en normatividad..." autocomplete="off">
+            <input type="text" id="norma-busqueda" placeholder="Buscar norma..." autocomplete="off">
           </div>
 
-          <!-- Filtro por tipo -->
           <div class="norma-filtros">
             <button class="filtro-btn filtro-activo" data-filtro="todos">Todos</button>
             <button class="filtro-btn" data-filtro="Ley">Ley</button>
@@ -968,15 +879,14 @@
             <button class="filtro-btn" data-filtro="Acuerdo">Acuerdo</button>
           </div>
 
-          <!-- Filtro por ambito -->
           <div class="norma-filtros" style="margin-top:-0.5rem">
-            <button class="filtro-btn norma-filtro-ambito filtro-activo" data-ambito="todos">Todo ambito</button>
+            <button class="filtro-btn norma-filtro-ambito filtro-activo" data-ambito="todos">Todo ámbito</button>
             <button class="filtro-btn norma-filtro-ambito" data-ambito="Federal">Federal</button>
             <button class="filtro-btn norma-filtro-ambito" data-ambito="Estatal">Estatal</button>
             <button class="filtro-btn norma-filtro-ambito" data-ambito="Municipal">Municipal</button>
           </div>
 
-          <!-- Lista de normas -->
+          <!-- ── Lista de normas ── -->
           <div class="reuniones-lista">
             <div style="display:flex;justify-content:space-between;align-items:center;flex-wrap:wrap;gap:0.5rem;margin-bottom:0.75rem;">
               <h2 class="panel-title" style="margin-bottom:0">Normas registradas</h2>
@@ -987,40 +897,61 @@
             </div>
           </div>
 
-          <!-- ── Visor PDF con anotaciones ─────────────────────────── -->
-          <div id="norma-visor-panel" style="display:none;">
-            <div class="visor-header">
-              <div class="visor-header-info">
-                <button id="visor-btn-cerrar" class="visor-btn-cerrar" title="Cerrar visor">← Volver</button>
-                <span id="visor-norma-titulo" class="visor-titulo-texto"></span>
+          <!-- ── Explorador jerárquico (pantalla completa sobre la lista) ── -->
+          <div id="norm-explorador" style="display:none;position:fixed;inset:0;z-index:200;background:var(--bg);overflow:hidden;display:none;flex-direction:column;">
+
+            <!-- Cabecera del explorador -->
+            <div id="norm-explo-header" style="display:flex;align-items:center;gap:0.75rem;padding:0.75rem 1rem;border-bottom:1px solid var(--border);flex-shrink:0;flex-wrap:wrap;">
+              <button id="norm-explo-volver" style="background:none;border:1px solid var(--border);color:var(--text2);border-radius:8px;padding:0.3rem 0.75rem;font-size:0.82rem;cursor:pointer;font-family:inherit;">← Volver</button>
+              <span id="norm-explo-titulo" style="font-weight:700;font-size:0.95rem;color:var(--text);flex:1;min-width:0;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;"></span>
+              <span id="norm-explo-total" style="font-size:0.75rem;color:var(--text3);white-space:nowrap;"></span>
+              <button id="norm-explo-pdf" style="background:none;border:1px solid var(--border);color:var(--text2);border-radius:8px;padding:0.3rem 0.75rem;font-size:0.82rem;cursor:pointer;font-family:inherit;">↓ PDF</button>
+            </div>
+
+            <!-- Buscador + filtros del explorador -->
+            <div style="padding:0.6rem 1rem;border-bottom:1px solid var(--border);display:flex;gap:0.5rem;flex-wrap:wrap;align-items:center;flex-shrink:0;">
+              <div style="display:flex;align-items:center;gap:0.4rem;flex:1;min-width:160px;background:var(--surface);border:1px solid var(--border);border-radius:8px;padding:0.3rem 0.6rem;">
+                <svg viewBox="0 0 20 20" fill="none" style="width:13px;height:13px;color:var(--text3);flex-shrink:0">
+                  <circle cx="8.5" cy="8.5" r="5" stroke="currentColor" stroke-width="1.5"/>
+                  <line x1="12.5" y1="12.5" x2="17" y2="17" stroke="currentColor" stroke-width="1.5" stroke-linecap="round"/>
+                </svg>
+                <input type="text" id="norm-explo-buscar" placeholder="Buscar en el texto..." autocomplete="off"
+                  style="background:none;border:none;outline:none;font-size:0.82rem;color:var(--text);width:100%;font-family:inherit;">
               </div>
-              <div class="visor-header-controles">
-                <button id="visor-btn-prev" class="visor-nav-btn">‹</button>
-                <span id="visor-pagina-info" class="visor-pagina-info">Pág 1 / 1</span>
-                <button id="visor-btn-next" class="visor-nav-btn">›</button>
-                <button id="visor-btn-relevante" class="visor-btn-relevante" title="Marcar página como relevante para SEDUVOT">⭐ Relevante</button>
+              <div style="display:flex;gap:0.35rem;flex-wrap:wrap;">
+                <button class="norm-explo-filtro filtro-activo" data-explo-filtro="todos" style="font-size:0.75rem;padding:0.25rem 0.6rem;border-radius:20px;border:1px solid var(--border);background:var(--accent);color:#fff;cursor:pointer;font-family:inherit;">Todos</button>
+                <button class="norm-explo-filtro" data-explo-filtro="ley" style="font-size:0.75rem;padding:0.25rem 0.6rem;border-radius:20px;border:1px solid var(--border);background:none;color:var(--text2);cursor:pointer;font-family:inherit;">Ley</button>
+                <button class="norm-explo-filtro" data-explo-filtro="transitorio" style="font-size:0.75rem;padding:0.25rem 0.6rem;border-radius:20px;border:1px solid var(--border);background:none;color:var(--text2);cursor:pointer;font-family:inherit;">Transitorios</button>
+                <button class="norm-explo-filtro" data-explo-filtro="derogado" style="font-size:0.75rem;padding:0.25rem 0.6rem;border-radius:20px;border:1px solid var(--border);background:none;color:var(--text2);cursor:pointer;font-family:inherit;">Derogados</button>
               </div>
             </div>
-            <div class="visor-body">
-              <!-- Canvas del PDF -->
-              <div class="visor-canvas-wrap">
-                <canvas id="visor-canvas"></canvas>
-                <div id="visor-loading" class="visor-loading">Cargando PDF...</div>
+
+            <!-- Cuerpo: índice lateral + artículos -->
+            <div style="display:flex;flex:1;overflow:hidden;">
+
+              <!-- Índice lateral (solo desktop) -->
+              <div id="norm-explo-indice" style="width:220px;flex-shrink:0;overflow-y:auto;border-right:1px solid var(--border);padding:0.75rem 0.5rem;display:none;">
+                <div id="norm-explo-indice-contenido"></div>
               </div>
-              <!-- Panel lateral de anotaciones -->
-              <div class="visor-sidebar">
-                <div class="visor-sidebar-header">
-                  <span>📝 Anotaciones</span>
-                  <span id="visor-pag-badge" class="visor-pag-badge">Pág 1</span>
+
+              <!-- Lista de artículos -->
+              <div id="norm-explo-articulos" style="flex:1;overflow-y:auto;padding:0.75rem 1rem;">
+                <p class="lista-vacia">Cargando artículos…</p>
+              </div>
+
+            </div>
+
+            <!-- Panel de verificación post-importación (oculto por defecto) -->
+            <div id="norm-explo-verificacion" style="display:none;position:absolute;inset:0;background:var(--bg);z-index:10;overflow-y:auto;padding:1.5rem;">
+              <div style="max-width:600px;margin:0 auto;">
+                <div style="display:flex;align-items:center;gap:0.75rem;margin-bottom:1.5rem;">
+                  <button id="norm-verif-cerrar" style="background:none;border:1px solid var(--border);color:var(--text2);border-radius:8px;padding:0.3rem 0.75rem;font-size:0.82rem;cursor:pointer;font-family:inherit;">← Volver</button>
+                  <h2 style="font-size:1rem;font-weight:700;margin:0;color:var(--text);">Verificación de importación</h2>
                 </div>
-                <textarea id="visor-nota-texto" class="visor-nota-input"
-                  placeholder="Escribe una nota para esta página..."></textarea>
-                <button id="visor-btn-guardar-nota" class="btn-primary" style="margin-top:0.5rem;font-size:0.85rem">
-                  Guardar nota
-                </button>
-                <div id="visor-notas-lista" class="visor-notas-lista"></div>
+                <div id="norm-verif-contenido"></div>
               </div>
             </div>
+
           </div>
 
         </div>

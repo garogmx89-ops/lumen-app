@@ -1118,12 +1118,9 @@ function _initExploradorEventos() {
       // Texto completo del artículo sin §NOTA§
       let textoArt = "";
       if (art.fracciones && art.fracciones.length) {
-        if (art.introduccion) textoArt += art.introduccion + "
-
-";
+        if (art.introduccion) textoArt += art.introduccion + "\n\n";
         art.fracciones.forEach(f => {
-          textoArt += `${f.num || ""} ${(f.txt || "").replace(/§NOTA§[\s\S]*?§\/NOTA§/g, "").trim()}
-`;
+          textoArt += (f.num || "") + " " + (f.txt || "").replace(/§NOTA§[\s\S]*?§\/NOTA§/g, "").trim() + "\n";
         });
       } else {
         textoArt = (art.texto || "").replace(/§NOTA§[\s\S]*?§\/NOTA§/g, "").trim();

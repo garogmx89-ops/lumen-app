@@ -760,9 +760,7 @@ function _renderArticuloConFracciones(a, termino = "") {
     if (!fr.num && !fr.txt) return;
 
     // Separar texto de notas §NOTA§ dentro de la fracción
-    // El patrón puede ser: "texto fracción
-
-§NOTA§nota§/NOTA§"
+    // Patrón: "texto fracción\n\n§NOTA§nota§/NOTA§"
     const notaRe = /§NOTA§([\s\S]*?)§\/NOTA§/g;
     const notas  = [];
     const textoFr = (fr.txt || "").replace(notaRe, (_, n) => {

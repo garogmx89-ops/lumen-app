@@ -208,7 +208,10 @@ window._importarBorrador = async function(docId, btnEl) {
     n.estado !== "borrador_lumenprep"
   );
 
-  const titulo = borrador.titulo || borrador.nombre || "Documento sin título";
+  // B3: limpiar título — Codex a veces incluye letra/número del archivo al final
+  // ej. "LEY DE VIVIENDA N" → "LEY DE VIVIENDA"
+  const _tituloRaw = borrador.titulo || borrador.nombre || "Documento sin título";
+  const titulo = _tituloRaw.replace(/\s+[A-Z0-9]$/i, "").trim() || _tituloRaw;
   const arts   = borrador.articulos || [];
 
   const msg = yaImportado
@@ -316,14 +319,14 @@ window._importarBorrador = async function(docId, btnEl) {
 
 // ── Transformar artículo de Codex al esquema canónico ───
 function _transformarArticulo(art, indice) {
-  // Reconstruir texto preservando notas §NOTA§ en su posición inline
-  let texto = "";
+  // B1: detectar variante del artículo
+  const tieneFracciones = !!(art.introduccion || (art.fracciones && art.fracciones.length));
 
+  // Campo texto: siempre como texto plano para búsqueda
+  let texto = "";
   if (art.contenido && art.contenido.trim()) {
-    // Artículo párrafo continuo — las notas ya están inline dentro del contenido
     texto = art.contenido.trim();
-  } else if (art.introduccion || (art.fracciones && art.fracciones.length)) {
-    // Artículo con fracciones — reconstruir respetando notas de cada fracción
+  } else if (tieneFracciones) {
     const partes = [];
     if (art.introduccion) partes.push(art.introduccion.trim());
     (art.fracciones || []).forEach(fr => {
@@ -334,12 +337,23 @@ function _transformarArticulo(art, indice) {
     texto = partes.join("\n\n");
   }
 
+  // B1: guardar estructura de fracciones para render fiel
+  // Cada fracción conserva: numero, texto con §NOTA§ inline
+  const fraccionesStruct = tieneFracciones
+    ? (art.fracciones || []).map(fr => ({
+        num:  (fr.fraccion || fr.numero || "").trim(),
+        txt:  (fr.contenido || fr.texto || "").trim()
+      })).filter(f => f.num || f.txt)
+    : [];
+
   // Extraer número limpio: "ARTÍCULO 4.-" → "4"
   const mNum  = (art.articulo || "").match(/\d+/);
   const numero = mNum ? mNum[0] : (art.articulo || String(indice + 1));
 
   return {
     texto,
+    introduccion:      art.introduccion?.trim() || "",
+    fracciones:        fraccionesStruct,
     numero,
     seccion:           art.seccion   || art._seccionAsignada  || "",
     capitulo:          art.capitulo  || art._capituloAsignado || "",
@@ -647,14 +661,23 @@ function _renderArticulo(a, termino = "") {
   const esDerogado  = _exploDerogados.has(a.id);
   const esFavorito  = _exploFavoritos.has(a.id);
   const notaTexto   = _exploNotas[a.id] || "";
-  const numLabel    = a.tipo === "transitorio" ? `Transitorio ${a.numero?.replace("T","")}` : `Artículo ${a.numero}`;
+  // B2: usar el texto legal original del artículo cuando está disponible
+  // articulo_original = "ARTÍCULO 4.-", numero = "4"
+  const numLabel = a.tipo === "transitorio"
+    ? `Transitorio ${(a.numero || "").replace("T","")}`
+    : (a.articulo_original || `Artículo ${a.numero}`);
 
-  // Renderizar texto con notas §NOTA§ inline y resaltado de búsqueda
-  const cuerpoHtml  = _renderTextoConNotas(a.texto || "", termino);
+  // B1: usar fracciones estructuradas si existen, sino texto plano
+  const cuerpoHtml = (a.fracciones && a.fracciones.length)
+    ? _renderArticuloConFracciones(a, termino)
+    : _renderTextoConNotas(a.texto || "", termino);
 
-  // Badges de reforma
-  const reformas    = a.reformas || [];
-  const notasHtml   = reformas.length
+  // Badges de reforma al final — SOLO si el texto no tiene notas §NOTA§ inline.
+  // Si las tiene, ya se renderizan en la posición correcta dentro de _renderTextoConNotas
+  // y mostrar el array reformas[] además causaría duplicados.
+  const reformas   = a.reformas || [];
+  const textoTiene = (a.texto || "").includes("§NOTA§");
+  const notasHtml  = (!textoTiene && reformas.length)
     ? `<div style="margin-top:0.45rem;display:flex;flex-wrap:wrap;gap:0.25rem;">
         ${reformas.map(r =>
           `<span style="font-size:0.67rem;color:var(--text2);font-style:italic;background:var(--surface);
@@ -720,36 +743,121 @@ function _renderArticulo(a, termino = "") {
   </div>`;
 }
 
-// ── Renderizar texto con §NOTA§ inline ───────────────────
-// Las notas §NOTA§texto§/NOTA§ se muestran como badges itálicos
-// en la posición exacta donde aparecen dentro del párrafo.
-function _renderTextoConNotas(texto, termino = "") {
-  if (!texto) return "";
+// ── Render artículo con fracciones estructuradas (B1) ────
+// Muestra: introducción + cada fracción numerada con su nota DOF
+// en la posición exacta dentro de cada fracción, no al final.
+function _renderArticuloConFracciones(a, termino = "") {
+  let html = "";
 
-  // Dividir por párrafos, preservar notas inline
-  const parrafos = texto.split(/\n\n+/);
+  // Introducción del artículo
+  if (a.introduccion) {
+    html += _renderTextoConNotas(a.introduccion, termino);
+  }
 
-  return parrafos.map(p => {
-    // Reemplazar notas §NOTA§...§/NOTA§ por HTML inline
-    let html = p.replace(/§NOTA§([\s\S]*?)§\/NOTA§/g, (_, nota) =>
-      `<span style="font-size:0.67rem;color:var(--text2);font-style:italic;background:var(--surface);
-        border:1px solid var(--border);border-radius:8px;padding:0.05rem 0.45rem;
-        white-space:nowrap;display:inline-block;margin:0 0.15rem;vertical-align:middle;">
-        🔄 ${_esc(nota.trim())}
-      </span>`
-    );
+  // Fracciones numeradas
+  const fracs = a.fracciones || [];
+  fracs.forEach(fr => {
+    if (!fr.num && !fr.txt) return;
 
-    // Resaltar término de búsqueda
-    if (termino) {
-      const re = new RegExp(`(${termino.replace(/[.*+?^${}()|[\]\\]/g, "\\$&")})`, "gi");
-      // Resaltar solo en texto plano, no dentro de atributos HTML
-      html = html.replace(/>([^<]+)</g, (m, txt) =>
-        ">" + txt.replace(re, `<mark style="background:#f0a50066;border-radius:2px;padding:0 2px;">$1</mark>`) + "<"
+    // Separar texto de notas §NOTA§ dentro de la fracción
+    // El patrón puede ser: "texto fracción
+
+§NOTA§nota§/NOTA§"
+    const notaRe = /§NOTA§([\s\S]*?)§\/NOTA§/g;
+    const notas  = [];
+    const textoFr = (fr.txt || "").replace(notaRe, (_, n) => {
+      notas.push(n.trim()); return "";
+    }).trim();
+
+    // Resaltar búsqueda en texto de fracción
+    let textoHtml = _esc(textoFr);
+    if (termino && textoFr) {
+      const re = new RegExp("(" + termino.replace(/[.*+?^${}()|[\]\\]/g, "\\$&") + ")", "gi");
+      textoHtml = textoHtml.replace(re,
+        '<mark style="background:#f0a50066;border-radius:2px;padding:0 2px;">$1</mark>'
       );
     }
 
-    // Escapar el texto plano (ya hicimos escape manual en _esc antes de §NOTA§)
-    return `<p style="margin-bottom:0.4rem;">${html}</p>`;
+    // Badges de nota de esta fracción
+    const notasBadges = notas.length
+      ? '<div style="margin-top:0.15rem;display:flex;flex-wrap:wrap;gap:0.2rem;margin-left:1.8rem;">' +
+        notas.map(n =>
+          '<span style="font-size:0.67rem;color:var(--text2);font-style:italic;' +
+          'background:var(--surface);border:1px solid var(--border);' +
+          'border-radius:8px;padding:0.05rem 0.45rem;white-space:nowrap;">' +
+          '🔄 ' + _esc(n) + '</span>'
+        ).join("") + '</div>'
+      : "";
+
+    html += '<div style="margin-bottom:0.4rem;display:flex;gap:0.5rem;align-items:baseline;">' +
+      (fr.num ? '<span style="font-size:0.8rem;font-weight:600;color:var(--text2);white-space:nowrap;flex-shrink:0;min-width:2rem;">' + _esc(fr.num) + '</span>' : '') +
+      '<div><p style="margin:0;font-size:0.83rem;color:var(--text);line-height:1.7;">' + textoHtml + '</p>' +
+      notasBadges + '</div></div>';
+  });
+
+  return html || _renderTextoConNotas(a.texto || "", termino);
+}
+
+// ── Renderizar texto con §NOTA§ inline ───────────────────
+// Codex genera notas como párrafos independientes DESPUÉS del párrafo
+// al que pertenecen: "párrafo\n\n§NOTA§nota§/NOTA§\n\npárrafo"
+// Este render las pega visualmente debajo del párrafo que las precede.
+function _renderTextoConNotas(texto, termino = "") {
+  if (!texto) return "";
+
+  const notaRe = /^§NOTA§([\s\S]*?)§\/NOTA§$/;
+  const segmentos = texto.split(/\n\n+/);
+
+  // Agrupar cada párrafo de texto con las notas que le siguen
+  const grupos = [];
+  let actual = null;
+
+  for (const seg of segmentos) {
+    const t = seg.trim();
+    if (!t) continue;
+    const mNota = t.match(notaRe);
+    if (mNota) {
+      // Nota standalone → pegar al grupo anterior (o crear huérfano)
+      if (!actual) { actual = { texto: "", notas: [] }; grupos.push(actual); }
+      actual.notas.push(mNota[1].trim());
+    } else {
+      // Párrafo de texto — puede tener notas inline mezcladas
+      actual = { texto: t, notas: [] };
+      grupos.push(actual);
+      // Extraer notas que estén dentro del propio texto del párrafo
+      const notasInline = [];
+      actual.texto = t.replace(/§NOTA§([\s\S]*?)§\/NOTA§/g, (_, n) => {
+        notasInline.push(n.trim()); return "";
+      }).trim();
+      actual.notas.push(...notasInline);
+    }
+  }
+
+  return grupos.map(g => {
+    if (!g.texto && !g.notas.length) return "";
+
+    // Resaltar búsqueda en texto
+    let textoHtml = _esc(g.texto);
+    if (termino && g.texto) {
+      const re = new RegExp("(" + termino.replace(/[.*+?^${}()|[\]\\]/g, "\\$&") + ")", "gi");
+      textoHtml = textoHtml.replace(re,
+        '<mark style="background:#f0a50066;border-radius:2px;padding:0 2px;">$1</mark>'
+      );
+    }
+
+    const notasBadges = g.notas.length
+      ? '<div style="margin-top:0.2rem;display:flex;flex-wrap:wrap;gap:0.2rem;">' +
+        g.notas.map(n =>
+          '<span style="font-size:0.67rem;color:var(--text2);font-style:italic;' +
+          'background:var(--surface);border:1px solid var(--border);' +
+          'border-radius:8px;padding:0.05rem 0.45rem;white-space:nowrap;">' +
+          '🔄 ' + _esc(n) + '</span>'
+        ).join("") + '</div>'
+      : "";
+
+    return '<div style="margin-bottom:0.5rem;">' +
+      (g.texto ? '<p style="margin:0;">' + textoHtml + '</p>' : "") +
+      notasBadges + '</div>';
   }).join("");
 }
 

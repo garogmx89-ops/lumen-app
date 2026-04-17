@@ -10,6 +10,10 @@ import {
   setDoc, writeBatch, serverTimestamp
 } from "https://www.gstatic.com/firebasejs/10.12.0/firebase-firestore.js";
 
+// ── Constantes ───────────────────────────────────────────
+const WORKER_URL   = "https://lumen-briefing.garogmx89.workers.dev";
+const WORKER_MODEL = "claude-sonnet-4-5";
+
 // ── Estado del módulo ────────────────────────────────────
 let _user          = null;
 let _normas        = [];       // todas las normas del usuario
@@ -366,7 +370,9 @@ function _transformarArticulo(art, indice) {
     fracciones:        fraccionesStruct,
     numero,
     seccion:           art.seccion   || art._seccionAsignada  || "",
+    seccion_subtitulo: art.seccion_subtitulo || "",
     capitulo:          art.capitulo  || art._capituloAsignado || "",
+    capitulo_nombre:   art.capitulo_nombre   || "",
     derogado:          art.estado === "derogado",
     reformas:          Array.isArray(art.reformas) ? art.reformas : [],
     instruccion_agente: art.instruccion_agente || "",
@@ -1144,11 +1150,11 @@ ${pregunta}
 Responde de forma concisa y cita la fracción o párrafo específico del artículo cuando sea relevante.`;
 
       try {
-        const res = await fetch("https://lumen-briefing.garogmx89.workers.dev", {
+        const res = await fetch(WORKER_URL, {
           method: "POST",
           headers: { "Content-Type": "application/json" },
           body: JSON.stringify({
-            model: "claude-sonnet-4-20250514",
+            model: WORKER_MODEL,
             max_tokens: 600,
             messages: [{ role: "user", content: prompt }]
           })
@@ -1293,8 +1299,17 @@ async function _exportarPDF() {
           pdf.setFontSize(9); pdf.setFont("helvetica", "bold");
           pdf.text(`Artículo ${art.numero}`, mL, y); y += 6;
 
-          // Texto limpio (sin §NOTA§)
-          const texto = _limpiarNotas(art.texto || "");
+          // Texto limpio (sin §NOTA§) — incluye fracciones si las tiene
+          let textoCompleto = "";
+          if (art.fracciones && art.fracciones.length) {
+            if (art.introduccion) textoCompleto += _limpiarNotas(art.introduccion) + "\n\n";
+            art.fracciones.forEach(f => {
+              textoCompleto += (f.num ? f.num + " " : "") + _limpiarNotas(f.txt || "") + "\n";
+            });
+          } else {
+            textoCompleto = _limpiarNotas(art.texto || "");
+          }
+          const texto = textoCompleto.trim();
           pdf.setFontSize(8.5); pdf.setFont("helvetica", "normal");
           const lines = pdf.splitTextToSize(texto, cW);
           for (const line of lines) {
@@ -1323,9 +1338,9 @@ async function _exportarPDF() {
       for (const art of trans) {
         checkY(8); pdf.setFontSize(9); pdf.setFont("helvetica", "bold");
         pdf.text(`Transitorio ${art.numero?.replace("T","") || ""}`, mL, y); y += 6;
-        const texto = _limpiarNotas(art.texto || "");
+        const textoTrans = _limpiarNotas(art.texto || art.introduccion || "");
         pdf.setFontSize(8.5); pdf.setFont("helvetica", "normal");
-        pdf.splitTextToSize(texto, cW).forEach(l => { checkY(5.5); pdf.text(l, mL, y); y += 5.5; });
+        pdf.splitTextToSize(textoTrans, cW).forEach(l => { checkY(5.5); pdf.text(l, mL, y); y += 5.5; });
         y += 3;
       }
     }
@@ -1401,8 +1416,17 @@ export async function getContextoFavoritos(normaId) {
     favs.forEach(a => {
       ctx += `**${a.articulo_original || "Artículo " + a.numero}**\n`;
       if (a.instruccion_agente) ctx += `> ${a.instruccion_agente}\n`;
-      // Texto limpio sin §NOTA§
-      const texto = (a.texto || "").replace(/§NOTA§[\s\S]*?§\/NOTA§/g, "").trim();
+      // Texto limpio sin §NOTA§ — incluye fracciones si las tiene
+      let texto = "";
+      if (a.fracciones && a.fracciones.length) {
+        if (a.introduccion) texto += a.introduccion.replace(/§NOTA§[\s\S]*?§\/NOTA§/g, "").trim() + "\n\n";
+        a.fracciones.forEach(f => {
+          texto += (f.num ? f.num + " " : "") + (f.txt || "").replace(/§NOTA§[\s\S]*?§\/NOTA§/g, "").trim() + "\n";
+        });
+        texto = texto.trim();
+      } else {
+        texto = (a.texto || "").replace(/§NOTA§[\s\S]*?§\/NOTA§/g, "").trim();
+      }
       if (texto) ctx += texto + "\n";
       if (a.nota_usuario) ctx += `_Nota: ${a.nota_usuario}_\n`;
       ctx += "\n";

@@ -620,19 +620,13 @@ function _renderArticulos() {
     }
     for (const cap of sec.caps) {
       if (cap.titulo) {
-        // C2: bloque de capítulo con color propio
-        const capNombreHtml = cap.nombre
-          ? `<div style="font-size:0.7rem;font-weight:400;color:var(--accent);opacity:0.7;font-style:italic;margin-top:0.1rem;">${_esc(cap.nombre)}</div>`
-          : "";
-        html += `<div style="background:var(--surface);border:1px solid var(--border);
-          border-left:3px solid var(--accent);border-radius:0 7px 7px 0;
-          padding:0.35rem 0.75rem;margin:0.6rem 0 0.25rem;
-          display:flex;justify-content:space-between;align-items:center;">
-          <div>
-            <div style="font-size:0.75rem;font-weight:700;color:var(--text2);letter-spacing:0.02em;">${_esc(cap.titulo)}</div>
-            ${capNombreHtml}
-          </div>
-          <span style="font-size:0.7rem;font-weight:400;color:var(--text3);flex-shrink:0;margin-left:0.5rem;">${cap.arts.length} art.</span>
+        // C2: mostrar nombre del capítulo ("De los lineamientos")
+        const capNombreHtml = cap.nombre ? `<span style="font-weight:400;color:var(--text3);font-style:italic;"> · ${_esc(cap.nombre)}</span>` : "";
+        html += `<div style="font-size:0.78rem;font-weight:600;color:var(--text2);
+          padding:0.3rem 0.6rem;border-left:2px solid var(--border);margin:0.5rem 0 0.25rem;
+          display:flex;justify-content:space-between;align-items:baseline;">
+          <span>${_esc(cap.titulo)}${capNombreHtml}</span>
+          <span style="font-weight:400;color:var(--text3);flex-shrink:0;margin-left:0.5rem;">${cap.arts.length} art.</span>
         </div>`;
       }
       for (const art of cap.arts) {
@@ -1302,17 +1296,50 @@ async function _exportarPDF() {
     // Artículos
     const grupos = _agruparPorJerarquia(_exploArticulos.filter(a => a.tipo !== "transitorio"));
 
+    // Helper PDF: extrae notas §NOTA§ de un texto y las imprime inline
+    const pdfTextoConNotas = (rawTxt) => {
+      if (!rawTxt) return;
+      const notaRe = /§NOTA§([\s\S]*?)§\/NOTA§/g;
+      const segmentos = rawTxt.split(/
+
++/);
+      for (const seg of segmentos) {
+        const t = seg.trim(); if (!t) continue;
+        const notas = [];
+        const textoLimpio = t.replace(notaRe, (_, n) => { notas.push(n.trim()); return ""; }).trim();
+        if (textoLimpio) {
+          pdf.setFontSize(8.5); pdf.setFont("helvetica", "normal");
+          pdf.splitTextToSize(textoLimpio, cW).forEach(l => { checkY(5.5); pdf.text(l, mL, y); y += 5.5; });
+        }
+        if (notas.length) {
+          pdf.setFontSize(7); pdf.setFont("helvetica", "italic");
+          const nTxt = notas.join(" · ");
+          pdf.splitTextToSize(nTxt, cW).forEach(l => { checkY(4); pdf.text(l, mL, y); y += 4; });
+        }
+      }
+    };
+
     for (const sec of grupos) {
       if (sec.titulo) {
-        checkY(10);
+        checkY(12);
         pdf.setFontSize(10); pdf.setFont("helvetica", "bold");
-        pdf.text(sec.titulo, mL, y); y += 7;
+        pdf.text(sec.titulo, mL, y); y += 6;
+        if (sec.subtitulo) {
+          pdf.setFontSize(8); pdf.setFont("helvetica", "normal");
+          pdf.text(sec.subtitulo, mL, y); y += 5;
+        }
+        y += 2;
       }
       for (const cap of sec.caps) {
         if (cap.titulo) {
-          checkY(8);
-          pdf.setFontSize(9); pdf.setFont("helvetica", "italic");
-          pdf.text(cap.titulo, mL, y); y += 6;
+          checkY(9);
+          pdf.setFontSize(9); pdf.setFont("helvetica", "bold");
+          pdf.text(cap.titulo, mL, y); y += 5;
+          if (cap.nombre) {
+            pdf.setFontSize(8); pdf.setFont("helvetica", "italic");
+            pdf.text(cap.nombre, mL, y); y += 5;
+          }
+          y += 1;
         }
         for (const art of cap.arts) {
           // Número de artículo
@@ -1320,31 +1347,15 @@ async function _exportarPDF() {
           pdf.setFontSize(9); pdf.setFont("helvetica", "bold");
           pdf.text(`Artículo ${art.numero}`, mL, y); y += 6;
 
-          // Texto limpio (sin §NOTA§) — incluye fracciones si las tiene
-          let textoCompleto = "";
+          // Texto con notas inline por párrafo/fracción
           if (art.fracciones && art.fracciones.length) {
-            if (art.introduccion) textoCompleto += _limpiarNotas(art.introduccion) + "\n\n";
+            if (art.introduccion) pdfTextoConNotas(art.introduccion);
             art.fracciones.forEach(f => {
-              textoCompleto += (f.num ? f.num + " " : "") + _limpiarNotas(f.txt || "") + "\n";
+              const linea = (f.num ? f.num + " " : "") + (f.txt || "");
+              pdfTextoConNotas(linea);
             });
           } else {
-            textoCompleto = _limpiarNotas(art.texto || "");
-          }
-          const texto = textoCompleto.trim();
-          pdf.setFontSize(8.5); pdf.setFont("helvetica", "normal");
-          const lines = pdf.splitTextToSize(texto, cW);
-          for (const line of lines) {
-            checkY(5.5);
-            pdf.text(line, mL, y); y += 5.5;
-          }
-
-          // Reformas
-          if (art.reformas?.length) {
-            checkY(5);
-            pdf.setFontSize(7.5); pdf.setFont("helvetica", "italic");
-            const rTxt = art.reformas.join(" · ");
-            const rLines = pdf.splitTextToSize(rTxt, cW);
-            rLines.forEach(l => { checkY(4.5); pdf.text(l, mL, y); y += 4.5; });
+            pdfTextoConNotas(art.texto || "");
           }
           y += 3;
         }

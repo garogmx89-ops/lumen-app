@@ -332,11 +332,27 @@ window._importarBorrador = async function(docId, btnEl) {
 
 
 // ── Transformar artículo de Codex al esquema canónico ───
+// Codex puede enviar fracciones en dos variantes:
+//   a) { fraccion, contenido }          — fracción simple
+//   b) { fraccion, incisos[], introduccion? } — fracción con incisos (contenido eliminado)
+// Esta función normaliza ambas variantes al esquema { num, txt } que usa Lumen.
+function _textoFraccionCodex(fr) {
+  if (fr.contenido) return fr.contenido.trim();
+  if (fr.txt)       return fr.txt.trim();
+  if (fr.texto)     return fr.texto.trim();
+  if (fr.incisos && fr.incisos.length) {
+    const intro = fr.introduccion ? fr.introduccion.trim() + "\n" : "";
+    return intro + fr.incisos.map(i =>
+      `  ${(i.inciso || "").trim()} ${(i.contenido || "").trim()}`
+    ).join("\n");
+  }
+  return "";
+}
+
 function _transformarArticulo(art, indice) {
-  // B1: detectar variante del artículo
   const tieneFracciones = !!(art.introduccion || (art.fracciones && art.fracciones.length));
 
-  // Campo texto: siempre como texto plano para búsqueda
+  // Texto plano para búsqueda — incluye incisos reconstruidos
   let texto = "";
   if (art.contenido && art.contenido.trim()) {
     texto = art.contenido.trim();
@@ -344,43 +360,42 @@ function _transformarArticulo(art, indice) {
     const partes = [];
     if (art.introduccion) partes.push(art.introduccion.trim());
     (art.fracciones || []).forEach(fr => {
-      const num = (fr.fraccion || fr.numero || "").trim();
-      const txt = (fr.contenido || fr.texto || "").trim();
+      const num = (fr.fraccion || fr.numero || fr.num || "").trim();
+      const txt = _textoFraccionCodex(fr);
       if (num || txt) partes.push(`${num}${num && txt ? " " : ""}${txt}`.trim());
     });
     texto = partes.join("\n\n");
   }
 
-  // B1: guardar estructura de fracciones para render fiel
-  // Cada fracción conserva: numero, texto con §NOTA§ inline
+  // Estructura de fracciones para render fiel — { num, txt }
   const fraccionesStruct = tieneFracciones
     ? (art.fracciones || []).map(fr => ({
-        num:  (fr.fraccion || fr.numero || "").trim(),
-        txt:  (fr.contenido || fr.texto || "").trim()
+        num: (fr.fraccion || fr.numero || fr.num || "").trim(),
+        txt: _textoFraccionCodex(fr)
       })).filter(f => f.num || f.txt)
     : [];
 
-  // Extraer número limpio: "ARTÍCULO 4.-" → "4"
-  const mNum  = (art.articulo || "").match(/\d+/);
+  // Número limpio: "ARTÍCULO 4.-" → "4"
+  const mNum  = (art.articulo || art.articulo_original || "").match(/\d+/);
   const numero = mNum ? mNum[0] : (art.articulo || String(indice + 1));
 
   return {
     texto,
-    introduccion:      art.introduccion?.trim() || "",
-    fracciones:        fraccionesStruct,
+    introduccion:       art.introduccion?.trim() || "",
+    fracciones:         fraccionesStruct,
     numero,
-    seccion:           art.seccion   || art._seccionAsignada  || "",
-    seccion_subtitulo: art.seccion_subtitulo || "",
-    capitulo:          art.capitulo  || art._capituloAsignado || "",
-    capitulo_nombre:   art.capitulo_nombre   || "",
-    derogado:          art.estado === "derogado",
-    reformas:          Array.isArray(art.reformas) ? art.reformas : [],
+    seccion:            art.seccion            || "",
+    seccion_subtitulo:  art.seccion_subtitulo  || "",
+    capitulo:           art.capitulo           || "",
+    capitulo_nombre:    art.capitulo_nombre    || "",
+    derogado:           art.estado === "derogado",
+    reformas:           Array.isArray(art.reformas) ? art.reformas : [],
     instruccion_agente: art.instruccion_agente || "",
-    estado_juridico:   art.estado    || "vigente",
-    articulo_original: art.articulo  || "",
+    estado_juridico:    art.estado             || "vigente",
+    articulo_original:  art.articulo           || art.articulo_original || "",
     indice,
-    tipo:              art.tipo      || "articulo",
-    fuenteImport:      "lumen_codex"
+    tipo:               art.tipo               || "articulo",
+    fuenteImport:       "lumen_codex"
   };
 }
 

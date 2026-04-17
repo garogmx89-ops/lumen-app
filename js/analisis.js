@@ -437,11 +437,15 @@ Responde únicamente con el análisis en el formato indicado. Tono institucional
         const response = await fetch("https://lumen-briefing.garogmx89.workers.dev", {
           method: "POST",
           headers: { "Content-Type": "application/json" },
-          body: JSON.stringify({ prompt })
+          body: JSON.stringify({
+            model: "claude-sonnet-4-5",
+            max_tokens: 1000,
+            messages: [{ role: "user", content: prompt }]
+          })
         });
         const data = await response.json();
         if (campoIA) {
-          campoIA.value    = data.briefing || "No se pudo generar la interpretación.";
+          campoIA.value    = data.content?.[0]?.text || "No se pudo generar la interpretación.";
           campoIA.readOnly = true;
           campoIA.style.opacity = "1";
         }

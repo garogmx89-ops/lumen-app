@@ -2125,7 +2125,7 @@ body.light input[type="time"]::-webkit-calendar-picker-indicator {
 .directorio-btn-quitar:hover { color: #f87171; }
 
 /* ══════════════════════════════════════════════════════
-   MÓDULO BUSCAR — estilos
+   MÓDULO BUSCAR — estilos v2.0
    ══════════════════════════════════════════════════════ */
 
 /* ── Intro ─────────────────────────────────────────── */
@@ -2160,6 +2160,91 @@ body.light input[type="time"]::-webkit-calendar-picker-indicator {
   font-size: 0.78rem;
   color: var(--text2);
   line-height: 1.5;
+}
+
+/* ── Tabs ────────────────────────────────────────────── */
+.buscar-tabs {
+  display: flex;
+  gap: 0.25rem;
+  border-bottom: 1px solid var(--border);
+  margin-bottom: 1rem;
+}
+.buscar-tab {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.35rem;
+  background: none;
+  border: none;
+  border-bottom: 2px solid transparent;
+  color: var(--text2);
+  cursor: pointer;
+  font-family: inherit;
+  font-size: 0.82rem;
+  font-weight: 500;
+  padding: 0.5rem 0.75rem;
+  position: relative;
+  transition: color 0.15s, border-color 0.15s;
+  margin-bottom: -1px;
+}
+.buscar-tab:hover { color: var(--text); }
+.buscar-tab-activo {
+  border-bottom-color: var(--accent);
+  color: var(--accent);
+  font-weight: 600;
+}
+
+/* Badge contador historial */
+.buscar-hist-badge {
+  background: var(--accent);
+  color: #fff;
+  border-radius: 20px;
+  font-size: 0.65rem;
+  font-weight: 700;
+  padding: 0.05rem 0.4rem;
+  min-width: 16px;
+  text-align: center;
+  line-height: 1.6;
+}
+
+/* ── Filtros de ámbito ───────────────────────────────── */
+.buscar-filtros {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 0.35rem;
+  margin-bottom: 0.85rem;
+}
+.buscar-filtros-label {
+  font-size: 0.72rem;
+  color: var(--text3);
+  font-weight: 600;
+  letter-spacing: 0.03em;
+  margin-right: 0.1rem;
+}
+.buscar-filtro-btn {
+  background: none;
+  border: 1px solid var(--border);
+  border-radius: 20px;
+  color: var(--text2);
+  cursor: pointer;
+  font-family: inherit;
+  font-size: 0.73rem;
+  padding: 0.2rem 0.65rem;
+  transition: background 0.12s, color 0.12s, border-color 0.12s;
+}
+.buscar-filtro-btn:hover {
+  border-color: var(--accent);
+  color: var(--accent);
+}
+.buscar-filtro-activo {
+  background: var(--accent);
+  border-color: var(--accent);
+  color: #fff;
+}
+.buscar-filtro-activo:hover {
+  background: var(--accent-hover);
+  border-color: var(--accent-hover);
+  color: #fff;
 }
 
 /* ── Formulario ─────────────────────────────────────── */
@@ -2346,21 +2431,18 @@ body.light input[type="time"]::-webkit-calendar-picker-indicator {
   padding: 0.15rem 0.5rem;
   transition: color 0.15s, border-color 0.15s;
 }
-.buscar-copiar-btn:hover {
-  border-color: var(--accent);
-  color: var(--accent);
-}
+.buscar-copiar-btn:hover { border-color: var(--accent); color: var(--accent); }
 .buscar-respuesta-texto {
   padding: 0.9rem 1rem;
   font-size: 0.86rem;
   color: var(--text);
   line-height: 1.75;
 }
-.buscar-respuesta-texto p          { margin: 0 0 0.6rem; }
+.buscar-respuesta-texto p           { margin: 0 0 0.6rem; }
 .buscar-respuesta-texto p:last-child { margin-bottom: 0; }
-.buscar-respuesta-texto ul         { margin: 0.3rem 0 0.6rem 1.2rem; padding: 0; }
-.buscar-respuesta-texto li         { margin-bottom: 0.25rem; }
-.buscar-respuesta-texto strong     { color: var(--text); font-weight: 700; }
+.buscar-respuesta-texto ul          { margin: 0.3rem 0 0.6rem 1.2rem; padding: 0; }
+.buscar-respuesta-texto li          { margin-bottom: 0.25rem; }
+.buscar-respuesta-texto strong      { color: var(--text); font-weight: 700; }
 
 /* ── Fuentes ─────────────────────────────────────────── */
 .buscar-fuentes {
@@ -2405,10 +2487,26 @@ body.light input[type="time"]::-webkit-calendar-picker-indicator {
   flex-shrink: 0;
   margin-top: 1px;
 }
-.buscar-fuente-body  { flex: 1; min-width: 0; }
-.buscar-fuente-art   { font-size: 0.8rem; font-weight: 600; color: var(--text); margin-bottom: 0.05rem; }
-.buscar-fuente-norma { font-size: 0.72rem; color: var(--accent); font-weight: 600; margin-bottom: 0.15rem; }
-.buscar-fuente-texto { font-size: 0.75rem; color: var(--text2); line-height: 1.5; }
+.buscar-fuente-body    { flex: 1; min-width: 0; }
+.buscar-fuente-art     { font-size: 0.8rem; font-weight: 600; color: var(--text); margin-bottom: 0.05rem; }
+.buscar-fuente-norma-row {
+  display: flex;
+  align-items: center;
+  gap: 0.4rem;
+  margin-bottom: 0.15rem;
+  flex-wrap: wrap;
+}
+.buscar-fuente-norma   { font-size: 0.72rem; color: var(--accent); font-weight: 600; }
+.buscar-fuente-ambito  {
+  font-size: 0.65rem;
+  font-weight: 600;
+  color: var(--text3);
+  background: var(--bg3);
+  border: 1px solid var(--border);
+  border-radius: 10px;
+  padding: 0.05rem 0.4rem;
+}
+.buscar-fuente-texto   { font-size: 0.75rem; color: var(--text2); line-height: 1.5; }
 
 /* ── Nota al pie ─────────────────────────────────────── */
 .buscar-nota-pie {
@@ -2422,3 +2520,63 @@ body.light input[type="time"]::-webkit-calendar-picker-indicator {
   margin-top: 0.25rem;
 }
 .buscar-nota-pie strong { color: var(--text2); font-weight: 600; }
+
+/* ── Historial ───────────────────────────────────────── */
+.buscar-hist-item {
+  background: var(--surface);
+  border: 1px solid var(--border);
+  border-radius: 10px;
+  padding: 0.85rem 1rem;
+  margin-bottom: 0.6rem;
+  cursor: pointer;
+  transition: border-color 0.15s, background 0.15s;
+}
+.buscar-hist-item:hover {
+  border-color: var(--accent);
+  background: var(--bg2);
+}
+.buscar-hist-header {
+  display: flex;
+  justify-content: space-between;
+  align-items: flex-start;
+  gap: 0.75rem;
+  margin-bottom: 0.35rem;
+}
+.buscar-hist-pregunta {
+  font-size: 0.85rem;
+  font-weight: 600;
+  color: var(--text);
+  flex: 1;
+  min-width: 0;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+.buscar-hist-meta {
+  display: flex;
+  align-items: center;
+  gap: 0.35rem;
+  flex-shrink: 0;
+}
+.buscar-hist-ambito {
+  font-size: 0.65rem;
+  font-weight: 600;
+  color: var(--accent);
+  background: var(--accent-soft);
+  border-radius: 10px;
+  padding: 0.05rem 0.45rem;
+}
+.buscar-hist-ts {
+  font-size: 0.7rem;
+  color: var(--text3);
+}
+.buscar-hist-preview {
+  font-size: 0.78rem;
+  color: var(--text2);
+  line-height: 1.5;
+  margin-bottom: 0.35rem;
+}
+.buscar-hist-fuentes-count {
+  font-size: 0.7rem;
+  color: var(--text3);
+}

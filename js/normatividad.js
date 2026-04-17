@@ -620,13 +620,19 @@ function _renderArticulos() {
     }
     for (const cap of sec.caps) {
       if (cap.titulo) {
-        // C2: mostrar nombre del capítulo ("De los lineamientos")
-        const capNombreHtml = cap.nombre ? `<span style="font-weight:400;color:var(--text3);font-style:italic;"> · ${_esc(cap.nombre)}</span>` : "";
-        html += `<div style="font-size:0.78rem;font-weight:600;color:var(--text2);
-          padding:0.3rem 0.6rem;border-left:2px solid var(--border);margin:0.5rem 0 0.25rem;
-          display:flex;justify-content:space-between;align-items:baseline;">
-          <span>${_esc(cap.titulo)}${capNombreHtml}</span>
-          <span style="font-weight:400;color:var(--text3);flex-shrink:0;margin-left:0.5rem;">${cap.arts.length} art.</span>
+        // C2: bloque de capítulo con color propio
+        const capNombreHtml = cap.nombre
+          ? `<div style="font-size:0.7rem;font-weight:400;color:var(--accent);opacity:0.7;font-style:italic;margin-top:0.1rem;">${_esc(cap.nombre)}</div>`
+          : "";
+        html += `<div style="background:var(--surface);border:1px solid var(--border);
+          border-left:3px solid var(--accent);border-radius:0 7px 7px 0;
+          padding:0.35rem 0.75rem;margin:0.6rem 0 0.25rem;
+          display:flex;justify-content:space-between;align-items:center;">
+          <div>
+            <div style="font-size:0.75rem;font-weight:700;color:var(--text2);letter-spacing:0.02em;">${_esc(cap.titulo)}</div>
+            ${capNombreHtml}
+          </div>
+          <span style="font-size:0.7rem;font-weight:400;color:var(--text3);flex-shrink:0;margin-left:0.5rem;">${cap.arts.length} art.</span>
         </div>`;
       }
       for (const art of cap.arts) {

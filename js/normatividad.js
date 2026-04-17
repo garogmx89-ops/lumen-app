@@ -1300,9 +1300,7 @@ async function _exportarPDF() {
     const pdfTextoConNotas = (rawTxt) => {
       if (!rawTxt) return;
       const notaRe = /§NOTA§([\s\S]*?)§\/NOTA§/g;
-      const segmentos = rawTxt.split(/
-
-+/);
+      const segmentos = rawTxt.split(/\n\n+/);
       for (const seg of segmentos) {
         const t = seg.trim(); if (!t) continue;
         const notas = [];

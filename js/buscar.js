@@ -5,7 +5,8 @@
 import { auth, db } from "./firebase-config.js";
 import { onAuthStateChanged } from "https://www.gstatic.com/firebasejs/10.12.0/firebase-auth.js";
 import {
-  collection, getDocs, query
+  collection, getDocs, query, addDoc, orderBy,
+  serverTimestamp, limit, deleteDoc, doc
 } from "https://www.gstatic.com/firebasejs/10.12.0/firebase-firestore.js";
 
 // ── Constantes ───────────────────────────────────────────
@@ -29,6 +30,7 @@ onAuthStateChanged(auth, user => {
   _user = user;
   _initEventos();
   _cargarEstadisticas();
+  _cargarHistorialFirestore(); // C3-04: cargar historial persistido
 });
 
 function _initEventos() {
@@ -127,6 +129,7 @@ async function _enviarConsulta() {
 
     _historial.unshift({ pregunta, respuesta, fuentes, ambito: _filtroAmbito, ts: new Date() });
     _actualizarBadgeHistorial();
+    _guardarConsultaFirestore({ pregunta, respuesta, fuentes, ambito: _filtroAmbito }); // C3-04
 
     _renderResultado(pregunta, respuesta, fuentes);
     _setEstado("resultado");
@@ -161,7 +164,7 @@ function _renderResultado(pregunta, respuesta, fuentes) {
                 <span class="buscar-fuente-norma">${_esc(f.norma || "")}</span>
                 ${f.ambito ? `<span class="buscar-fuente-ambito">${_esc(f.ambito)}</span>` : ""}
               </div>
-              ${f.texto ? `<div class="buscar-fuente-texto">${_esc(f.texto.slice(0, 160))}${f.texto.length > 160 ? "…" : ""}</div>` : ""}
+              ${f.texto ? `<div class="buscar-fuente-texto">${_esc(f.texto.slice(0, 300))}${f.texto.length > 300 ? "…" : ""}</div>` : ""}
             </div>
           </div>
         `).join("")}
@@ -219,11 +222,19 @@ function _renderHistorial() {
   if (!el) return;
 
   if (!_historial.length) {
-    el.innerHTML = `<p class="lista-vacia" style="font-size:0.82rem;">No hay consultas en esta sesión.</p>`;
+    el.innerHTML = `<p class="lista-vacia" style="font-size:0.82rem;">No hay consultas guardadas aún.</p>`;
     return;
   }
 
-  el.innerHTML = _historial.map((item, i) => `
+  el.innerHTML = _historial.map((item, i) => {
+    // ts puede ser Date (sesión) o Firestore Timestamp serializado (persistido)
+    const fecha = item.ts instanceof Date ? item.ts : new Date(item.ts);
+    const hoy   = new Date();
+    const mismodia = fecha.toDateString() === hoy.toDateString();
+    const tsLabel  = mismodia
+      ? _fmtHora(fecha)
+      : fecha.toLocaleDateString("es-MX", { day: "2-digit", month: "short" }) + " " + _fmtHora(fecha);
+    return `
     <div class="buscar-hist-item" onclick="_buscarAbrirHistorial(${i})">
       <div class="buscar-hist-header">
         <div class="buscar-hist-pregunta">${_esc(item.pregunta)}</div>
@@ -231,15 +242,15 @@ function _renderHistorial() {
           ${item.ambito !== "todos"
             ? `<span class="buscar-hist-ambito">${_esc(item.ambito)}</span>`
             : ""}
-          <span class="buscar-hist-ts">${_fmtHora(item.ts)}</span>
+          <span class="buscar-hist-ts">${tsLabel}</span>
         </div>
       </div>
       <div class="buscar-hist-preview">${_esc(item.respuesta.slice(0, 120))}…</div>
       <div class="buscar-hist-fuentes-count">
         ${item.fuentes.length} artículo${item.fuentes.length !== 1 ? "s" : ""} consultado${item.fuentes.length !== 1 ? "s" : ""}
       </div>
-    </div>
-  `).join("");
+    </div>`;
+  }).join("");
 }
 
 function _actualizarBadgeHistorial() {
@@ -315,6 +326,76 @@ function _esc(t) {
 function _fmtHora(d) {
   if (!d) return "";
   return d.toLocaleTimeString("es-MX", { hour: "2-digit", minute: "2-digit" });
+}
+
+// ════════════════════════════════════════════════════════
+// C3-04 — HISTORIAL PERSISTIDO EN FIRESTORE
+// ════════════════════════════════════════════════════════
+const HISTORIAL_MAX = 50; // máximo de consultas guardadas
+
+async function _guardarConsultaFirestore({ pregunta, respuesta, fuentes, ambito }) {
+  if (!_user) return;
+  try {
+    const col = collection(db, "usuarios", _user.uid, "historialBuscar");
+    await addDoc(col, {
+      pregunta,
+      respuesta,
+      fuentes,
+      ambito,
+      ts: serverTimestamp(),
+      creadoEn: new Date().toISOString()
+    });
+    // Purgar si supera el máximo (mantener las más recientes)
+    _purgarHistorialFirestore();
+  } catch(e) {
+    console.warn("[buscar] No se pudo guardar en historial:", e.message);
+  }
+}
+
+async function _cargarHistorialFirestore() {
+  if (!_user) return;
+  try {
+    const col  = collection(db, "usuarios", _user.uid, "historialBuscar");
+    const q    = query(col, orderBy("creadoEn", "desc"), limit(HISTORIAL_MAX));
+    const snap = await getDocs(q);
+    const items = [];
+    snap.forEach(d => {
+      const data = d.data();
+      items.push({
+        id:        d.id,
+        pregunta:  data.pregunta  || "",
+        respuesta: data.respuesta || "",
+        fuentes:   data.fuentes   || [],
+        ambito:    data.ambito    || "todos",
+        ts:        data.creadoEn ? new Date(data.creadoEn) : new Date()
+      });
+    });
+    // Mezclar con historial de sesión actual (sesión va primero si ya existe)
+    const preguntasActuales = new Set(_historial.map(h => h.pregunta + h.ts));
+    for (const item of items) {
+      const key = item.pregunta + item.ts;
+      if (!preguntasActuales.has(key)) _historial.push(item);
+    }
+    _actualizarBadgeHistorial();
+    if (_vistaActual === "historial") _renderHistorial();
+  } catch(e) {
+    console.warn("[buscar] No se pudo cargar historial:", e.message);
+  }
+}
+
+async function _purgarHistorialFirestore() {
+  if (!_user) return;
+  try {
+    const col  = collection(db, "usuarios", _user.uid, "historialBuscar");
+    const q    = query(col, orderBy("creadoEn", "desc"));
+    const snap = await getDocs(q);
+    if (snap.size <= HISTORIAL_MAX) return;
+    // Eliminar los excedentes (los más antiguos al final)
+    const sobran = snap.docs.slice(HISTORIAL_MAX);
+    for (const d of sobran) await deleteDoc(doc(db, "usuarios", _user.uid, "historialBuscar", d.id));
+  } catch(e) {
+    console.warn("[buscar] Error purgando historial:", e.message);
+  }
 }
 
 // ════════════════════════════════════════════════════════

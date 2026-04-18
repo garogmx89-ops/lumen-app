@@ -1,9 +1,12 @@
-// js/buscar.js — v2.0
+// js/buscar.js — v3.0
 // Módulo de búsqueda semántica RAG
-// v2.0: filtro por ámbito + historial de sesión
+// v3.0: contador dinámico de normas + exportar consulta
 // ─────────────────────────────────────────────────────────
-import { auth } from "./firebase-config.js";
+import { auth, db } from "./firebase-config.js";
 import { onAuthStateChanged } from "https://www.gstatic.com/firebasejs/10.12.0/firebase-auth.js";
+import {
+  collection, getDocs, query, where
+} from "https://www.gstatic.com/firebasejs/10.12.0/firebase-firestore.js";
 
 // ── Constantes ───────────────────────────────────────────
 const WORKER_URL = "https://lumen-briefing.garogmx89.workers.dev";
@@ -15,6 +18,7 @@ let _consultando  = false;
 let _filtroAmbito = "todos";   // "todos" | "Federal" | "Estatal" | "Municipal"
 let _historial    = [];        // [{ pregunta, respuesta, fuentes, ambito, ts }]
 let _vistaActual  = "buscar";  // "buscar" | "historial"
+let _statsNormas  = [];        // [{ nombre, total }] — cargado desde Firestore
 
 
 // ════════════════════════════════════════════════════════
@@ -24,6 +28,7 @@ onAuthStateChanged(auth, user => {
   if (!user) return;
   _user = user;
   _initEventos();
+  _cargarEstadisticas();
 });
 
 function _initEventos() {
@@ -181,13 +186,22 @@ function _renderResultado(pregunta, respuesta, fuentes) {
           </svg>
           Respuesta con fundamento legal
         </div>
-        <button class="buscar-copiar-btn" onclick="_buscarCopiar(this)" title="Copiar respuesta">
-          <svg viewBox="0 0 16 16" fill="none" style="width:12px;height:12px">
-            <rect x="5" y="5" width="8" height="9" rx="1.5" stroke="currentColor" stroke-width="1.3"/>
-            <path d="M3 11V3a1 1 0 011-1h8" stroke="currentColor" stroke-width="1.3" stroke-linecap="round"/>
-          </svg>
-          Copiar
-        </button>
+        <div class="buscar-respuesta-header-btns">
+          <button class="buscar-copiar-btn" onclick="_buscarCopiar(this)" title="Copiar respuesta">
+            <svg viewBox="0 0 16 16" fill="none" style="width:12px;height:12px">
+              <rect x="5" y="5" width="8" height="9" rx="1.5" stroke="currentColor" stroke-width="1.3"/>
+              <path d="M3 11V3a1 1 0 011-1h8" stroke="currentColor" stroke-width="1.3" stroke-linecap="round"/>
+            </svg>
+            Copiar
+          </button>
+          <button class="buscar-copiar-btn" onclick="_buscarExportar()" title="Descargar como .txt">
+            <svg viewBox="0 0 16 16" fill="none" style="width:12px;height:12px">
+              <path d="M8 2v8M5 7l3 3 3-3" stroke="currentColor" stroke-width="1.4" stroke-linecap="round" stroke-linejoin="round"/>
+              <path d="M3 12h10" stroke="currentColor" stroke-width="1.3" stroke-linecap="round"/>
+            </svg>
+            Exportar
+          </button>
+        </div>
       </div>
       <div class="buscar-respuesta-texto" id="buscar-resp-texto">${respuestaHtml}</div>
     </div>
@@ -303,6 +317,51 @@ function _fmtHora(d) {
   return d.toLocaleTimeString("es-MX", { hour: "2-digit", minute: "2-digit" });
 }
 
+// ════════════════════════════════════════════════════════
+// ESTADÍSTICAS — contador dinámico de normas indexadas
+// ════════════════════════════════════════════════════════
+async function _cargarEstadisticas() {
+  try {
+    const ref  = collection(db, "usuarios", _user.uid, "normatividad");
+    const snap = await getDocs(query(ref, where("embeddingGenerado", "==", true)));
+
+    _statsNormas = [];
+    let totalArticulos = 0;
+
+    for (const d of snap.docs) {
+      const data = d.data();
+      if (data.estado === "borrador_lumenprep") continue;
+      const nombre = data.titulo || data.nombre || "Norma";
+      // Contar artículos en subcolección
+      const artSnap = await getDocs(
+        collection(db, "usuarios", _user.uid, "normatividad", d.id, "articulos")
+      );
+      const total = artSnap.size;
+      _statsNormas.push({ nombre, total });
+      totalArticulos += total;
+    }
+
+    // Actualizar nota al pie en el DOM
+    const notaEl = document.querySelector(".buscar-nota-pie span");
+    if (!notaEl) return;
+
+    if (!_statsNormas.length) {
+      notaEl.innerHTML = "No hay normas indexadas aún. Envía una norma desde Lumen Codex para comenzar.";
+      return;
+    }
+
+    const lista = _statsNormas
+      .map(n => `<strong>${n.nombre}</strong> (${n.total} arts.)`)
+      .join(" · ");
+    notaEl.innerHTML = `Las respuestas se generan con base en los artículos indexados en Lumen. `
+      + `${totalArticulos} artículos de ${_statsNormas.length} norma${_statsNormas.length !== 1 ? "s" : ""}: ${lista}.`;
+
+  } catch(e) {
+    console.warn("[buscar] No se pudo cargar estadísticas:", e.message);
+  }
+}
+
+
 // ── Globales para inline handlers ───────────────────────
 window._buscarCopiar = function(btn) {
   const respEl = document.getElementById("buscar-resp-texto");
@@ -316,6 +375,50 @@ window._buscarCopiar = function(btn) {
     btn.style.color = "var(--accent)";
     setTimeout(() => { btn.innerHTML = original; btn.style.color = ""; }, 2000);
   });
+};
+
+window._buscarExportar = function() {
+  // Tomar la última consulta del historial
+  const item = _historial[0];
+  if (!item) return;
+
+  const fecha = item.ts.toLocaleDateString("es-MX", {
+    day: "2-digit", month: "long", year: "numeric",
+    hour: "2-digit", minute: "2-digit"
+  });
+  const ambito = item.ambito !== "todos" ? ` [${item.ambito}]` : "";
+
+  // Construir texto estructurado
+  let contenido = `CONSULTA NORMATIVA — LUMEN\n`;
+  contenido += `${"═".repeat(50)}\n`;
+  contenido += `Fecha: ${fecha}\n`;
+  contenido += `Ámbito: ${item.ambito !== "todos" ? item.ambito : "Todos"}\n\n`;
+  contenido += `PREGUNTA:\n${item.pregunta}\n\n`;
+  contenido += `${"─".repeat(50)}\n`;
+  contenido += `RESPUESTA:\n${item.respuesta}\n\n`;
+
+  if (item.fuentes && item.fuentes.length) {
+    contenido += `${"─".repeat(50)}\n`;
+    contenido += `ARTÍCULOS CONSULTADOS:\n`;
+    item.fuentes.forEach((f, i) => {
+      contenido += `\n${i + 1}. ${f.articulo || ""} — ${f.norma || ""}\n`;
+      if (f.texto) contenido += `   ${f.texto.slice(0, 200)}${f.texto.length > 200 ? "…" : ""}\n`;
+    });
+  }
+
+  contenido += `\n${"═".repeat(50)}\n`;
+  contenido += `Generado por Lumen · SEDUVOT Zacatecas\n`;
+
+  // Descargar como .txt
+  const blob = new Blob([contenido], { type: "text/plain;charset=utf-8" });
+  const url  = URL.createObjectURL(blob);
+  const a    = document.createElement("a");
+  const nombre = item.pregunta.slice(0, 40).toLowerCase()
+    .replace(/[^a-záéíóúüñ0-9\s]/gi, "").replace(/\s+/g, "-").trim();
+  a.href     = url;
+  a.download = `consulta-${nombre}.txt`;
+  a.click();
+  URL.revokeObjectURL(url);
 };
 
 // ── API pública para otros módulos ──────────────────────

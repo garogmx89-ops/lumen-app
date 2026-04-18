@@ -2580,3 +2580,10 @@ body.light input[type="time"]::-webkit-calendar-picker-indicator {
   font-size: 0.7rem;
   color: var(--text3);
 }
+
+/* ── Buscar v3.0 — header botones agrupados ─────────────── */
+.buscar-respuesta-header-btns {
+  display: flex;
+  align-items: center;
+  gap: 0.35rem;
+}

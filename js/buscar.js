@@ -5,7 +5,7 @@
 import { auth, db } from "./firebase-config.js";
 import { onAuthStateChanged } from "https://www.gstatic.com/firebasejs/10.12.0/firebase-auth.js";
 import {
-  collection, getDocs, query, where
+  collection, getDocs, query
 } from "https://www.gstatic.com/firebasejs/10.12.0/firebase-firestore.js";
 
 // ── Constantes ───────────────────────────────────────────
@@ -322,23 +322,27 @@ function _fmtHora(d) {
 // ════════════════════════════════════════════════════════
 async function _cargarEstadisticas() {
   try {
+    // Traer todas las normas importadas (excluir borradores de Codex)
+    // No filtramos por embeddingGenerado porque normas indexadas manualmente
+    // con indexar.mjs pueden no tener ese campo marcado aún
     const ref  = collection(db, "usuarios", _user.uid, "normatividad");
-    const snap = await getDocs(query(ref, where("embeddingGenerado", "==", true)));
+    const snap = await getDocs(ref);
 
     _statsNormas = [];
     let totalArticulos = 0;
 
     for (const d of snap.docs) {
       const data = d.data();
+      // Excluir borradores pendientes de importación
       if (data.estado === "borrador_lumenprep") continue;
       const nombre = data.titulo || data.nombre || "Norma";
       // Contar artículos en subcolección
       const artSnap = await getDocs(
         collection(db, "usuarios", _user.uid, "normatividad", d.id, "articulos")
       );
-      const total = artSnap.size;
-      _statsNormas.push({ nombre, total });
-      totalArticulos += total;
+      if (!artSnap.size) continue;  // saltar normas sin artículos cargados
+      _statsNormas.push({ nombre, total: artSnap.size });
+      totalArticulos += artSnap.size;
     }
 
     // Actualizar nota al pie en el DOM
@@ -346,7 +350,7 @@ async function _cargarEstadisticas() {
     if (!notaEl) return;
 
     if (!_statsNormas.length) {
-      notaEl.innerHTML = "No hay normas indexadas aún. Envía una norma desde Lumen Codex para comenzar.";
+      notaEl.innerHTML = "No hay normas con artículos indexados aún. Envía una norma desde Lumen Codex para comenzar.";
       return;
     }
 

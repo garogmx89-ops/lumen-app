@@ -528,8 +528,9 @@ Responde únicamente con el análisis en el formato indicado. Tono institucional
               <span class="reunion-card-titulo">${a.pregunta}</span>
             </div>
             <div class="reunion-card-acciones">
-              <button class="btn-editar"   data-id="${a.id}" title="Editar análisis">✏️</button>
-              <button class="btn-eliminar" data-id="${a.id}" title="Eliminar análisis">🗑️</button>
+              <button class="btn-buscar-rag" data-id="${a.id}" data-pregunta="${a.pregunta.replace(/"/g,'&quot;')}" title="Consultar en Buscar">🔍</button>
+              <button class="btn-editar"     data-id="${a.id}" title="Editar análisis">✏️</button>
+              <button class="btn-eliminar"   data-id="${a.id}" title="Eliminar análisis">🗑️</button>
             </div>
           </div>
           ${tagsNormas}
@@ -553,6 +554,16 @@ Responde únicamente con el análisis en el formato indicado. Tono institucional
         if (e.target.closest("button")) return;
         const a = todosLosAnalisis.find(a => a.id === card.dataset.id);
         if (a) mostrarDetalle(a);
+      });
+    });
+
+    // Botón Consultar en Buscar
+    contenedor.querySelectorAll(".btn-buscar-rag").forEach((btn) => {
+      btn.addEventListener("click", () => {
+        const pregunta = btn.dataset.pregunta;
+        if (typeof window.buscarDesdeModulo === "function") {
+          window.buscarDesdeModulo(pregunta);
+        }
       });
     });
 

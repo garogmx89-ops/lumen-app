@@ -318,6 +318,28 @@ window._buscarCopiar = function(btn) {
   });
 };
 
+// ── API pública para otros módulos ──────────────────────
+// Uso: window.buscarDesdeModulo("¿pregunta?")
+// Navega al módulo Buscar y pre-carga la pregunta
+window.buscarDesdeModulo = function(pregunta) {
+  if (!pregunta) return;
+  // Navegar al panel Buscar
+  if (typeof goTo === "function") goTo("buscar");
+  // Esperar a que el panel sea visible antes de escribir
+  setTimeout(() => {
+    _setVista("buscar");
+    const input = document.getElementById("buscar-input");
+    if (input) {
+      input.value = pregunta;
+      input.focus();
+    }
+    // Limpiar resultado anterior si había uno
+    _setEstado("vacio");
+    const resultadoEl = document.getElementById("buscar-resultado");
+    if (resultadoEl) { resultadoEl.innerHTML = ""; resultadoEl.style.display = "none"; }
+  }, 80);
+};
+
 window._buscarAbrirHistorial = function(i) {
   const item = _historial[i];
   if (!item) return;

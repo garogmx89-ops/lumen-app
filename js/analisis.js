@@ -389,33 +389,17 @@ onAuthStateChanged(auth, (user) => {
       }
       if (!normasTexto) normasTexto = "No especificadas";
 
-      const prompt = `Eres un asesor jurídico-administrativo especializado en políticas públicas de vivienda, desarrollo urbano y ordenamiento territorial en México, con experiencia en el marco normativo federal y estatal aplicable a SEDUVOT Zacatecas.
+      // Construir pregunta enriquecida para RAG — incluye contexto institucional
+      // El endpoint /ask busca semánticamente en Vectorize y responde con fundamento real
+      const preguntaRAG = `${pregunta}
 
-Se te presenta una pregunta institucional con contexto y referencias. Tu tarea es generar una interpretación analítica fundamentada que sirva como guía operativa.
-
-PREGUNTA INSTITUCIONAL:
-${pregunta}
-
-NORMATIVIDAD PRINCIPAL VINCULADA (artículos vigentes — derogados excluidos):
-${normasTexto}
-
-ENTIDADES RELACIONADAS:
-${entidadesTexto}
-
-PROCESOS INSTITUCIONALES VINCULADOS:
-${procesosTexto}
-
-EVENTOS DE AGENDA VINCULADOS:
-${agendaTexto}
-
-CONTEXTO Y DESCRIPCIÓN DE LA SITUACIÓN:
+CONTEXTO INSTITUCIONAL:
 ${contextoActual || "No registrado"}
 
-OTRA NORMATIVIDAD DE APOYO:
-${normaExtraActual || "No registrada"}
-
-PRECEDENTE (casos anteriores):
-${precedenteActual || "No registrado"}
+ENTIDADES RELACIONADAS: ${entidadesTexto}
+PROCESOS VINCULADOS: ${procesosTexto}
+OTRA NORMATIVIDAD: ${normaExtraActual || "No registrada"}
+PRECEDENTE: ${precedenteActual || "No registrado"}
 
 Genera la interpretación con el siguiente formato EXACTO:
 
@@ -423,7 +407,7 @@ Genera la interpretación con el siguiente formato EXACTO:
 (Síntesis analítica de 2-3 oraciones que integre el contexto, la normatividad y las entidades involucradas)
 
 **Fundamento jurídico:**
-(Cita los artículos, fracciones y disposiciones específicas que sustentan la respuesta. Si no tienes certeza de los artículos exactos, indica los cuerpos normativos aplicables y sugiere verificar la versión vigente.)
+(Cita los artículos, fracciones y disposiciones específicas que sustentan la respuesta)
 
 **Conclusión operativa:**
 (Respuesta directa y accionable a la pregunta institucional)
@@ -434,18 +418,14 @@ Genera la interpretación con el siguiente formato EXACTO:
 Responde únicamente con el análisis en el formato indicado. Tono institucional, lenguaje técnico-administrativo, en español.`;
 
       try {
-        const response = await fetch("https://lumen-briefing.garogmx89.workers.dev", {
+        const response = await fetch("https://lumen-briefing.garogmx89.workers.dev/ask", {
           method: "POST",
           headers: { "Content-Type": "application/json" },
-          body: JSON.stringify({
-            model: "claude-sonnet-4-5",
-            max_tokens: 1000,
-            messages: [{ role: "user", content: prompt }]
-          })
+          body: JSON.stringify({ pregunta: preguntaRAG, topK: 8 })
         });
         const data = await response.json();
         if (campoIA) {
-          campoIA.value    = data.content?.[0]?.text || "No se pudo generar la interpretación.";
+          campoIA.value    = data.respuesta || "No se pudo generar la interpretación.";
           campoIA.readOnly = true;
           campoIA.style.opacity = "1";
         }

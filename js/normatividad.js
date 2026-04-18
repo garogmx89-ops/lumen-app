@@ -1156,33 +1156,18 @@ function _initExploradorEventos() {
       const norma   = _exploNorma?.nombre || _exploNorma?.titulo || "Norma";
       const artNum  = art.articulo_original || `Artículo ${art.numero}`;
 
-      const prompt = `Eres un asesor jurídico-administrativo especializado en normativa mexicana aplicable a SEDUVOT Zacatecas.
-
-REGLA ESTRICTA: Solo puedes responder basándote en el texto del artículo proporcionado. Si la respuesta no está en ese texto, dilo explícitamente. No inferas ni extrapoles.
-
-ARTÍCULO DE REFERENCIA:
-${norma} — ${artNum}
-
-${textoArt}
-
-PREGUNTA:
-${pregunta}
-
-Responde de forma concisa y cita la fracción o párrafo específico del artículo cuando sea relevante.`;
-
       try {
-        const res = await fetch(WORKER_URL, {
+        const res = await fetch(`${WORKER_URL}/ask`, {
           method: "POST",
           headers: { "Content-Type": "application/json" },
           body: JSON.stringify({
-            model: WORKER_MODEL,
-            max_tokens: 600,
-            messages: [{ role: "user", content: prompt }]
+            pregunta: `${pregunta}\n\nContexto del artículo consultado:\n${norma} — ${artNum}\n\n${textoArt}`,
+            topK: 5
           })
         });
         const data = await res.json();
-        const texto = (data.content?.[0]?.text || "Sin respuesta").trim();
-        respEl.textContent = texto;
+        const texto = (data.respuesta || "Sin respuesta").trim();
+        respEl.innerHTML = _mdToHtml(texto);
       } catch (e) {
         respEl.textContent = "Error al consultar: " + e.message;
       } finally {
@@ -1426,6 +1411,20 @@ function _fmtFecha(f) {
       day: "2-digit", month: "short", year: "numeric"
     });
   } catch { return f; }
+}
+
+// ── Markdown básico → HTML (para respuestas del agente IA) ──
+function _mdToHtml(texto) {
+  if (!texto) return "";
+  return texto
+    .replace(/&/g, "&amp;").replace(/</g, "&lt;").replace(/>/g, "&gt;")
+    .replace(/\*\*(.+?)\*\*/g, "<strong>$1</strong>")
+    .replace(/\*(.+?)\*/g, "<em>$1</em>")
+    .replace(/^[\-\*] (.+)$/gm, "<li>$1</li>")
+    .replace(/(<li>[\s\S]*?<\/li>)/g, "<ul>$1</ul>")
+    .replace(/\n\n+/g, "</p><p>")
+    .replace(/\n/g, "<br>")
+    .replace(/^(.+)$/, "<p>$1</p>");
 }
 
 // ── Exportar funciones para otros módulos ───────────────
